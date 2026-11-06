@@ -307,21 +307,22 @@ export function applyAction(state, playerIndex, action) {
   }
 
   // ===== 回合结束：检查终局 =====
-  // 公平轮规则：有人达 15 分后，所有人再走相同轮数（触发者也不例外）才结束
+  // 公平轮规则：有人达 15 分后，其他人各补走一轮（触发者本轮已走完）→ 所有人总轮数相同才结束
   let nextPlayer = (playerIndex + 1) % s.players.length;
   let nextTurn = s.turn;
   if (nextPlayer === 0) nextTurn = s.turn + 1;
 
-  // 本轮刚触发终局
+  // 本轮刚触发终局（新有人到 15 分）
   const pScoreNow = p.score;
   if (pScoreNow >= 15 && !s.endTriggeredBy) {
     s.endTriggeredBy = playerIndex;
-    s._endCountdown = s.players.length;  // 公平轮：每人再走 1 步 = players.length 步
+    // 触发者本轮已走完，其他人各补一轮 = players.length - 1 步
+    s._endCountdown = s.players.length - 1;
     s._justTriggeredEnd = true;
   }
 
-  // 公平轮倒计时：**每个人**走完都 -1（包括触发者自己）
-  if (s.endTriggeredBy !== null) {
+  // 公平轮倒计时：**只有非触发者**走完才 -1（触发者本轮的步已算进去）
+  if (s.endTriggeredBy !== null && playerIndex !== s.endTriggeredBy) {
     s._endCountdown = (s._endCountdown || 0) - 1;
     if (s._endCountdown <= 0) {
       s.gameOver = true;
