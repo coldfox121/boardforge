@@ -804,6 +804,20 @@ body {
 .my-gem-badge.red   { background: linear-gradient(135deg, #e06666, #993333); }
 .my-gem-badge.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
 .my-gem-badge.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); color: #553; }
+.my-gem-badge.clickable {
+  cursor: pointer;
+  border: 2px solid #ff9966;
+  transition: all 0.15s;
+  animation: pulse-discard 1.2s infinite;
+}
+.my-gem-badge.clickable:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 12px #ff6633;
+}
+@keyframes pulse-discard {
+  0%, 100% { border-color: #ff9966; }
+  50%      { border-color: #ff6633; }
+}
 
 .hand-gems {
   display: flex;

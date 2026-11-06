@@ -118,21 +118,18 @@ export function validateAction(state, playerIndex, action) {
 
   switch (action.type) {
     case 'TAKE_DIFF': {
-      if (!action.colors || action.colors.length !== 3) return '必须选 3 种不同颜色';
+      if (!action.colors || action.colors.length < 1 || action.colors.length > 3) return '不同色最多拿 3 颗';
       const set = new Set(action.colors);
-      if (set.size !== 3) return '不能有重复颜色';
+      if (set.size !== action.colors.length) return '不能有重复颜色';
       if (action.colors.some(c => !GEM_COLORS.includes(c))) return '颜色无效';
       if (action.colors.some(c => state.gemPool[c] < 1)) return '某颜色宝石不足';
-      // 检查拿完不会超 10
-      const after = countGems(p.gems) + 3;
-      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}）`;
+      // 超 10 颗允许拿，UI 层会让玩家弃掉多余的
       return null;
     }
     case 'TAKE_SAME': {
       if (!GEM_COLORS.includes(action.color)) return '颜色无效';
       if (state.gemPool[action.color] < 4) return '该色剩余不足 4 颗';
-      const after = countGems(p.gems) + 2;
-      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}）`;
+      // 超 10 颗允许拿，UI 层会让玩家弃掉多余的
       return null;
     }
     case 'RESERVE': {

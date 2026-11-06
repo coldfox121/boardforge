@@ -57,6 +57,9 @@ export class SplendorGame {
     bottom.querySelectorAll('[data-reserved-id]').forEach(el => {
       el.addEventListener('click', () => this._onCardClick({ source: 'reserved', cardId: el.dataset.reservedId }));
     });
+    bottom.querySelectorAll('[data-discard]').forEach(el => {
+      el.addEventListener('click', () => this._onDiscardGem(el.dataset.discard));
+    });
   }
 
   _renderOpponentHTML(p, isCurrent) {
@@ -114,9 +117,11 @@ export class SplendorGame {
       </div>`;
     }).join('');
     const totalGems = this._totalGems(p.gems);
+    const isDiscardMode = this._discardNeeded > 0;
     const gemBadges = [...GEM_COLORS, 'gold'].map(c => {
       const n = p.gems[c] || 0;
-      return `<div class="my-gem-badge ${c} ${n > 0 ? 'has' : 'empty'}">${n}</div>`;
+      const clickable = isDiscardMode && n > 0;
+      return `<div class="my-gem-badge ${c} ${n > 0 ? 'has' : 'empty'} ${clickable ? 'clickable' : ''}" ${clickable ? `data-discard="${c}" title="点我弃掉"` : ''}>${n}</div>`;
     }).join('');
 
     return `
@@ -124,8 +129,10 @@ export class SplendorGame {
         <span>👤 我 · ${p.name}${isMyTurn ? ' ← 你的回合' : ''}</span>
         <span class="ps-score" style="color:var(--gold)">${p.score} pts</span>
       </div>
-      <div style="font-size:12px;color:var(--text-dim);margin:4px 0">回合 ${this.state.turn} · 宝石 ${totalGems}/10 · 预留 ${p.reserved.length}/3</div>
-      <div class="hand-gems">${gemBadges}</div>
+      <div style="font-size:12px;color:${isDiscardMode ? '#ff9966' : 'var(--text-dim)'};margin:4px 0">
+        ${isDiscardMode ? `⚠️ 弃掉 ${this._discardNeeded} 颗宝石（点下方自己手里的宝石）` : `回合 ${this.state.turn} · 宝石 ${totalGems}/10 · 预留 ${p.reserved.length}/3`}
+      </div>
+      <div class="hand-gems ${isDiscardMode ? 'discard-mode' : ''}">${gemBadges}</div>
       <div style="font-size:11px;color:var(--text-dim);margin-top:6px">已持有</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${ownedCards || '<span style="opacity:0.3;font-size:11px">暂无</span>'}</div>
       ${p.reserved.length > 0 ? `
@@ -168,8 +175,7 @@ export class SplendorGame {
         <div class="gem-stepper">
           <button class="gem-btn minus" ${selCount === 0 ? 'disabled' : ''}>−</button>
           <span class="gem-sel-count ${selCount > 0 ? 'has' : ''}">${selCount > 0 ? selCount : ''}</span>
-          <button class="gem-btn plus" ${count === 0 || this.ops.gems.length >= 3 ? 'disabled' : ''}>+</button>
-        </div>
+          <button class="gem-btn plus" ${count === 0 || this.ops.gems.length >= 3 ? 'disabled' : ''}>+</button>        </div>
       `;
       const [minus, plus] = div.querySelectorAll('.gem-btn');
       minus.addEventListener('click', (e) => { e.stopPropagation(); this._onGemMinus(color); });
@@ -180,10 +186,8 @@ export class SplendorGame {
   }
 
   _onGemPlus(color) {
-    // 复用 _onGemClick 里的合法性检查逻辑，但把"取消"分支删掉
     if (this.state.currentPlayer !== this.humanIndex) return;
     this.lastError = null;
-    if (color === 'gold') { this._onGemClick(color); return; }
     if (this.ops.card && !this.ops.goldTaken) { this.lastError = '已选中卡片，先取消卡片'; this._renderAll(); return; }
     if (this.ops.goldTaken) { this.lastError = '已进入预留模式'; this._renderAll(); return; }
     if (this.ops.gems.length >= 3) { this.lastError = '最多选 3 颗'; this._renderAll(); return; }
@@ -192,10 +196,17 @@ export class SplendorGame {
     test.forEach(g => counts[g] = (counts[g] || 0) + 1);
     const hasTwoSame = Object.values(counts).some(n => n >= 2);
     const colors = Object.keys(counts);
-    if (hasTwoSame && test.length === 3) { this.lastError = '2 颗同色不能混拿第三种颜色'; this._renderAll(); return; }
+    // 冲突：要么 1-3 颗不同色，要么恰好 2 颗同色，不能混
+    if (hasTwoSame) {
+      // 有重复的 → 必须恰好 1 种颜色且 2 颗
+      if (colors.length > 1 || test.length !== 2) {
+        this.lastError = '2 颗同色不能混拿其他颜色（规则：要么 2 同色，要么 1-3 颗不同色）';
+        this._renderAll(); return;
+      }
+    }
+    // pool 里够不够
     if ((this.state.gemPool[color] || 0) < (counts[color] || 1)) { this.lastError = `${GEM_NAMES[color]} 不足`; this._renderAll(); return; }
-    const p = this.state.players[this.humanIndex];
-    if (this._totalGems(p.gems) + test.length > 10) { this.lastError = '拿完会超 10 颗'; this._renderAll(); return; }
+    // 超 10 颗允许拿，UI 层会让玩家弃掉多余的
     this.ops.gems.push(color);
     this._renderAll();
   }
@@ -389,13 +400,12 @@ export class SplendorGame {
           return { intent: 'gems', ok: false, hint: '该颜色剩余不足 4 颗' };
         }
       } else {
+        // 不同色 1~3 颗都可以，3 颗必须全不同
         if (pendingGems === 3 && colors.length < 3) {
           return { intent: 'gems', ok: false, hint: '3 颗必须不同颜色' };
         }
       }
-      if (afterTotal > 10) {
-        return { intent: 'gems', ok: false, hint: '拿完会超过 10 颗上限' };
-      }
+      // 不检查超 10，允许拿完后弃掉多余的
       // 检查每颗宝石 pool 里够不够
       for (const [c, n] of Object.entries(counts)) {
         if ((this.state.gemPool[c] || 0) < n) {
@@ -431,8 +441,6 @@ export class SplendorGame {
       const p = this.state.players[this.humanIndex];
       if (p.reserved.length >= 3) { this.lastError = '预留槽已满'; this._renderAll(); return; }
       if (this.state.gemPool.gold < 1) { this.lastError = '黄金不足'; this._renderAll(); return; }
-      const totalNow = this._totalGems(p.gems);
-      if (totalNow + 1 > 10) { this.lastError = '拿黄金会超 10 颗'; this._renderAll(); return; }
       this.ops.goldTaken = true;
       this._renderAll();
       return;
@@ -557,9 +565,10 @@ export class SplendorGame {
   }
 
   // ===== 清空操作 =====
-  _clearOps() {
+  _clearOps(opts = {}) {
     this.ops = { gems: [], card: null, goldTaken: false };
     this.lastError = null;
+    if (!opts.keepDiscard) this._discardNeeded = 0;
     this._renderAll();
   }
 
@@ -592,9 +601,41 @@ export class SplendorGame {
     }
 
     this.state = applyAction(this.state, this.humanIndex, action);
+
+    // 检查是否超 10 颗 → 让玩家弃掉
+    const p = this.state.players[this.humanIndex];
+    const totalNow = this._totalGems(p.gems);
+    if (totalNow > 10) {
+      this._discardNeeded = totalNow - 10;
+      this._clearOps({ keepDiscard: true });
+      this._renderAll();
+      return; // 不结束回合，等弃完再手动结束
+    }
+
     this._clearOps();
     this._checkGameOver();
     this._maybeAIMove();
+  }
+
+  // ===== 弃宝石 =====
+  _onDiscardGem(color) {
+    if (!this._discardNeeded || this._discardNeeded <= 0) return;
+    const p = this.state.players[this.humanIndex];
+    if ((p.gems[color] || 0) <= 0) return;
+    // 从玩家手里 -1，加回公共池
+    p.gems[color]--;
+    this.state.gemPool[color]++;
+    this._discardNeeded--;
+    if (this._discardNeeded === 0) {
+      // 弃完了，正常结束回合
+      this._discardNeeded = 0;
+      this._renderAll();
+      this._clearOps();
+      this._checkGameOver();
+      this._maybeAIMove();
+    } else {
+      this._renderAll();
+    }
   }
 
   // ===== AI 自动走 =====
