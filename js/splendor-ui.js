@@ -107,13 +107,16 @@ export class SplendorGame {
       </div>`
     ).join('');
 
-    // 预留卡：去掉 cost，保留 VP + 颜色条 + tierBg
+    // 预留卡：VP + 颜色条 + tierBg + cost
     const reservedCards = p.reserved.map(c => {
       const canBuy = isMyTurn && this._canBuyCard({ source: 'reserved', cardId: c.id });
       const selectedThis = this.ops.card?.source === 'reserved' && this.ops.card.cardId === c.id;
+      const costHTML = GEM_COLORS.filter(g => c.cost[g] > 0)
+        .map(g => `<span class="cost-chip"><span class="dot ${g}"></span>${c.cost[g]}</span>`).join('');
       return `<div class="splendor-card reserved owned-only ${canBuy ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}" style="width:40px;height:56px;background:${this._tierBg(c.tier)}" data-reserved-id="${c.id}">
         <div class="card-vp" style="font-size:10px">${c.vp || ''}</div>
         <div class="card-color-bar ${c.color}" style="flex:1"></div>
+        <div class="card-cost-inline" style="font-size:8px">${costHTML}</div>
       </div>`;
     }).join('');
     const totalGems = this._totalGems(p.gems);
