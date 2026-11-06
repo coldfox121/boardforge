@@ -70,8 +70,8 @@ export class SplendorGame {
     // 按 GEM_COLORS 排序，跟自己的宝石列对齐
     const ownedSorted = [...p.ownedCards].sort((a, b) => GEM_COLORS.indexOf(a.color) - GEM_COLORS.indexOf(b.color));
     const ownedCards = ownedSorted.map(c =>
-      `<div class="splendor-card owned-only ${c.color}" style="width:32px;height:44px;background:${this._tierBg(c.tier || 1)};cursor:default" title="${GEM_NAMES[c.color]} · VP ${c.vp || 0}">
-        <div class="card-vp" style="font-size:9px">${c.vp ?? 0}</div>
+      `<div class="splendor-card owned-only ${c.color}" style="width:28px;height:38px;background:${this._tierBg(c.tier || 1)};cursor:default" title="${GEM_NAMES[c.color]} · VP ${c.vp ?? 0}">
+        <div class="card-vp" style="font-size:8px">${c.vp ?? 0}</div>
         <div class="card-color-bar ${c.color}" style="flex:1"></div>
       </div>`
     ).join('');
