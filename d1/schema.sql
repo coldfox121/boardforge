@@ -44,3 +44,14 @@ CREATE TABLE IF NOT EXISTS game_configs (
   updated_at INTEGER NOT NULL,
   updated_by TEXT
 );
+
+-- 卡牌图片（base64 存 D1，id 形如 splendor:1-01）
+CREATE TABLE IF NOT EXISTS card_images (
+  id TEXT PRIMARY KEY,
+  game_id TEXT NOT NULL,
+  card_id TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  data TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_card_images_game ON card_images(game_id);

@@ -1,19 +1,33 @@
-// 读取 R2 中的图片：/api/image/cards/splendor/xxx.png
+// 读取卡图：/api/image/<game>/<cardId>，数据来自 D1 card_images
 export async function onRequestGet(context) {
   const { params, env } = context;
 
-  const key = Array.isArray(params.path) ? params.path.join('/') : params.path;
-  if (!key) return new Response('Not found', { status: 404 });
-  if (!env.IMAGES) return new Response('R2 not bound', { status: 500 });
+  const segs = Array.isArray(params.path) ? params.path : [params.path];
+  if (segs.length < 2) return new Response('Not found', { status: 404 });
 
-  const obj = await env.IMAGES.get(key);
-  if (!obj) return new Response('Not found', { status: 404 });
+  const game = segs[0];
+  const cardId = segs[1];
 
-  const headers = new Headers();
-  obj.writeHttpMetadata(headers);
-  headers.set('etag', obj.httpEtag);
-  // 文件名带随机后缀，内容不会变，可长期缓存
-  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  let row;
+  try {
+    row = await env.DB.prepare(
+      'SELECT mime, data FROM card_images WHERE id = ?'
+    ).bind(`${game}:${cardId}`).first();
+  } catch (err) {
+    return new Response('Storage unavailable', { status: 500 });
+  }
 
-  return new Response(obj.body, { headers });
+  if (!row) return new Response('Not found', { status: 404 });
+
+  const binary = atob(row.data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': row.mime || 'image/jpeg',
+      // URL 带版本参数，改图会换 URL
+      'Cache-Control': 'public, max-age=31536000, immutable'
+    }
+  });
 }
