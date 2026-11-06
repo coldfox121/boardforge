@@ -1,6 +1,5 @@
 ﻿// BoardForge · 前端入口
-import { SplendorGame } from './splendor-ui.js?v=14';
-import { renderAdminPage, mountAdminButton } from './admin-ui.js?v=14';
+// 游戏 / 后台模块按需动态加载，避免登录页串行下载约 75KB 游戏代码
 
 // === 全局状态 ===
 const state = {
@@ -73,7 +72,7 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    renderAdminPage();
+    import('./admin-ui.js?v=15').then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
     if (segments[2] === 'room' && segments[3]) {
@@ -428,7 +427,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  mountAdminButton();
+  import('./admin-ui.js?v=15').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -591,7 +590,7 @@ async function showRoomByCode(code, gameId) {
   });
 
   // 开始游戏
-  document.getElementById('btn-start-game').onclick = () => {
+  document.getElementById('btn-start-game').onclick = async () => {
     let aiCountVal = 0;
     if (aiToggle.checked) aiCountVal = Number(aiCount.value);
 
@@ -601,6 +600,8 @@ async function showRoomByCode(code, gameId) {
     // 保底：至少 2 人（璀璨宝石最低 2 人）
     while (names.length < 2) names.push(`AI-${names.length}`);
 
+    // 进入游戏时才加载游戏模块
+    const { SplendorGame } = await import('./splendor-ui.js?v=15');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0
