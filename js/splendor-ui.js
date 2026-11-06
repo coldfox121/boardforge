@@ -1,7 +1,7 @@
 // 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js';
-import { pickAction } from './splendor-ai.js';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=12';
+import { pickAction } from './splendor-ai.js?v=12';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=12';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -737,10 +737,8 @@ export class SplendorGame {
       return;
     }
 
-    console.log('[AI] currentPlayer:', this.state.currentPlayer, 'name:', p.name);
     this.aiTimer = setTimeout(() => {
       let actions = listValidActions(this.state, this.state.currentPlayer);
-      console.log('[AI] valid actions:', actions.length);
       // 保底：无合法动作时，先弃宝石腾出空间再试
       if (actions.length === 0) {
         const ai = this.state.players[this.state.currentPlayer];
@@ -759,7 +757,6 @@ export class SplendorGame {
 
       // 还是没有合法动作 → PASS 跳过回合
       if (actions.length === 0) {
-        console.log('[AI] 无合法动作，PASS 跳过回合');
         try {
           this.state = applyAction(this.state, this.state.currentPlayer, { type: 'PASS' });
           this._renderAll();
@@ -770,7 +767,6 @@ export class SplendorGame {
       }
 
       const action = pickAction(this.state, this.state.currentPlayer);
-      console.log('[AI] picked:', action);
       if (!action) return;
       try {
         this.state = applyAction(this.state, this.state.currentPlayer, action);

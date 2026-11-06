@@ -1,6 +1,6 @@
 // BoardForge · 前端入口
-import { SplendorGame } from './splendor-ui.js';
-import { renderAdminPage, mountAdminButton } from './admin-ui.js';
+import { SplendorGame } from './splendor-ui.js?v=12';
+import { renderAdminPage, mountAdminButton } from './admin-ui.js?v=12';
 
 // === 全局状态 ===
 const state = {
@@ -622,8 +622,9 @@ function enterGameLobby(room) {
 }
 
 // === 启动 ===
-(async () => {
-  await checkBackend();
+(() => {
+  // checkBackend 不阻塞路由，后台静默检测
+  checkBackend();
   window.addEventListener('hashchange', handleRoute);
   handleRoute();
 })();
