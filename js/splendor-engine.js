@@ -2,6 +2,13 @@
 // 不含网络 / 渲染 / IO — 好测、好挂联机
 
 import { CARDS, NOBLES, GEM_COLORS } from './splendor-data.js';
+import { loadAdminData } from './admin.js';
+
+// 应用 admin 覆盖（引擎模块加载时一次性）
+const _admin = (typeof localStorage !== 'undefined') ? loadAdminData('splendor') : null;
+const E_CARDS = _admin?.CARDS || CARDS;
+const E_NOBLES = _admin?.NOBLES || NOBLES;
+const E_GEM_COLORS = _admin?.GEM_COLORS || GEM_COLORS;
 
 // ===== 辅助函数 =====
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -43,9 +50,9 @@ export function initGame(playerNames) {
   }[n];
 
   // 洗牌
-  const tier1 = shuffle(CARDS[1].map(c => ({ ...c })));
-  const tier2 = shuffle(CARDS[2].map(c => ({ ...c })));
-  const tier3 = shuffle(CARDS[3].map(c => ({ ...c })));
+  const tier1 = shuffle(E_CARDS[1].map(c => ({ ...c })));
+  const tier2 = shuffle(E_CARDS[2].map(c => ({ ...c })));
+  const tier3 = shuffle(E_CARDS[3].map(c => ({ ...c })));
 
   // 场上各翻 4 张
   const board = {
@@ -60,7 +67,7 @@ export function initGame(playerNames) {
   gemPool.gold = 5;
 
   // 贵族翻出
-  const nobleDeck = shuffle(NOBLES.map(n => ({ ...n })));
+  const nobleDeck = shuffle(E_NOBLES.map(n => ({ ...n })));
   const nobles = nobleDeck.splice(0, setup.nobles);
 
   // 玩家

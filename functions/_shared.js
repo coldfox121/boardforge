@@ -65,7 +65,7 @@ export async function getAuthUser(request, env) {
 
   const tokenHash = await sha256Hex(match[1].toLowerCase());
   const row = await env.DB.prepare(
-    'SELECT s.token_hash, s.user_id, s.expires_at, u.username, u.save, u.last_seen ' +
+    'SELECT s.token_hash, s.user_id, s.expires_at, u.username, u.role, u.save, u.last_seen ' +
     'FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?'
   ).bind(tokenHash).first();
 
@@ -75,6 +75,12 @@ export async function getAuthUser(request, env) {
     return null;
   }
   return row;
+}
+
+// 简化：硬编码 admin 账号（以后可以改成 D1 users.role='admin'）
+// 目前只检查 username === 'admin'，不额外做 role 查询
+export function isAdmin(username) {
+  return username && username.toLowerCase() === 'admin';
 }
 
 export async function createSession(env, userId) {

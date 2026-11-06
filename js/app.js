@@ -1,10 +1,12 @@
 // BoardForge · 前端入口
 import { SplendorGame } from './splendor-ui.js';
+import { renderAdminPage, mountAdminButton } from './admin-ui.js';
 
 // === 全局状态 ===
 const state = {
   token: localStorage.getItem('bf_token'),
   username: localStorage.getItem('bf_username'),
+  isAdmin: localStorage.getItem('bf_is_admin') === 'true',
   apiBase: '',
   cloudOk: false,
   currentRoomCode: null,
@@ -67,6 +69,11 @@ function handleRoute() {
     showView('auth');
   } else if (first === 'lobby') {
     enterLobby();
+  } else if (first === 'admin') {
+    // 只允许 admin 访问
+    if (!state.isAdmin) { navigate('/lobby'); return; }
+    showView('admin');
+    renderAdminPage();
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
     if (segments[2] === 'room' && segments[3]) {
@@ -112,18 +119,22 @@ function showView(name) {
   document.getElementById('view-' + name).classList.add('active');
 }
 
-function setAuth(token, username) {
+function setAuth(token, username, isAdmin = false) {
   state.token = token;
   state.username = username;
+  state.isAdmin = !!isAdmin;
   localStorage.setItem('bf_token', token);
   localStorage.setItem('bf_username', username);
+  localStorage.setItem('bf_is_admin', isAdmin ? 'true' : 'false');
 }
 
 function clearAuth() {
   state.token = null;
   state.username = null;
+  state.isAdmin = false;
   localStorage.removeItem('bf_token');
   localStorage.removeItem('bf_username');
+  localStorage.removeItem('bf_is_admin');
 }
 
 // === 认证事件 ===
@@ -135,7 +146,7 @@ document.getElementById('form-login').addEventListener('submit', async e => {
   msg.className = 'msg'; msg.textContent = '';
   try {
     const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-    setAuth(data.token, data.username);
+    setAuth(data.token, data.username, data.is_admin);
     const target = state.pendingPath || '/lobby';
     state.pendingPath = null;
     navigate(target.startsWith('#') ? target : target);
@@ -399,6 +410,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
+  mountAdminButton();
 }
 
 // === 房间 Modal（创建 / 加入） ===

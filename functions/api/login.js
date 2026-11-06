@@ -1,5 +1,5 @@
 // 登录：校验密码，返回新会话
-import { json, hashPassword, isValidUsername, createSession } from '../_shared.js';
+import { json, hashPassword, isValidUsername, createSession, isAdmin } from '../_shared.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -30,5 +30,9 @@ export async function onRequestPost({ request, env }) {
   }
 
   const token = await createSession(env, user.id);
-  return json({ token, username: user.username });
+  return json({
+    token,
+    username: user.username,
+    is_admin: isAdmin(user.username)
+  });
 }
