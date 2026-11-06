@@ -526,12 +526,12 @@ body {
   justify-content: center;
   font-size: 16px;
 }
-.gem-circle.white { background: linear-gradient(135deg, #fff, #ccc); color: #888; }
-.gem-circle.blue  { background: linear-gradient(135deg, #5b9bd5, #2e5984); }
-.gem-circle.green { background: linear-gradient(135deg, #70ad47, #375623); }
-.gem-circle.red   { background: linear-gradient(135deg, #e06666, #993333); }
-.gem-circle.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
-.gem-circle.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); }
+.gem-circle.white { background: linear-gradient(135deg, #f5f5f5, #bbb); color: #888; border: 1px solid #aaa; }
+.gem-circle.blue  { background: linear-gradient(135deg, #7fb3e0, #2e5984); border: 1px solid rgba(255,255,255,0.3); }
+.gem-circle.green { background: linear-gradient(135deg, #95c76d, #375623); border: 1px solid rgba(255,255,255,0.3); }
+.gem-circle.red   { background: linear-gradient(135deg, #ef8a8a, #993333); border: 1px solid rgba(255,255,255,0.3); }
+.gem-circle.black { background: linear-gradient(135deg, #888, #333); border: 1px solid rgba(255,255,255,0.2); }
+.gem-circle.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); border: 1px solid rgba(255,255,255,0.4); }
 .gem-count {
   font-size: 11px;
   color: var(--text-dim);
@@ -691,11 +691,11 @@ body {
   margin-bottom: 4px;
   border: 1px solid rgba(255,255,255,0.2);
 }
-.card-color-bar.white { background: #e8e8e8; }
-.card-color-bar.blue  { background: #5b9bd5; }
-.card-color-bar.green { background: #70ad47; }
-.card-color-bar.red   { background: #e06666; }
-.card-color-bar.black { background: #888; }
+.card-color-bar.white { background: linear-gradient(90deg, #f5f5f5, #c4c4c4); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+.card-color-bar.blue  { background: linear-gradient(90deg, #7fb3e0, #3a6da3); }
+.card-color-bar.green { background: linear-gradient(90deg, #95c76d, #4d7a2b); }
+.card-color-bar.red   { background: linear-gradient(90deg, #ef8a8a, #b84040); }
+.card-color-bar.black { background: linear-gradient(90deg, #999, #555); }
 .card-cost-inline {
   display: flex;
   flex-wrap: wrap;
