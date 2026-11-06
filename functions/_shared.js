@@ -42,7 +42,7 @@ export async function sha256Hex(text) {
   return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(text)));
 }
 
-// PBKDF2-SHA256，10 万次迭代
+// PBKDF2-SHA256（旧格式兼容用，新注册不再调用）
 export async function hashPassword(password, saltHex) {
   const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
@@ -51,6 +51,14 @@ export async function hashPassword(password, saltHex) {
     256
   );
   return toHex(bits);
+}
+
+// v2 格式：前端做 PBKDF2，后端只存 sha256(前端结果)，前缀 v2:
+export function isV2Hash(passHash) {
+  return passHash.startsWith('v2:');
+}
+export async function hashClientResult(clientHash) {
+  return 'v2:' + await sha256Hex(clientHash);
 }
 
 export function isValidUsername(username) {

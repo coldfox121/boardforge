@@ -1,5 +1,5 @@
 // 注册：用户名 + 密码，创建账号并直接返回登录态
-import { json, randomHex, hashPassword, isValidUsername, createSession } from '../_shared.js';
+import { json, randomHex, hashClientResult, isValidUsername, createSession } from '../_shared.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -10,13 +10,13 @@ export async function onRequestPost({ request, env }) {
   }
 
   const username = String(body.username || '').toLowerCase();
-  const password = String(body.password || '');
+  const clientHash = String(body.client_hash || '');
 
   if (!isValidUsername(username)) {
     return json({ error: '账号需为 3-16 位字母、数字或下划线' }, 400);
   }
-  if (password.length < 6 || password.length > 64) {
-    return json({ error: '密码需为 6-64 位' }, 400);
+  if (!clientHash || clientHash.length !== 64) {
+    return json({ error: '密码处理失败' }, 400);
   }
 
   const existing = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
@@ -25,8 +25,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   const id = randomHex(16);
-  const salt = randomHex(16);
-  const passHash = await hashPassword(password, salt);
+  const salt = randomHex(16); // 保留 salt 字段（兼容旧格式），v2 不再用
+  const passHash = await hashClientResult(clientHash);
 
   await env.DB.prepare(
     'INSERT INTO users (id, username, pass_hash, salt, save, last_seen, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'

@@ -137,6 +137,18 @@ function clearAuth() {
   localStorage.removeItem('bf_is_admin');
 }
 
+// === 前端 PBKDF2：把计算压力从 Workers 移到浏览器，后端只做 sha256 比较 ===
+const _enc = new TextEncoder();
+async function clientHashPassword(password, username) {
+  const key = await crypto.subtle.importKey('raw', _enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const salt = _enc.encode('boardforge::' + username.toLowerCase());
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 },
+    key, 256
+  );
+  return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // === 认证事件 ===
 document.getElementById('form-login').addEventListener('submit', async e => {
   e.preventDefault();
@@ -145,7 +157,9 @@ document.getElementById('form-login').addEventListener('submit', async e => {
   const msg = document.getElementById('auth-msg');
   msg.className = 'msg'; msg.textContent = '';
   try {
-    const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    const clientHash = await clientHashPassword(password, username);
+    // 同时传 client_hash（v2 新格式）和 password（旧格式兼容迁移）
+    const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, client_hash: clientHash, password }) });
     setAuth(data.token, data.username, data.is_admin);
     const target = state.pendingPath || '/lobby';
     state.pendingPath = null;
@@ -162,7 +176,11 @@ document.getElementById('form-register').addEventListener('submit', async e => {
   const msg = document.getElementById('auth-msg');
   msg.className = 'msg'; msg.textContent = '';
   try {
-    const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, password }) });
+    if (password.length < 6 || password.length > 64) {
+      throw new Error('密码需为 6-64 位');
+    }
+    const clientHash = await clientHashPassword(password, username);
+    const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, client_hash: clientHash }) });
     setAuth(data.token, data.username);
     const target = state.pendingPath || '/lobby';
     state.pendingPath = null;

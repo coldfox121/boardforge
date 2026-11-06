@@ -1,5 +1,5 @@
 // 登录：校验密码，返回新会话
-import { json, hashPassword, isValidUsername, createSession, isAdmin } from '../_shared.js';
+import { json, sha256Hex, hashPassword, isV2Hash, hashClientResult, isValidUsername, createSession, isAdmin } from '../_shared.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -10,9 +10,11 @@ export async function onRequestPost({ request, env }) {
   }
 
   const username = String(body.username || '').toLowerCase();
+  const clientHash = String(body.client_hash || '');
+  // 兼容旧前端（直接传明文 password）：旧用户第一次登录会走旧路径并自动升级
   const password = String(body.password || '');
 
-  if (!isValidUsername(username) || !password) {
+  if (!isValidUsername(username) || (!clientHash && !password)) {
     return json({ error: '账号或密码错误' }, 401);
   }
 
@@ -24,8 +26,31 @@ export async function onRequestPost({ request, env }) {
     return json({ error: '账号或密码错误' }, 401);
   }
 
-  const passHash = await hashPassword(password, user.salt);
-  if (passHash !== user.pass_hash) {
+  let ok = false;
+
+  if (isV2Hash(user.pass_hash)) {
+    // v2：前端 PBKDF2 → 后端 sha256 比较（极快）
+    if (clientHash) {
+      const expected = 'v2:' + await sha256Hex(clientHash);
+      ok = expected === user.pass_hash;
+    }
+  } else {
+    // 旧格式：后端 PBKDF2（慢），验证通过后自动升级为 v2
+    if (password) {
+      const passHash = await hashPassword(password, user.salt);
+      ok = passHash === user.pass_hash;
+      if (ok && clientHash) {
+        const newHash = await hashClientResult(clientHash);
+        await env.DB.prepare('UPDATE users SET pass_hash = ? WHERE id = ?').bind(newHash, user.id).run();
+      }
+    } else if (clientHash) {
+      // 旧格式但前端只传了 client_hash（新前端登录旧账号）：无法直接验证，
+      // 因为旧 hash 是后端 PBKDF2 结果，与 client_hash 不同。需前端传 password。
+      ok = false;
+    }
+  }
+
+  if (!ok) {
     return json({ error: '账号或密码错误' }, 401);
   }
 
