@@ -430,7 +430,7 @@ export class SplendorGame {
     if (this.state.currentPlayer !== this.humanIndex) return;
     this.lastError = null;
 
-    // 点黄金：触发预留模式
+    // 点黄金：进入预留模式（不阻塞，最终校验在确认时由引擎做）
     if (color === 'gold') {
       if (this.ops.gems.length > 0) {
         this.lastError = '已选普通宝石，黄金不能与普通宝石同回合';
@@ -448,7 +448,6 @@ export class SplendorGame {
       }
       const p = this.state.players[this.humanIndex];
       if (p.reserved.length >= 3) { this.lastError = '预留槽已满'; this._renderAll(); return; }
-      if (this.state.gemPool.gold < 1) { this.lastError = '黄金不足'; this._renderAll(); return; }
       this.ops.goldTaken = true;
       this._renderAll();
       return;
