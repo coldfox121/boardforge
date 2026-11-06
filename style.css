@@ -626,15 +626,36 @@ body {
   transform: rotate(-3deg);
 }
 .card-color-bar {
-  height: 8px;
+  height: 14px;
   border-radius: 4px;
   margin-bottom: 4px;
+  border: 1px solid rgba(255,255,255,0.2);
 }
-.card-color-bar.white { background: #ddd; }
+.card-color-bar.white { background: #e8e8e8; }
 .card-color-bar.blue  { background: #5b9bd5; }
 .card-color-bar.green { background: #70ad47; }
 .card-color-bar.red   { background: #e06666; }
-.card-color-bar.black { background: #434343; }
+.card-color-bar.black { background: #888; }
+.card-cost-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+.cost-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  background: rgba(0,0,0,0.25);
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+.cost-chip .dot { width: 8px; height: 8px; }
 .card-vp {
   font-size: 18px;
   font-weight: 700;

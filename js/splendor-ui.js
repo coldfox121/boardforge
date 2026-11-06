@@ -207,10 +207,13 @@ export class SplendorGame {
         const div = document.createElement('div');
         div.className = `splendor-card ${canBuy ? 'buyable' : ''} ${isSelected ? 'selected' : ''}`;
         div.style.background = this._tierBg(tier);
+        // cost: 颜色圆点 + 数字，只显示有数量的颜色
+        const costHTML = GEM_COLORS.filter(g => card.cost[g] > 0)
+          .map(g => `<span class="cost-chip"><span class="dot ${g}"></span>${card.cost[g]}</span>`).join('');
         div.innerHTML = `
           <div class="card-vp">${card.vp || ''}</div>
           <div class="card-color-bar ${card.color}"></div>
-          <div class="card-cost">${(() => { let h = ''; for (const g of GEM_COLORS) { const n = card.cost[g] || 0; for (let k = 0; k < n; k++) h += `<span class="dot ${g}"></span>`; } return h; })()}</div>
+          <div class="card-cost-inline">${costHTML}</div>
         `;
         if (isMyTurn) div.addEventListener('click', () => this._onBoardCardClick(tier, idx));
         container.appendChild(div);
