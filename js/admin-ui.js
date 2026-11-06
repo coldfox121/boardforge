@@ -2,7 +2,8 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=21';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=22';
+import { saveConfigToCloud, uploadCardImage } from './config-sync.js?v=22';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -80,6 +81,7 @@ export async function renderAdminPage(gameId = 'splendor') {
   ).join('');
 
   root.innerHTML = `<select class="admin-game-select" id="admin-game-select">${optionsHTML}</select><div id="admin-editor"></div>`;
+  localStorage.setItem('bf_admin_game', gameId);
 
   document.getElementById('admin-game-select').addEventListener('change', (e) => {
     renderAdminPage(e.target.value);
@@ -264,6 +266,7 @@ function vizCardHTML(card, tier, index) {
     .join('');
   return `
     <div class="viz-card" data-card="${tier}:${index}" style="border-left-color:${VIZ_HEX[card.color] || '#888'}">
+      ${card.image ? `<img class="viz-thumb" src="${card.image}" alt="">` : ''}
       <div class="viz-card-top">
         <span class="viz-vp">${card.vp || 0}分</span>
         <span class="viz-color">${VIZ_NAME[card.color] || card.color}</span>
@@ -293,15 +296,17 @@ function bindVisualEvents(gameId, data) {
   if (!panel) return;
 
   // 用 onclick 赋值，避免多次渲染后监听器叠加；同时兼容面板内部重渲染
-  panel.onclick = (e) => {
+  panel.onclick = async (e) => {
     const status = document.getElementById('viz-status');
 
     if (e.target.closest('#viz-save')) {
+      if (status) { status.textContent = '⏳ 保存中...'; status.style.color = ''; }
       try {
-        saveAdminData(gameId, data);
-        if (status) { status.textContent = '✅ 已保存，刷新游戏后生效'; status.style.color = '#70ad47'; }
+        saveAdminData(gameId, data); // 本地缓存，离线也能用
+        await saveConfigToCloud(gameId, data);
+        if (status) { status.textContent = '✅ 已保存到云端，所有人可见'; status.style.color = '#70ad47'; }
       } catch (err) {
-        if (status) { status.textContent = '❌ 保存失败：' + err.message; status.style.color = '#e06666'; }
+        if (status) { status.textContent = '❌ ' + err.message; status.style.color = '#e06666'; }
       }
       return;
     }
@@ -358,6 +363,17 @@ function openCardEditor(gameId, data, tier, index) {
       <div class="viz-modal">
         <h3>编辑卡牌 <span class="viz-id">${card.id}</span></h3>
         <div class="viz-field">
+          <label>卡牌图片</label>
+          <div class="viz-image-row">
+            <div class="viz-image-preview">${card.image ? `<img src="${card.image}" alt="">` : '<span class="viz-free">未设置</span>'}</div>
+            <div class="viz-image-actions">
+              <button class="btn small" id="ve-upload">${card.image ? '更换图片' : '上传图片'}</button>
+              ${card.image ? '<button class="btn small" id="ve-img-clear">移除图片</button>' : ''}
+              <input type="file" id="ve-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+            </div>
+          </div>
+        </div>
+        <div class="viz-field">
           <label>产出颜色</label>
           <select id="ve-color">
             ${VIZ_COLORS.map(c => `<option value="${c}"${card.color === c ? ' selected' : ''}>${VIZ_NAME[c]}</option>`).join('')}
@@ -382,18 +398,31 @@ function openCardEditor(gameId, data, tier, index) {
       </div>
     </div>`;
 
+  const applyFormToCard = () => {
+    card.color = document.getElementById('ve-color').value;
+    card.vp = Number(document.getElementById('ve-vp').value) || 0;
+    const cost = {};
+    for (const c of VIZ_COLORS) {
+      const v = Number(document.getElementById('ve-cost-' + c).value) || 0;
+      if (v > 0) cost[c] = v;
+    }
+    card.cost = cost;
+  };
+
   mount.onclick = (e) => {
     if (e.target.id === 've-cancel' || e.target.classList.contains('viz-backdrop')) { mount.innerHTML = ''; return; }
 
+    if (e.target.id === 've-upload') { document.getElementById('ve-file').click(); return; }
+
+    if (e.target.id === 've-img-clear') {
+      delete card.image;
+      renderVisualPanel(gameId, data);
+      openCardEditor(gameId, data, tier, index);
+      return;
+    }
+
     if (e.target.id === 've-ok') {
-      card.color = document.getElementById('ve-color').value;
-      card.vp = Number(document.getElementById('ve-vp').value) || 0;
-      const cost = {};
-      for (const c of VIZ_COLORS) {
-        const v = Number(document.getElementById('ve-cost-' + c).value) || 0;
-        if (v > 0) cost[c] = v;
-      }
-      card.cost = cost;
+      applyFormToCard();
       mount.innerHTML = '';
       renderVisualPanel(gameId, data);
       return;
@@ -404,6 +433,26 @@ function openCardEditor(gameId, data, tier, index) {
       data.CARDS[tier].splice(index, 1);
       mount.innerHTML = '';
       renderVisualPanel(gameId, data);
+    }
+  };
+
+  mount.onchange = async (e) => {
+    if (e.target.id !== 've-file') return;
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    applyFormToCard(); // 上传前保留当前表单输入
+    const btn = document.getElementById('ve-upload');
+    if (btn) { btn.disabled = true; btn.textContent = '上传中...'; }
+
+    try {
+      const r = await uploadCardImage(gameId, card.id, file);
+      card.image = r.url;
+      renderVisualPanel(gameId, data);
+      openCardEditor(gameId, data, tier, index);
+    } catch (err) {
+      alert('图片上传失败：' + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = '上传图片'; }
     }
   };
 }

@@ -72,7 +72,10 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./admin-ui.js?v=21').then(m => m.renderAdminPage());
+    import('./config-sync.js?v=22')
+      .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
+      .then(() => import('./admin-ui.js?v=22'))
+      .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
     if (segments[2] === 'room' && segments[3]) {
@@ -427,7 +430,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=21').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=22').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -600,8 +603,10 @@ async function showRoomByCode(code, gameId) {
     // 保底：至少 2 人（璀璨宝石最低 2 人）
     while (names.length < 2) names.push(`AI-${names.length}`);
 
-    // 进入游戏时才加载游戏模块
-    const { SplendorGame } = await import('./splendor-ui.js?v=21');
+    // 进入游戏时才加载游戏模块；先同步云端牌库配置（含卡图）
+    const { syncGameConfig } = await import('./config-sync.js?v=22');
+    await syncGameConfig('splendor');
+    const { SplendorGame } = await import('./splendor-ui.js?v=22');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0

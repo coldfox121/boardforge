@@ -1,7 +1,7 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=21';
-import { pickAction } from './splendor-ai.js?v=21';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=21';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=22';
+import { pickAction } from './splendor-ai.js?v=22';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=22';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -343,6 +343,7 @@ export class SplendorGame {
         const costHTML = GEM_COLORS.filter(g => card.cost[g] > 0)
           .map(g => `<span class="cost-chip"><span class="dot ${g}"></span>${card.cost[g]}</span>`).join('');
         div.innerHTML = `
+          ${card.image ? `<img class="card-art" src="${card.image}" alt="">` : ''}
           <div class="card-vp">${card.vp ?? 0}</div>
           <div class="card-color-bar ${card.color}"></div>
           <div class="card-cost-inline">${costHTML}</div>

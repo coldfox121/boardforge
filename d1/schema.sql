@@ -36,3 +36,11 @@ CREATE TABLE IF NOT EXISTS rooms (
 
 CREATE INDEX IF NOT EXISTS idx_rooms_code ON rooms(room_code);
 CREATE INDEX IF NOT EXISTS idx_rooms_status ON rooms(status);
+
+-- 牌库配置（admin 编辑后上云，所有人共享，含卡图 image 字段）
+CREATE TABLE IF NOT EXISTS game_configs (
+  game_id TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT
+);
