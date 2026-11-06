@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BoardForge · 桌游工坊</title>
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
   <div id="app">
@@ -113,6 +113,9 @@
 
         <!-- 游戏中 -->
         <div id="splendor-game" class="splendor-game hidden">
+          <!-- 左：行动记录 -->
+          <div class="splendor-log" id="splendor-log"></div>
+
           <!-- 上：玩家3（或2人时不显示） -->
           <div class="splendor-side splendor-top" id="splendor-side-top"></div>
 
@@ -157,6 +160,6 @@
     </section>
   </div>
 
-  <script type="module" src="js/app.js?v=12"></script>
+  <script type="module" src="js/app.js?v=13"></script>
 </body>
 </html>

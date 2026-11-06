@@ -1,7 +1,7 @@
 // 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=12';
-import { pickAction } from './splendor-ai.js?v=12';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=12';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=13';
+import { pickAction } from './splendor-ai.js?v=13';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=13';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -25,6 +25,7 @@ export class SplendorGame {
   start() {
     this.state = initGame(this.playerNames);
     this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
+    this.actionLog = [];
     window.__splendor = this;
     this._renderAll();
     this._maybeAIMove();
@@ -38,6 +39,7 @@ export class SplendorGame {
     this._renderTiers();
     this._renderGemPool();
     this._renderActionBar();
+    this._renderLog();
   }
 
   // ===== 四面玩家区域 =====
@@ -654,6 +656,7 @@ export class SplendorGame {
       return;
     }
 
+    this._logAction(this.humanIndex, action);
     this.state = applyAction(this.state, this.humanIndex, action);
 
     // 人类玩家拿贵族 → toast 提示
@@ -758,6 +761,7 @@ export class SplendorGame {
       // 还是没有合法动作 → PASS 跳过回合
       if (actions.length === 0) {
         try {
+          this._logAction(this.state.currentPlayer, { type: 'PASS' });
           this.state = applyAction(this.state, this.state.currentPlayer, { type: 'PASS' });
           this._renderAll();
           this._checkGameOver();
@@ -769,6 +773,7 @@ export class SplendorGame {
       const action = pickAction(this.state, this.state.currentPlayer);
       if (!action) return;
       try {
+        this._logAction(this.state.currentPlayer, action);
         this.state = applyAction(this.state, this.state.currentPlayer, action);
         this._renderAll();
         this._checkGameOver();
@@ -780,6 +785,66 @@ export class SplendorGame {
   // ===== 终局 =====
   _checkGameOver() {
     if (this.state.gameOver) { this._renderEnd(); this.onGameOver(this.state); }
+  }
+
+  // ===== 行动记录 =====
+  _logAction(playerIndex, action) {
+    const p = this.state.players[playerIndex];
+    const turn = this.state.turn;
+    let desc = '';
+    switch (action.type) {
+      case 'TAKE_DIFF': {
+        const counts = {};
+        action.colors.forEach(c => counts[c] = (counts[c] || 0) + 1);
+        const parts = Object.entries(counts).map(([c, n]) => `${n}颗${GEM_NAMES[c]}`);
+        desc = `拿了 ${parts.join('、')}`;
+        break;
+      }
+      case 'TAKE_SAME':
+        desc = `拿了 2 颗${GEM_NAMES[action.color]}宝石`;
+        break;
+      case 'RESERVE':
+        desc = action.source === 'top' ? `预留了牌库顶一张卡` : `预留了场上一张卡`;
+        break;
+      case 'BUY': {
+        let vp = 0;
+        if (action.source === 'reserved') {
+          const card = p.reserved.find(c => c.id === action.cardId);
+          vp = card ? (card.vp || 0) : 0;
+        } else if (action.source === 'board') {
+          const card = this.state.board[`tier${action.tier}`][action.cardIndex];
+          vp = card ? (card.vp || 0) : 0;
+        }
+        desc = vp > 0 ? `买了一张 ${vp}VP 的卡` : `买了一张卡`;
+        break;
+      }
+      case 'PASS':
+        desc = `跳过回合`;
+        break;
+      default:
+        desc = action.type;
+    }
+    this.actionLog.push({ turn, who: p.name, isMe: playerIndex === this.humanIndex, desc });
+    // 最多保留 100 条
+    if (this.actionLog.length > 100) this.actionLog.shift();
+  }
+
+  _renderLog() {
+    const el = document.getElementById('splendor-log');
+    if (!el) return;
+    if (this.actionLog.length === 0) {
+      el.innerHTML = '<h4>📜 行动记录</h4><div class="log-empty">暂无记录</div>';
+      return;
+    }
+    const items = this.actionLog.map(l =>
+      `<div class="log-item${l.isMe ? ' is-me' : ''}">` +
+      `<span class="log-turn">第${l.turn}回合</span> ` +
+      `<span class="log-who">${l.who}</span> ${l.desc}` +
+      `</div>`
+    ).join('');
+    el.innerHTML = `<h4>📜 行动记录</h4>${items}`;
+    // 自动滚动到底部
+    el.scrollTop = el.scrollHeight;
   }
 
   _renderEnd() {
