@@ -111,15 +111,16 @@ export class SplendorGame {
     const ownedCardsHTML = GEM_COLORS.map(color => {
       const cards = ownedByColor[color];
       if (cards.length === 0) return '';
-      // 同色竖叠：后面的卡向左上偏一点叠在前一张上
+      const totalVP = cards.reduce((s, c) => s + (c.vp || 0), 0);
+      // 同色竖叠：后面的卡向左上偏一点叠在前一张上；最顶层（最后一张）显示 VP 总和
       const stacked = cards.map((c, i) => {
-        const offset = i * (-3); // 每张向左偏 3px 叠在前一张上
-        return `<div class="splendor-card owned-only ${c.color}" style="width:40px;height:56px;background:${this._tierBg(c.tier || 1)};position:absolute;left:${offset}px;top:${offset}px" title="${GEM_NAMES[color]} · VP ${c.vp ?? 0}">
-          <div class="card-vp" style="font-size:10px">${c.vp ?? 0}</div>
+        const offset = i * (-3);
+        const isTop = i === cards.length - 1;
+        return `<div class="splendor-card owned-only ${c.color}" style="width:40px;height:56px;background:${this._tierBg(c.tier || 1)};position:absolute;left:${offset}px;top:${offset}px;z-index:${i + 1}" title="${GEM_NAMES[color]} · 共 ${cards.length} 张 · 总 VP ${totalVP}">
+          <div class="card-vp" style="font-size:10px">${isTop ? totalVP : (c.vp ?? 0)}</div>
           <div class="card-color-bar ${c.color}" style="flex:1"></div>
         </div>`;
       }).join('');
-      // 容器宽 = 基础宽 + 最后一张的偏移量
       const stackW = 40 + Math.abs((cards.length - 1) * -3);
       const stackH = 56 + Math.abs((cards.length - 1) * -3);
       const countTag = cards.length > 1 ? `<span class="stack-count">×${cards.length}</span>` : '';
