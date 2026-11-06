@@ -1,0 +1,218 @@
+/* BoardForge · 桌游工坊 · 暗色简约风格 */
+:root {
+  --bg: #0f1115;
+  --bg-2: #161a21;
+  --bg-3: #1e232d;
+  --border: #2a3040;
+  --text: #e8eaef;
+  --text-dim: #8b93a7;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --success: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --gold: #f5c542;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* 视图切换 */
+.view { display: none; flex: 1; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ===== 认证页 ===== */
+#view-auth {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+}
+.logo {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+}
+.tag {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-top: 4px;
+  margin-bottom: 24px;
+}
+.auth-tabs {
+  display: flex;
+  background: var(--bg-3);
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 20px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+}
+.auth-form { display: none; flex-direction: column; gap: 12px; }
+.auth-form.active { display: flex; }
+.auth-form input {
+  padding: 11px 14px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.auth-form input:focus { border-color: var(--accent); }
+
+/* 通用按钮 */
+.btn-primary {
+  padding: 11px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+.msg {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  min-height: 18px;
+}
+.msg.error { color: var(--danger); }
+.msg.success { color: var(--success); }
+
+/* ===== 大厅页 ===== */
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+}
+.logo-sm {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 16px;
+}
+.user-info { display: flex; gap: 12px; align-items: center; font-size: 14px; }
+
+.lobby-main {
+  flex: 1;
+  padding: 32px 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+.game-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.game-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.game-card.coming-soon { cursor: not-allowed; opacity: 0.55; }
+.game-card.coming-soon:hover { transform: none; border-color: var(--border); }
+
+.game-cover {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  background: var(--bg-3);
+}
+.splendor-cover { background: linear-gradient(135deg, #1e293b, #312e81); }
+
+.game-meta { padding: 14px; }
+.game-meta h3 { font-size: 15px; margin-bottom: 4px; }
+.game-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+.game-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(34,197,94,0.15);
+  color: var(--success);
+}
+.game-badge.soon { background: rgba(139,147,167,0.15); color: var(--text-dim); }
+
+/* ===== 房间页 ===== */
+.room-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.placeholder {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 640px) {
+  .lobby-main { padding: 20px 16px; }
+  .games-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .game-cover { height: 80px; font-size: 32px; }
+  .game-meta { padding: 10px; }
+  .game-meta h3 { font-size: 14px; }
+}

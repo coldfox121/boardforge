@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoardForge · 桌游工坊</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 登录注册页 -->
+    <section id="view-auth" class="view active">
+      <div class="auth-card">
+        <h1 class="logo">BoardForge</h1>
+        <p class="tag">朋友间的桌游工坊</p>
+        <div class="auth-tabs">
+          <button class="tab-btn active" data-tab="login">登录</button>
+          <button class="tab-btn" data-tab="register">注册</button>
+        </div>
+        <form id="form-login" class="auth-form active">
+          <input type="text" id="login-user" placeholder="账号" autocomplete="username" required>
+          <input type="password" id="login-pass" placeholder="密码" autocomplete="current-password" required>
+          <button type="submit" class="btn-primary">登录</button>
+        </form>
+        <form id="form-register" class="auth-form">
+          <input type="text" id="reg-user" placeholder="账号（3-16位字母数字下划线）" autocomplete="username" required>
+          <input type="password" id="reg-pass" placeholder="密码（6-64位）" autocomplete="new-password" required>
+          <button type="submit" class="btn-primary">注册并登录</button>
+        </form>
+        <p id="auth-msg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- 大厅页 -->
+    <section id="view-lobby" class="view">
+      <header class="lobby-header">
+        <div class="logo-sm">BoardForge</div>
+        <div class="user-info">
+          <span id="username">—</span>
+          <button id="btn-logout" class="btn-ghost">退出</button>
+        </div>
+      </header>
+
+      <main class="lobby-main">
+        <div class="games-grid">
+          <div class="game-card locked" data-game="splendor">
+            <div class="game-cover splendor-cover">💎</div>
+            <div class="game-meta">
+              <h3>璀璨宝石</h3>
+              <p class="game-desc">文艺复兴富商经营 · 2-4人 · 30分钟</p>
+              <span class="game-badge">基础版 ✅ 可玩</span>
+            </div>
+          </div>
+          <div class="game-card coming-soon">
+            <div class="game-cover">🗺️</div>
+            <div class="game-meta">
+              <h3>卡坦岛</h3>
+              <p class="game-desc">资源贸易 · 3-4人</p>
+              <span class="game-badge soon">敬请期待</span>
+            </div>
+          </div>
+          <div class="game-card coming-soon">
+            <div class="game-cover">🚂</div>
+            <div class="game-meta">
+              <h3>铁路环游</h3>
+              <p class="game-desc">连接大陆 · 2-5人</p>
+              <span class="game-badge soon">敬请期待</span>
+            </div>
+          </div>
+          <div class="game-card coming-soon">
+            <div class="game-cover">🏨</div>
+            <div class="game-meta">
+              <h3>奥地利大饭店</h3>
+              <p class="game-desc">酒店管理 · 2-4人</p>
+              <span class="game-badge soon">敬请期待</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </section>
+
+    <!-- 房间页（占位） -->
+    <section id="view-room" class="view">
+      <header class="lobby-header">
+        <button id="btn-room-back" class="btn-ghost">← 返回大厅</button>
+        <div class="user-info"><span id="room-title">房间</span></div>
+      </header>
+      <main id="room-placeholder" class="room-main">
+        <p class="placeholder">正在开发中…</p>
+      </main>
+    </section>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
