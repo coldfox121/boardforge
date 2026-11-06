@@ -166,7 +166,7 @@ export class SplendorGame {
       const div = document.createElement('div');
       const cls = ['gem-pile'];
       if (count === 0) cls.push('disabled');
-      if (selCount > 0) cls.push('selected');
+      if (selCount > 0 || (color === 'gold' && this.ops.goldTaken)) cls.push('selected');
       div.className = cls.join(' ');
       div.dataset.color = color;
       div.innerHTML = `
