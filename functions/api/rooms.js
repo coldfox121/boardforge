@@ -2,7 +2,19 @@
 import { json, getAuthUser, randomHex, randomRoomCode } from '../_shared.js';
 
 const GAMES = {
-  splendor: { name: '璀璨宝石', minPlayers: 2, maxPlayers: 4 }
+  splendor: {
+    name: '璀璨宝石',
+    minPlayers: 2,
+    maxPlayers: 4,
+    // 玩家人数影响初始设置
+    setup: {
+      2: { gemsPerColor: 4, nobles: 3 },
+      3: { gemsPerColor: 5, nobles: 4 },
+      4: { gemsPerColor: 7, nobles: 5 }
+    },
+    // 永远 444，不受人数影响
+    cardsPerLevel: 4
+  }
 };
 
 export async function onRequestGet({ request, env }) {
