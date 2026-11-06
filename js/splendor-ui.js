@@ -357,14 +357,16 @@ export class SplendorGame {
     document.querySelectorAll('.action-row, .preview-row, .confirm-row, .status-row').forEach(n => n.remove());
     const bottom = document.getElementById('splendor-side-bottom');
 
-    // 终局倒计时条：不管谁的回合都显示，让所有人看见
+    // 终局倒计时条：不管谁的回合都显示
     if (this.state.endTriggeredBy !== null && !this.state.gameOver) {
       const triggerName = this.state.players[this.state.endTriggeredBy].name;
       const cd = this.state._endCountdown || 0;
+      const totalSteps = this.state.players.length;
+      const roundsLeft = Math.ceil(cd / totalSteps);
       const endRow = document.createElement('div');
       endRow.className = 'status-row';
       endRow.style.cssText = 'padding:8px 10px;border-radius:8px;margin-top:8px;font-size:12px;background:rgba(255,213,79,0.15);border:1px solid rgba(255,213,79,0.4);color:var(--gold);text-align:center';
-      endRow.textContent = `🏆 ${triggerName} 已达 15 分触发终局！剩余 ${cd} 回合，走完游戏结束`;
+      endRow.textContent = `🏆 公平轮 · ${triggerName} 触发终局，所有人各再走 ${roundsLeft} 轮（剩余 ${cd}/${totalSteps} 步）后结束`;
       bottom.appendChild(endRow);
     }
 
@@ -721,7 +723,7 @@ export class SplendorGame {
     if (this.state._justTriggeredEnd) {
       const p = this.state.players[this.humanIndex];
       const cd = this.state._endCountdown || 0;
-      this.lastError = `🏆 你达到 ${p.score} 分！终局触发，对手还有 ${cd} 轮走，他们走完游戏结束`;
+      this.lastError = `🏆 你达到 ${p.score} 分！公平轮：所有人各再走 ${Math.ceil(cd / this.state.players.length)} 轮后结束`;
       delete this.state._justTriggeredEnd;
     } else if (this.state.gameOver) {
       // 非触发者走完了，游戏结束

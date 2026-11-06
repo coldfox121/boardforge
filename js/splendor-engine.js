@@ -307,28 +307,25 @@ export function applyAction(state, playerIndex, action) {
   }
 
   // ===== 回合结束：检查终局 =====
-  // 触发终局：有人先达 15 分 → 其他人各走最后一轮，触发者不走了
+  // 公平轮规则：有人达 15 分后，所有人再走相同轮数（触发者也不例外）才结束
   let nextPlayer = (playerIndex + 1) % s.players.length;
   let nextTurn = s.turn;
   if (nextPlayer === 0) nextTurn = s.turn + 1;
 
-  // 本轮刚触发了终局（新有人到 15 分，之前没人触发过）
+  // 本轮刚触发终局
   const pScoreNow = p.score;
   if (pScoreNow >= 15 && !s.endTriggeredBy) {
     s.endTriggeredBy = playerIndex;
-    // 其他人还要走 players.length - 1 轮才结束
-    s._endCountdown = s.players.length - 1;
-    s._justTriggeredEnd = true; // 标记刚触发，让 UI 知道
+    s._endCountdown = s.players.length;  // 公平轮：每人再走 1 步 = players.length 步
+    s._justTriggeredEnd = true;
   }
 
-  // 终局倒计时：每个非触发者走完一轮 -1
-  if (s.endTriggeredBy !== null && playerIndex !== s.endTriggeredBy) {
+  // 公平轮倒计时：**每个人**走完都 -1（包括触发者自己）
+  if (s.endTriggeredBy !== null) {
     s._endCountdown = (s._endCountdown || 0) - 1;
     if (s._endCountdown <= 0) {
-      // 其他人都走完最后一轮了 → 立刻结束
       s.gameOver = true;
       s.phase = 'ended';
-      // 算赢家（分数最高者，同分时卡数多者胜）
       const sorted = [...s.players].sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return b.ownedCards.length - a.ownedCards.length;
@@ -338,7 +335,6 @@ export function applyAction(state, playerIndex, action) {
     }
   }
 
-  // 如果 gameOver 了就不要循环 currentPlayer 回触发者
   if (s.gameOver) {
     s.currentPlayer = -1;
   } else {
