@@ -2,8 +2,8 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=24';
-import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=24';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=25';
+import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=25';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -266,13 +266,19 @@ function buildVisualHTML(data) {
 }
 
 function vizCardHTML(card, tier, index) {
+  // 有卡图时只展示卡图，避免与文字/费用圆片重叠
+  if (card.image) {
+    return `
+    <div class="viz-card viz-has-img" data-card="${tier}:${index}">
+      <img class="viz-thumb" src="${card.image}" alt="">
+    </div>`;
+  }
   const costs = Object.entries(card.cost || {})
     .filter(([, n]) => n > 0)
     .map(([c, n]) => `<span class="viz-cost">${colorDot(c)}${n}</span>`)
     .join('');
   return `
     <div class="viz-card" data-card="${tier}:${index}" style="border-left-color:${VIZ_HEX[card.color] || '#888'}">
-      ${card.image ? `<img class="viz-thumb" src="${card.image}" alt="">` : ''}
       <div class="viz-card-top">
         <span class="viz-vp">${card.vp || 0}分</span>
         <span class="viz-color">${VIZ_NAME[card.color] || card.color}</span>
@@ -282,6 +288,11 @@ function vizCardHTML(card, tier, index) {
 }
 
 function vizNobleHTML(noble, index) {
+  if (noble.image) {
+    return `<div class="viz-card viz-noble viz-has-img" data-noble="${index}">
+      <img class="viz-thumb" src="${noble.image}" alt="">
+    </div>`;
+  }
   const reqs = Object.entries(noble.req || {})
     .filter(([, n]) => n > 0)
     .map(([c, n]) => `<span class="viz-cost">${colorDot(c)}${n}</span>`)
