@@ -2,7 +2,7 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=20';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=21';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -75,19 +75,14 @@ export async function renderAdminPage(gameId = 'splendor') {
   const root = document.getElementById('admin-root');
   if (!root) return;
 
-  const tabsHTML = ADMIN_GAMES.map(g =>
-    `<button class="admin-game-tab${g.id === gameId ? ' active' : ''}${g.ready ? '' : ' disabled'}" data-game="${g.id}">
-      <span>${g.name}</span>
-      <span class="admin-game-tab-state">${g.ready ? (g.id === gameId ? '编辑中' : '可编辑') : '未开放'}</span>
-    </button>`
+  const optionsHTML = ADMIN_GAMES.map(g =>
+    `<option value="${g.id}"${g.id === gameId ? ' selected' : ''}${g.ready ? '' : ' disabled'}>${g.name}${g.ready ? '' : '（未开放）'}</option>`
   ).join('');
 
-  root.innerHTML = `<div class="admin-game-tabs">${tabsHTML}</div><div id="admin-editor"></div>`;
+  root.innerHTML = `<select class="admin-game-select" id="admin-game-select">${optionsHTML}</select><div id="admin-editor"></div>`;
 
-  root.querySelectorAll('.admin-game-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!btn.disabled && btn.dataset.game !== gameId) renderAdminPage(btn.dataset.game);
-    });
+  document.getElementById('admin-game-select').addEventListener('change', (e) => {
+    renderAdminPage(e.target.value);
   });
 
   const editor = document.getElementById('admin-editor');
