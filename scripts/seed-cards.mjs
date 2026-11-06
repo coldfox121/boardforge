@@ -27,14 +27,14 @@ function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 function costChips(items, y) {
   const n = items.length;
   if (!n) return '';
-  const w = 52;
+  const w = 64;
   const total = n * w;
   let x = (260 - total) / 2 + w / 2;
   return items.map(it => {
     const cx = x; x += w;
     const fg = TEXT_ON[it.color] || '#fff';
-    return `<circle cx="${cx}" cy="${y}" r="21" fill="${HEX[it.color]}"/>` +
-           `<text x="${cx}" y="${y + 7}" font-size="20" text-anchor="middle" fill="${fg}" font-weight="700">${it.n}</text>`;
+    return `<circle cx="${cx}" cy="${y}" r="30" fill="${HEX[it.color]}" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>` +
+           `<text x="${cx}" y="${y + 11}" font-size="34" text-anchor="middle" fill="${fg}" font-weight="700">${it.n}</text>`;
   }).join('');
 }
 
@@ -42,19 +42,18 @@ function cardSVG(card) {
   const gem = HEX[card.color] || '#888';
   const costs = GEM_COLORS.filter(c => (card.cost || {})[c] > 0).map(c => ({ color: c, n: card.cost[c] }));
   const vp = card.vp || 0;
+  // 设计目标：缩到 80px 宽仍可辨认，因此只用大字号，不放小字
   return `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="360" viewBox="0 0 260 360">
 <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
 <stop offset="0%" stop-color="#2b3140"/><stop offset="100%" stop-color="#141821"/>
 </linearGradient></defs>
-<rect width="260" height="360" rx="16" fill="url(#g)" stroke="${gem}" stroke-width="4"/>
-<text x="20" y="38" font-size="15" fill="#8b93a7">等级 ${card.tier || 1}</text>
-<circle cx="222" cy="30" r="21" fill="${HEX.gold}"/>
-<text x="222" y="38" font-size="22" text-anchor="middle" fill="#1a1a1a" font-weight="700">${vp}</text>
-<circle cx="130" cy="160" r="62" fill="${gem}" opacity="0.92"/>
-<circle cx="130" cy="160" r="62" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="3"/>
-<text x="130" y="170" font-size="40" text-anchor="middle" fill="${TEXT_ON[card.color] || '#fff'}">◆</text>
-<text x="130" y="252" font-size="15" text-anchor="middle" fill="#c9d1e3">${esc(GEM_NAMES[card.color] || card.color)}</text>
-${costChips(costs, 305)}
+<rect width="260" height="360" rx="18" fill="url(#g)" stroke="${gem}" stroke-width="7"/>
+<circle cx="126" cy="146" r="82" fill="${gem}" opacity="0.92"/>
+<circle cx="126" cy="146" r="82" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="4"/>
+<text x="126" y="168" font-size="76" text-anchor="middle" fill="${TEXT_ON[card.color] || '#fff'}">◆</text>
+<circle cx="204" cy="52" r="40" fill="${HEX.gold}" stroke="#1a1a1a" stroke-opacity="0.25" stroke-width="2"/>
+<text x="204" y="70" font-size="52" text-anchor="middle" fill="#1a1a1a" font-weight="700">${vp}</text>
+${costChips(costs, 304)}
 </svg>`;
 }
 
@@ -62,16 +61,14 @@ function nobleSVG(noble) {
   const reqs = GEM_COLORS.filter(c => (noble.req || {})[c] > 0).map(c => ({ color: c, n: noble.req[c] }));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="360" viewBox="0 0 260 360">
 <defs><linearGradient id="ng" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0%" stop-color="#3a2b52"/><stop offset="100%" stop-color="#1b1524"/>
+<stop offset="0%" stop-color="#3f2f58"/><stop offset="100%" stop-color="#191322"/>
 </linearGradient></defs>
-<rect width="260" height="360" rx="16" fill="url(#ng)" stroke="#7b4fa8" stroke-width="4"/>
-<text x="20" y="38" font-size="15" fill="#a99cc4">贵族</text>
-<circle cx="222" cy="30" r="21" fill="${HEX.gold}"/>
-<text x="222" y="38" font-size="22" text-anchor="middle" fill="#1a1a1a" font-weight="700">3</text>
-<circle cx="130" cy="150" r="58" fill="#7b4fa8" opacity="0.55"/>
-<text x="130" y="170" font-size="48" text-anchor="middle" fill="#f0e6ff">♛</text>
-<text x="130" y="240" font-size="14" text-anchor="middle" fill="#c9b8e0">所需发展卡</text>
-${costChips(reqs, 300)}
+<rect width="260" height="360" rx="18" fill="url(#ng)" stroke="#9b6fd0" stroke-width="7"/>
+<circle cx="126" cy="140" r="76" fill="#7b4fa8" opacity="0.6"/>
+<text x="126" y="172" font-size="86" text-anchor="middle" fill="#f3e8ff">♛</text>
+<circle cx="204" cy="52" r="40" fill="${HEX.gold}" stroke="#1a1a1a" stroke-opacity="0.25" stroke-width="2"/>
+<text x="204" y="70" font-size="52" text-anchor="middle" fill="#1a1a1a" font-weight="700">3</text>
+${costChips(reqs, 304)}
 </svg>`;
 }
 

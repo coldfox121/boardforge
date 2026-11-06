@@ -1,7 +1,7 @@
 // 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=25';
-import { pickAction } from './splendor-ai.js?v=25';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=25';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=26';
+import { pickAction } from './splendor-ai.js?v=26';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=26';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -312,11 +312,13 @@ export class SplendorGame {
     row.innerHTML = '';
     this.state.nobles.forEach(n => {
       const div = document.createElement('div');
-      div.className = 'noble-card';
+      div.className = n.image ? 'noble-card noble-has-art' : 'noble-card';
       const req = n.req || n;
       const reqs = [];
       for (const c of GEM_COLORS) if (req[c]) reqs.push({ color: c, count: req[c] });
-      div.innerHTML = `
+      div.innerHTML = n.image
+        ? `<img class="noble-art" src="${n.image}" alt="">`
+        : `
         <div class="noble-vp">👑 +3</div>
         <div class="noble-req">
           ${reqs.map(r => `<span class="req-chip req-${r.color}">${r.count} ${GEM_NAMES_SHORT[r.color]}</span>`).join(' ')}
@@ -342,8 +344,10 @@ export class SplendorGame {
         // cost: 颜色圆点 + 数字，只显示有数量的颜色
         const costHTML = GEM_COLORS.filter(g => card.cost[g] > 0)
           .map(g => `<span class="cost-chip"><span class="dot ${g}"></span>${card.cost[g]}</span>`).join('');
-        div.innerHTML = `
-          ${card.image ? `<img class="card-art" src="${card.image}" alt="">` : ''}
+        // 有卡图时只显示卡图（卡图内已含等级/VP/颜色/费用），避免两套元素重叠
+        div.innerHTML = card.image
+          ? `<img class="card-art card-art-full" src="${card.image}" alt="">`
+          : `
           <div class="card-vp">${card.vp ?? 0}</div>
           <div class="card-color-bar ${card.color}"></div>
           <div class="card-cost-inline">${costHTML}</div>
