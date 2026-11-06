@@ -76,6 +76,7 @@ export class SplendorGame {
       const isSelected = this.selectedGems.includes(color);
       const div = document.createElement('div');
       div.className = `gem-pile ${count === 0 ? 'disabled' : ''} ${isSelected ? 'selected' : ''}`;
+      div.dataset.color = color;
       div.innerHTML = `
         <div class="gem-circle ${color}">${color === 'gold' ? '★' : ''}</div>
         <div class="gem-count">${GEM_NAMES[color]} · ${count}${isSelected ? ' ✓' : ''}</div>
@@ -399,6 +400,32 @@ export class SplendorGame {
   _onGemClick(color) {
     if (this.state.currentPlayer !== this.humanIndex) return;
 
+    // 点击黄金：特殊处理
+    if (color === 'gold') {
+      if (!this.pendingAction) {
+        // 没选动作 → 自动进入预留模式
+        // 检查是否合法
+        const p = this.state.players[this.humanIndex];
+        if (p.reserved.length >= 3) { alert('预留槽已满（最多 3 张）'); return; }
+        if (this.state.gemPool.gold < 1) { alert('黄金不足'); return; }
+        const totalNow = this._totalGems(p.gems);
+        if (totalNow + 1 > 10) { alert('拿完黄金会超 10 颗宝石'); return; }
+        this.pendingAction = { type: 'RESERVE' };
+        this.selectedCard = null;
+        this.selectedGems = [];
+        this._renderAll();
+        return;
+      } else if (this.pendingAction.type === 'RESERVE') {
+        // 已经在预留模式 → 黄金只是个"我想预留"的确认，提示选卡
+        alert('请点击场上的卡或选择牌堆顶来完成预留');
+        return;
+      } else {
+        // 其他动作下点黄金无效
+        return;
+      }
+    }
+
+    // 普通宝石（非黄金）
     if (this.pendingAction?.type === 'TAKE_DIFF') {
       const idx = this.selectedGems.indexOf(color);
       if (idx >= 0) {
