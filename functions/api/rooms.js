@@ -1,10 +1,13 @@
 // 房间管理：GET 查询 / POST 创建
-import { json, getAuthUser, randomHex, randomRoomCode } from '../_shared.js';
+import { json, getAuthUser, randomHex, randomRoomCode, cleanupStaleRooms } from '../_shared.js';
 import { GAMES } from './games.js';
 
 export async function onRequestGet({ request, env }) {
   const user = await getAuthUser(request, env);
   if (!user) return json({ error: '未登录' }, 401);
+
+  // 顺带清理 2 小时无活动的等待中房间
+  await cleanupStaleRooms(env);
 
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -65,6 +68,9 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   const user = await getAuthUser(request, env);
   if (!user) return json({ error: '未登录' }, 401);
+
+  // 创建前先清理过期房间，避免房间号被僵尸房间占用
+  await cleanupStaleRooms(env);
 
   let body;
   try { body = await request.json(); } catch { return json({ error: '请求格式错误' }, 400); }

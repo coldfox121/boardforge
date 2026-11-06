@@ -29,6 +29,19 @@ export function randomHex(byteCount) {
   return toHex(arr.buffer);
 }
 
+// 房间无活动存活时间：2 小时
+export const ROOM_STALE_MS = 2 * 60 * 60 * 1000;
+
+// 清理超过 2 小时无活动的等待中房间
+// Pages Functions 不支持 cron，改为在有房间相关请求时顺带清理
+export async function cleanupStaleRooms(env) {
+  const cutoff = Date.now() - ROOM_STALE_MS;
+  const res = await env.DB.prepare(
+    "DELETE FROM rooms WHERE status = 'waiting' AND updated_at < ?"
+  ).bind(cutoff).run();
+  return (res.meta && res.meta.changes) || 0;
+}
+
 export function randomRoomCode() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 去掉易混淆的 O/0/1/I/L
   let code = '';
