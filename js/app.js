@@ -246,12 +246,6 @@ function openRestrictedModal(gameId, defaultTab) {
       <div class="modal-panel" data-panel="create" style="display:${defaultTab==='create'?'':'none'}">
         <label>房间名称</label>
         <input id="rm-name" placeholder="${state.username}的房间" maxlength="30">
-        <label>人数</label>
-        <select id="rm-max">
-          <option value="2">2 人</option>
-          <option value="3">3 人</option>
-          <option value="4" selected>4 人</option>
-        </select>
         <button class="btn-primary" id="rm-create">创建并进入</button>
         <p id="rm-create-msg" class="msg"></p>
       </div>
@@ -274,11 +268,10 @@ function openRestrictedModal(gameId, defaultTab) {
   // 创建
   modal.querySelector('#rm-create').addEventListener('click', async () => {
     const name = document.getElementById('rm-name').value.trim();
-    const maxPlayers = Number(document.getElementById('rm-max').value);
     const msgEl = document.getElementById('rm-create-msg');
     msgEl.className = 'msg'; msgEl.textContent = '';
     try {
-      const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId, maxPlayers }) });
+      const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId }) });
       modal.remove();
       // 受限模式：房间链接也带游戏路径
       navigate('/g/' + gameId + '/room/' + data.room_code);
@@ -356,12 +349,6 @@ function openRoomModal(gameId, presetCode) {
       <div class="modal-panel" data-panel="create" style="display:${gameId ? '' : 'none'}">
         <label>房间名称</label>
         <input id="rm-name" placeholder="${state.username}的房间" maxlength="30">
-        <label>人数</label>
-        <select id="rm-max">
-          <option value="2">2 人</option>
-          <option value="3">3 人</option>
-          <option value="4" selected>4 人</option>
-        </select>
         <button class="btn-primary" id="rm-create">创建并进入</button>
         <p id="rm-create-msg" class="msg"></p>
       </div>
@@ -387,11 +374,10 @@ function openRoomModal(gameId, presetCode) {
   // 创建
   modal.querySelector('#rm-create').addEventListener('click', async () => {
     const name = document.getElementById('rm-name').value.trim();
-    const maxPlayers = Number(document.getElementById('rm-max').value);
     const msgEl = document.getElementById('rm-create-msg');
     msgEl.className = 'msg'; msgEl.textContent = '';
     try {
-      const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId, maxPlayers }) });
+      const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId }) });
       state.currentRoomCode = data.room_code;
       state.currentGame = gameId;
       closeRoomModal();
