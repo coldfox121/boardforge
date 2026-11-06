@@ -248,16 +248,23 @@ export function applyAction(state, playerIndex, action) {
       }
 
       // 支付（卡面宝石先抵 → 玩家宝石 → 黄金补缺口）
+      // 注意：卡面宝石是玩家永久资产，不归还公共池
       const payBack = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+      const cardBonus = {};
+      for (const c of GEM_COLORS) cardBonus[c] = countColorInCards(p.ownedCards, c);
+
       for (const color of GEM_COLORS) {
         const need = card.cost[color] || 0;
         if (need === 0) continue;
-        // 先扣玩家宝石
-        const fromGems = Math.min(p.gems[color] || 0, need);
-        p.gems[color] -= fromGems;
-        payBack[color] += fromGems;
-        // 缺口用黄金
-        const goldNeed = need - fromGems;
+        // 1. 卡面宝石先抵（不归还池，已是玩家资产）
+        const payFromBonus = Math.min(cardBonus[color] || 0, need);
+        const gemNeed = need - payFromBonus;
+        // 2. 玩家宝石补
+        const payFromGems = Math.min(p.gems[color] || 0, gemNeed);
+        p.gems[color] -= payFromGems;
+        payBack[color] += payFromGems;
+        // 3. 黄金补最后缺口
+        const goldNeed = gemNeed - payFromGems;
         if (goldNeed > 0) {
           p.gems.gold -= goldNeed;
           payBack.gold += goldNeed;
