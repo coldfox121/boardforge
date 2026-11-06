@@ -333,9 +333,10 @@ function canGetNoble(player, noble) {
   // 统计玩家持有的各颜色卡数
   const ownedCounts = {};
   for (const c of GEM_COLORS) ownedCounts[c] = countColorInCards(player.ownedCards, c);
-  // 满足贵族条件
+  // 满足贵族条件（注意数据结构是 noble.req）
+  const req = noble.req || noble; // 兼容老数据
   for (const c of GEM_COLORS) {
-    const need = noble[c] || 0;
+    const need = req[c] || 0;
     if (ownedCounts[c] < need) return false;
   }
   return true;

@@ -3,6 +3,9 @@ import { initGame, applyAction, validateAction, listValidActions } from './splen
 import { pickAction } from './splendor-ai.js';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js';
 
+// 宝石简称（贵族牌条件里显示）
+const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
+
 // 每个房间一个 SplendorGame 实例
 export class SplendorGame {
   constructor(container, options = {}) {
@@ -89,11 +92,14 @@ export class SplendorGame {
     this.state.nobles.forEach(n => {
       const div = document.createElement('div');
       div.className = 'noble-card';
+      const req = n.req || n;
       const reqs = [];
-      for (const c of GEM_COLORS) if (n[c]) reqs.push(`${n[c]}${c[0]}`);
+      for (const c of GEM_COLORS) if (req[c]) reqs.push({ color: c, count: req[c] });
       div.innerHTML = `
         <div class="noble-vp">👑 +3</div>
-        <div class="noble-req">${reqs.join(' ')}</div>
+        <div class="noble-req">
+          ${reqs.map(r => `<span class="req-chip req-${r.color}">${r.count} ${GEM_NAMES_SHORT[r.color] || r.color}</span>`).join(' ')}
+        </div>
       `;
       row.appendChild(div);
     });

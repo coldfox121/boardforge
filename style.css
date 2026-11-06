@@ -429,7 +429,25 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 .noble-card .noble-vp { font-size: 20px; font-weight: 700; }
-.noble-card .noble-req { font-size: 9px; opacity: 0.7; }
+.noble-card .noble-req {
+  font-size: 11px;
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.req-chip {
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.req-chip.req-white { background: rgba(255,255,255,0.25); color: #eee; }
+.req-chip.req-blue  { background: rgba(91,155,213,0.4); color: #cfdae8; }
+.req-chip.req-green { background: rgba(112,173,71,0.4); color: #d6ead0; }
+.req-chip.req-red   { background: rgba(224,102,102,0.4); color: #f0ccc; }
+.req-chip.req-black { background: rgba(100,100,100,0.5); color: #bbb; }
 
 /* 三级卡行 */
 .splendor-board {
