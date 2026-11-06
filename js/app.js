@@ -1,4 +1,6 @@
 // BoardForge · 前端入口
+import { SplendorGame } from './splendor-ui.js';
+
 // === 全局状态 ===
 const state = {
   token: localStorage.getItem('bf_token'),
@@ -6,7 +8,8 @@ const state = {
   apiBase: '',
   cloudOk: false,
   currentRoomCode: null,
-  currentGame: null
+  currentGame: null,
+  splendorGame: null  // 当前游戏实例
 };
 
 // === 路由：#/path 解析 ===
@@ -488,10 +491,8 @@ function closeRoomModal() {
 async function showRoomByCode(code, gameId) {
   const title = document.getElementById('room-title');
   showView('room');
-  const placeholder = document.getElementById('room-placeholder');
   closeRoomModal();
 
-  // 分享链接：受限模式带游戏路径，完整模式不带
   const upper = code.toUpperCase();
   let shareUrl;
   if (gameId) {
@@ -501,20 +502,50 @@ async function showRoomByCode(code, gameId) {
     state.guestGame = null;
     shareUrl = location.origin + location.pathname + '#/room/' + upper;
   }
-  const gameName = gameId ? (GAME_NAMES[gameId] || gameId) : '🎲 桌游';
+  const gameName = gameId ? (GAME_NAMES[gameId] || gameId) : '璀璨宝石';
 
   title.textContent = `${gameName} · ${upper}`;
-  placeholder.innerHTML = `
-    <div class="game-room-info">
-      <h2>${gameName}</h2>
-      <p class="room-code">房间号：<strong>${upper}</strong></p>
-      <p class="hint">🔗 分享链接</p>
-      <div class="share-box">
-        <input id="share-input" readonly value="${shareUrl}">
-        <button id="share-copy" class="btn-primary">复制</button>
-      </div>
-      ${gameId ? '<p class="hint">朋友收到此链接后只能游玩 ' + gameName + '</p>' : '<p class="hint">游戏引擎开发中，很快就能联机对战</p>'}
-    </div>`;
+
+  // 显示准备界面，隐藏游戏和结束
+  document.getElementById('room-waiting').classList.remove('hidden');
+  document.getElementById('splendor-game').classList.add('hidden');
+  document.getElementById('splendor-end').classList.add('hidden');
+
+  // 玩家列表（目前本地，联机后从服务器同步）
+  const playersEl = document.getElementById('room-players-list');
+  playersEl.innerHTML = '';
+  const myName = state.username || '你';
+  const myChip = document.createElement('div');
+  myChip.className = 'room-player-chip me';
+  myChip.textContent = `👤 ${myName}`;
+  playersEl.appendChild(myChip);
+
+  // AI 复选框联动 AI 数量选择器
+  const aiToggle = document.getElementById('toggle-ai');
+  const aiCount = document.getElementById('ai-count');
+  aiToggle.addEventListener('change', () => {
+    aiCount.disabled = !aiToggle.checked;
+    document.getElementById('room-online-count').textContent =
+      1 + (aiToggle.checked ? Number(aiCount.value) : 0);
+  });
+  aiCount.addEventListener('change', () => {
+    if (aiToggle.checked) {
+      document.getElementById('room-online-count').textContent = 1 + Number(aiCount.value);
+    }
+  });
+
+  document.getElementById('room-online-count').textContent = 1;
+  aiCount.disabled = !aiToggle.checked;
+
+  // 分享框
+  const shareBox = document.getElementById('room-share-box');
+  shareBox.innerHTML = `
+    <div class="share-box">
+      <input id="share-input" readonly value="${shareUrl}">
+      <button id="share-copy" class="btn-primary">复制</button>
+    </div>
+    <p style="font-size:11px;color:var(--text-dim);margin-top:8px">朋友打开此链接 → 登录后自动回到房间</p>
+  `;
   document.getElementById('share-copy').addEventListener('click', () => {
     const input = document.getElementById('share-input');
     input.select();
@@ -525,12 +556,26 @@ async function showRoomByCode(code, gameId) {
     });
   });
 
-  // 异步查房间信息（如果不存在说明创建失败，等后续 Durable Object）
-  try {
-    const data = await api('/api/rooms?code=' + code.toUpperCase());
-    title.textContent = `${data.game_name} · ${data.room_code}`;
-    placeholder.querySelector('h2').textContent = data.game_name;
-  } catch {}
+  // 开始游戏
+  document.getElementById('btn-start-game').onclick = () => {
+    let aiCountVal = 0;
+    if (aiToggle.checked) aiCountVal = Number(aiCount.value);
+
+    const names = [myName];
+    for (let i = 1; i <= aiCountVal; i++) names.push(`AI-${i}`);
+
+    state.splendorGame = new SplendorGame(null, {
+      playerNames: names,
+      humanIndex: 0
+    });
+
+    // 切换 UI
+    document.getElementById('room-waiting').classList.add('hidden');
+    document.getElementById('splendor-game').classList.remove('hidden');
+    document.getElementById('splendor-end').classList.add('hidden');
+
+    state.splendorGame.start();
+  };
 }
 
 // 进入房间占位页（创建房间后）

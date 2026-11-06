@@ -79,19 +79,72 @@
       </main>
     </section>
 
-    <!-- 房间页（占位） -->
+    <!-- 房间页 -->
     <section id="view-room" class="view">
       <header class="lobby-header">
         <button id="btn-room-back" class="btn-ghost">← 返回大厅</button>
         <div class="user-info"><span id="room-title">房间</span></div>
         <button id="btn-rules" class="btn-ghost">📖 规则</button>
       </header>
-      <main id="room-placeholder" class="room-main">
-        <p class="placeholder">正在开发中…</p>
+      <main class="room-main">
+        <!-- 等待开始（多人还没齐） -->
+        <div id="room-waiting" class="room-waiting hidden">
+          <div class="waiting-card">
+            <h2>⚙️ 房间准备</h2>
+            <p class="waiting-sub">当前在线 <span id="room-online-count">1</span> 人</p>
+            <div id="room-players-list" class="room-players-list"></div>
+            <div class="waiting-actions">
+              <label class="ai-toggle">
+                <input type="checkbox" id="toggle-ai"> 开启 AI 补位（剩余座位 AI 占）
+              </label>
+              <label class="players-picker">
+                AI 数量：
+                <select id="ai-count">
+                  <option value="1">1 个 AI</option>
+                  <option value="2">2 个 AI</option>
+                  <option value="3">3 个 AI</option>
+                </select>
+              </label>
+            </div>
+            <button id="btn-start-game" class="btn-primary">🚀 开始游戏</button>
+            <p id="room-share-box" class="share-box"></p>
+          </div>
+        </div>
+
+        <!-- 游戏中 -->
+        <div id="splendor-game" class="splendor-game hidden">
+          <!-- 顶部：玩家信息条 -->
+          <div id="splendor-players-bar" class="splendor-players-bar"></div>
+
+          <!-- 中间：宝石堆 -->
+          <div id="splendor-gems" class="splendor-gems"></div>
+
+          <!-- 下方：三级卡 + Noble -->
+          <div class="splendor-board">
+            <div class="splendor-nobles-row" id="splendor-nobles"></div>
+            <div class="splendor-tiers">
+              <div class="splendor-tier" data-tier="3" id="splendor-tier-3"></div>
+              <div class="splendor-tier" data-tier="2" id="splendor-tier-2"></div>
+              <div class="splendor-tier" data-tier="1" id="splendor-tier-1"></div>
+            </div>
+          </div>
+
+          <!-- 底部：当前玩家手牌 -->
+          <div id="splendor-hand" class="splendor-hand"></div>
+        </div>
+
+        <!-- 游戏结束 -->
+        <div id="splendor-end" class="hidden">
+          <div class="end-card">
+            <h2>🏆 游戏结束</h2>
+            <div id="splendor-scores"></div>
+            <button id="btn-new-game" class="btn-primary">再来一局</button>
+          </div>
+        </div>
       </main>
     </section>
   </div>
 
-  <script src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>

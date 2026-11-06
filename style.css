@@ -307,6 +307,343 @@ body {
 }
 .rule-section p br { display: block; margin: 4px 0; content: ""; }
 
+/* ===== 璀璨宝石游戏样式 ===== */
+.splendor-game {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+  min-height: calc(100vh - 120px);
+}
+
+/* 玩家信息条 */
+.splendor-players-bar {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 8px 4px;
+}
+.splendor-player {
+  flex: 0 0 auto;
+  min-width: 140px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+.splendor-player.active {
+  border-color: var(--gold);
+  background: rgba(255,213,79,0.08);
+  box-shadow: 0 0 20px rgba(255,213,79,0.2);
+}
+.splendor-player.me {
+  border-color: #4fc3f7;
+}
+.splendor-player .sp-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.splendor-player .sp-score {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold);
+  font-family: 'Georgia', serif;
+}
+.splendor-player .sp-info {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* 宝石堆 */
+.splendor-gems {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: var(--panel);
+  border-radius: 12px;
+}
+.gem-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: transform 0.15s;
+}
+.gem-pile:hover { transform: scale(1.1); }
+.gem-pile.disabled { opacity: 0.3; cursor: not-allowed; }
+.gem-circle {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.gem-circle.white { background: linear-gradient(135deg, #fff, #ccc); color: #888; }
+.gem-circle.blue  { background: linear-gradient(135deg, #5b9bd5, #2e5984); }
+.gem-circle.green { background: linear-gradient(135deg, #70ad47, #375623); }
+.gem-circle.red   { background: linear-gradient(135deg, #e06666, #993333); }
+.gem-circle.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
+.gem-circle.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); }
+.gem-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+/* Noble 行 */
+.splendor-nobles-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.noble-card {
+  width: 90px; height: 70px;
+  background: linear-gradient(135deg, #3d2e1f, #5a4a35);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  font-size: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.noble-card .noble-vp { font-size: 20px; font-weight: 700; }
+.noble-card .noble-req { font-size: 9px; opacity: 0.7; }
+
+/* 三级卡行 */
+.splendor-board {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.splendor-tier {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.splendor-tier.tier-3 { border-top: 3px solid var(--gold); }
+.splendor-tier.tier-2 { border-top: 2px solid rgba(255,213,79,0.6); }
+.splendor-tier.tier-1 { border-top: 1px solid rgba(255,213,79,0.3); }
+
+/* 卡牌（CSS 绘制） */
+.splendor-card {
+  width: 80px; height: 110px;
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  font-size: 10px;
+  user-select: none;
+}
+.splendor-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+.splendor-card.buyable {
+  box-shadow: 0 0 0 2px var(--gold);
+}
+.splendor-card.selected {
+  box-shadow: 0 0 0 3px #4fc3f7, 0 6px 20px rgba(79,195,247,0.4);
+}
+.splendor-card.reserved {
+  opacity: 0.7;
+  transform: rotate(-3deg);
+}
+.card-color-bar {
+  height: 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+.card-color-bar.white { background: #ddd; }
+.card-color-bar.blue  { background: #5b9bd5; }
+.card-color-bar.green { background: #70ad47; }
+.card-color-bar.red   { background: #e06666; }
+.card-color-bar.black { background: #434343; }
+.card-vp {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+  text-align: right;
+  font-family: Georgia, serif;
+}
+.card-cost {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  font-size: 9px;
+}
+.card-cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-cost .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.card-cost .dot.white { background: #ddd; }
+.card-cost .dot.blue  { background: #5b9bd5; }
+.card-cost .dot.green { background: #70ad47; }
+.card-cost .dot.red   { background: #e06666; }
+.card-cost .dot.black { background: #434343; }
+
+/* 手牌区 */
+.splendor-hand {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.hand-gems {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hand-gem-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: rgba(255,255,255,0.06);
+}
+.hand-gem-badge.has {
+  background: rgba(255,213,79,0.15);
+  color: var(--gold);
+}
+
+.hand-cards-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hand-reserved-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255,255,255,0.1);
+}
+
+/* 动作选择条 */
+.action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+.action-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.action-btn:hover {
+  background: rgba(255,213,79,0.15);
+  border-color: var(--gold);
+}
+.action-btn.selected {
+  background: var(--gold);
+  color: #1a1a1a;
+  border-color: var(--gold);
+}
+
+/* 房间等待中 */
+.room-waiting, #splendor-game, #splendor-end { }
+.hidden { display: none !important; }
+.waiting-card {
+  max-width: 420px;
+  margin: 40px auto;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+}
+.waiting-card h2 { margin: 0 0 6px; }
+.waiting-sub { color: var(--text-dim); margin: 0 0 16px; font-size: 13px; }
+.room-players-list { display: flex; gap: 10px; justify-content: center; margin-bottom: 18px; flex-wrap: wrap; }
+.room-player-chip {
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 20px;
+  font-size: 12px;
+}
+.room-player-chip.me { background: #4fc3f7; color: #000; }
+.waiting-actions { margin-bottom: 18px; font-size: 12px; color: var(--text-dim); display: flex; flex-direction: column; gap: 6px; }
+.waiting-actions select { padding: 4px 8px; border-radius: 4px; background: #2a2a2a; color: #fff; border: 1px solid #444; }
+
+/* 结束界面 */
+.end-card {
+  max-width: 400px;
+  margin: 60px auto;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+}
+.end-card h2 { margin: 0 0 16px; }
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  font-size: 14px;
+}
+.score-row.winner { color: var(--gold); font-weight: 700; }
+
+/* 移动端（860px 以下） */
+@media (max-width: 860px) {
+  .splendor-game { gap: 10px; padding: 6px; }
+  .splendor-player { min-width: 100px; padding: 6px 8px; }
+  .splendor-player .sp-score { font-size: 18px; }
+  .splendor-player .sp-name { font-size: 12px; }
+  .gem-circle { width: 28px; height: 28px; font-size: 12px; }
+  .splendor-card { width: 62px; height: 86px; padding: 4px; font-size: 9px; }
+  .card-vp { font-size: 14px; }
+  .splendor-gems { gap: 8px; padding: 8px; }
+  .action-btn { padding: 8px 12px; font-size: 12px; }
+}
+
 /* ===== 受限模式（朋友入口） ===== */
 .restricted-game {
   max-width: 360px;

@@ -1,0 +1,403 @@
+// 璀璨宝石 · 游戏引擎（纯函数，输入 state + action → 输出 newState）
+// 不含网络 / 渲染 / IO — 好测、好挂联机
+
+import { CARDS, NOBLES, GEM_COLORS } from './splendor-data.js';
+
+// ===== 辅助函数 =====
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function countGems(gems) {
+  return GEM_COLORS.reduce((s, c) => s + (gems[c] || 0), 0) + (gems.gold || 0);
+}
+function canAfford(gems, cost, cardBonus) {
+  // 用黄金补缺口，cardBonus 是已持有的卡面宝石（可抵对应颜色）
+  let needGold = 0;
+  for (const color of GEM_COLORS) {
+    const need = cost[color] || 0;
+    const have = (gems[color] || 0) + (cardBonus[color] || 0);
+    if (have < need) needGold += (need - have);
+  }
+  // 检查黄金够不够 + 手牌上限（预留槽）
+  if (needGold > (gems.gold || 0)) return false;
+  // 买卡后宝石总数减 needGold + 剩余 ≤ 10（回合结束检查）
+  return true;
+}
+
+// ===== 游戏初始化 =====
+// playerNames: ['P1','P2'] 或 ['P1','P2','P3','P4']
+export function initGame(playerNames) {
+  const n = playerNames.length;
+  if (n < 2 || n > 4) throw new Error('玩家数必须 2-4');
+
+  // 初始设置（按官方规则）
+  const setup = {
+    2: { gemsPerColor: 4, nobles: 3 },
+    3: { gemsPerColor: 5, nobles: 4 },
+    4: { gemsPerColor: 7, nobles: 5 }
+  }[n];
+
+  // 洗牌
+  const tier1 = shuffle(CARDS[1].map(c => ({ ...c })));
+  const tier2 = shuffle(CARDS[2].map(c => ({ ...c })));
+  const tier3 = shuffle(CARDS[3].map(c => ({ ...c })));
+
+  // 场上各翻 4 张
+  const board = {
+    tier1: tier1.splice(0, 4),
+    tier2: tier2.splice(0, 4),
+    tier3: tier3.splice(0, 4)
+  };
+
+  // 宝石堆
+  const gemPool = {};
+  for (const c of GEM_COLORS) gemPool[c] = setup.gemsPerColor;
+  gemPool.gold = 5;
+
+  // Noble 翻出
+  const nobleDeck = shuffle(NOBLES.map(n => ({ ...n })));
+  const nobles = nobleDeck.splice(0, setup.nobles);
+
+  // 玩家
+  const players = playerNames.map((name, i) => ({
+    id: i,
+    name,
+    isAI: false,
+    // 手里的宝石
+    gems: { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 },
+    // 持有（购买）的卡：从这里永久产出宝石
+    ownedCards: [],
+    // 预留槽（最多 3 张）
+    reserved: [],
+    // 已获得 Noble
+    nobles: [],
+    // 当前分数（卡 vp + noble vp）
+    score: 0
+  }));
+
+  return {
+    version: 1,
+    phase: 'playing', // playing | finalRound | ended
+    currentPlayer: 0,
+    lastAction: null,
+    turn: 1,
+    gameOver: false,
+    winners: [],
+    // 牌堆（剩余）
+    decks: { tier1, tier2, tier3 },
+    // 场上翻出的
+    board,
+    // 宝石堆
+    gemPool,
+    // Noble 图板
+    nobles,
+    // 玩家
+    players,
+    // 触发终局的玩家 id（触发后其他人走最后一轮）
+    endTriggeredBy: null,
+    endLastRound: false
+  };
+}
+
+// ===== 动作校验（返回错误信息或 null）=====
+// actions:
+// { type: 'TAKE_DIFF', colors: ['red','green','blue'] }
+// { type: 'TAKE_SAME', color: 'red' }
+// { type: 'RESERVE', source: 'board'|'top', tier: 1, cardIndex: 0|null }
+// { type: 'BUY', source: 'board'|'reserved', tier: 1, cardIndex: 0|null, cardId: null }
+export function validateAction(state, playerIndex, action) {
+  const p = state.players[playerIndex];
+  if (!p) return '玩家不存在';
+  if (state.gameOver) return '游戏已结束';
+  if (state.currentPlayer !== playerIndex) return '不是你的回合';
+
+  switch (action.type) {
+    case 'TAKE_DIFF': {
+      if (!action.colors || action.colors.length !== 3) return '必须选 3 种不同颜色';
+      const set = new Set(action.colors);
+      if (set.size !== 3) return '不能有重复颜色';
+      if (action.colors.some(c => !GEM_COLORS.includes(c))) return '颜色无效';
+      if (action.colors.some(c => state.gemPool[c] < 1)) return '某颜色宝石不足';
+      // 检查拿完不会超 10
+      const after = countGems(p.gems) + 3;
+      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}）`;
+      return null;
+    }
+    case 'TAKE_SAME': {
+      if (!GEM_COLORS.includes(action.color)) return '颜色无效';
+      if (state.gemPool[action.color] < 4) return '该色剩余不足 4 颗';
+      const after = countGems(p.gems) + 2;
+      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}）`;
+      return null;
+    }
+    case 'RESERVE': {
+      if (action.source === 'board') {
+        if (![1,2,3].includes(action.tier)) return '等级无效';
+        if (typeof action.cardIndex !== 'number') return '需要 cardIndex';
+        const card = state.board[`tier${action.tier}`][action.cardIndex];
+        if (!card) return '卡片不存在';
+      } else if (action.source === 'top') {
+        if (![1,2,3].includes(action.tier)) return '等级无效';
+        if (state.decks[`tier${action.tier}`].length === 0) return '该等级牌堆已空';
+      } else {
+        return 'source 必须是 board 或 top';
+      }
+      if (p.reserved.length >= 3) return '预留槽已满（最多 3 张）';
+      const after = countGems(p.gems) + 1;
+      if (after > 10) return `拿完黄金会超 10 颗（当前 ${countGems(p.gems)}）`;
+      if (state.gemPool.gold < 1) return '黄金不足';
+      return null;
+    }
+    case 'BUY': {
+      let card;
+      if (action.source === 'board') {
+        if (![1,2,3].includes(action.tier)) return '等级无效';
+        card = state.board[`tier${action.tier}`][action.cardIndex];
+      } else if (action.source === 'reserved') {
+        card = p.reserved.find(c => c.id === action.cardId);
+      } else {
+        return 'source 必须是 board 或 reserved';
+      }
+      if (!card) return '卡片不存在';
+      // 检查能不能买
+      const cardBonus = {};
+      for (const c of GEM_COLORS) cardBonus[c] = countColorInCards(p.ownedCards, c);
+      // 模拟：用宝石+卡面+黄金能否覆盖
+      let needGold = 0;
+      for (const color of GEM_COLORS) {
+        const need = card.cost[color] || 0;
+        const payFromBonus = Math.min(cardBonus[color], need);
+        const needGems = Math.max(0, need - payFromBonus);
+        const payFromGems = Math.min(p.gems[color] || 0, needGems);
+        if (payFromGems < needGems) needGold += (needGems - payFromGems);
+      }
+      if (needGold > (p.gems.gold || 0)) return '宝石不足，无法支付';
+      return null;
+    }
+    default:
+      return `未知动作类型: ${action.type}`;
+  }
+}
+
+function countColorInCards(cards, color) {
+  return cards.reduce((s, c) => s + (c.color === color ? 1 : 0), 0);
+}
+
+// ===== 执行动作（纯函数，返回新 state）=====
+export function applyAction(state, playerIndex, action) {
+  const err = validateAction(state, playerIndex, action);
+  if (err) throw new Error(err);
+
+  const s = deepClone(state);
+  const p = s.players[playerIndex];
+  p.isAI = p.isAI; // 保持标记
+
+  switch (action.type) {
+    case 'TAKE_DIFF':
+      action.colors.forEach(c => { s.gemPool[c]--; p.gems[c]++; });
+      break;
+
+    case 'TAKE_SAME':
+      s.gemPool[action.color] -= 2;
+      p.gems[action.color] += 2;
+      break;
+
+    case 'RESERVE': {
+      let card;
+      if (action.source === 'board') {
+        card = s.board[`tier${action.tier}`][action.cardIndex];
+        s.board[`tier${action.tier}`].splice(action.cardIndex, 1);
+        // 补一张（如果牌堆还有）
+        const deckKey = `tier${action.tier}`;
+        if (s.decks[deckKey].length > 0) {
+          s.board[deckKey].push(s.decks[deckKey].shift());
+        }
+      } else {
+        card = s.decks[`tier${action.tier}`].shift();
+      }
+      // 标记预留卡（后续移走时用）
+      card._reservedSource = action.source;
+      p.reserved.push(card);
+      // 拿 1 颗黄金
+      s.gemPool.gold--;
+      p.gems.gold++;
+      break;
+    }
+
+    case 'BUY': {
+      let card;
+      if (action.source === 'board') {
+        card = s.board[`tier${action.tier}`][action.cardIndex];
+        s.board[`tier${action.tier}`].splice(action.cardIndex, 1);
+        // 补一张
+        const deckKey = `tier${action.tier}`;
+        if (s.decks[deckKey].length > 0) {
+          s.board[deckKey].push(s.decks[deckKey].shift());
+        }
+      } else {
+        // reserved → 从玩家预留区移除
+        const idx = p.reserved.findIndex(c => c.id === action.cardId);
+        card = p.reserved[idx];
+        p.reserved.splice(idx, 1);
+      }
+
+      // 支付（卡面宝石先抵 → 玩家宝石 → 黄金补缺口）
+      const payGold = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+      for (const color of GEM_COLORS) {
+        const need = card.cost[color] || 0;
+        if (need === 0) continue;
+        // 卡面免费
+        // 先扣玩家宝石
+        const fromGems = Math.min(p.gems[color] || 0, need);
+        p.gems[color] -= fromGems;
+        payGold[color] += fromGems;
+        // 缺口用黄金
+        const goldNeed = need - fromGems;
+        if (goldNeed > 0) {
+          p.gems.gold -= goldNeed;
+          payGold.gold += goldNeed;
+        }
+      }
+
+      // 卡加入手牌
+      p.ownedCards.push(card);
+
+      // 更新分数（卡 vp）
+      p.score += (card.vp || 0);
+
+      // Noble 检查（是否满足条件）
+      for (let i = s.nobles.length - 1; i >= 0; i--) {
+        const n = s.nobles[i];
+        if (canGetNoble(p, n)) {
+          s.nobles.splice(i, 1);
+          p.nobles.push(n);
+          p.score += 3;
+        }
+      }
+      break;
+    }
+  }
+
+  // ===== 回合结束：检查终局 =====
+  // 触发终局：有人先达 15 分
+  let nextPlayer = (playerIndex + 1) % s.players.length;
+  let nextTurn = s.turn;
+  if (nextPlayer === 0) nextTurn = s.turn + 1;
+
+  // 检测终局
+  const prevEndTriggered = s.endTriggeredBy;
+  // 如果本轮刚触发了终局（新有人到 15 分，之前没人触发过）
+  const pScoreNow = p.score;
+  if (pScoreNow >= 15 && !prevEndTriggered) {
+    s.endTriggeredBy = playerIndex;
+    // 最后一轮：其他人还能走一轮，轮到触发者之前结束
+    // 简化：给所有人再走一轮（让 nextPlayer = 0 后还能到 s.endTriggeredBy 再停）
+  }
+
+  // 计算玩家走完顺序是否到了终局
+  if (s.endTriggeredBy !== null && !s.endLastRound) {
+    // 触发终局的玩家走完之后，其他人走最后一轮
+    // 当我们已经给所有人都多走了一轮（nextPlayer 再次到 endTriggeredBy）
+    if (nextPlayer === s.endTriggeredBy) {
+      s.endLastRound = true;
+      // 下一次 applyAction 再被调用时会触发 gameOver
+    }
+  }
+  // 简化：这里不提前设置 gameOver，等下一次回合开始时检查
+  // （或者直接在这里检查：如果 endLastRound 且当前走完了 endTriggeredBy 的回合）
+  if (s.endLastRound && playerIndex === s.endTriggeredBy) {
+    // 所有人走完最后一轮了
+    s.gameOver = true;
+    s.phase = 'ended';
+    // 算赢家（分数最高者，同分时卡数多者胜）
+    const sorted = [...s.players].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.ownedCards.length - a.ownedCards.length;
+    });
+    const top = sorted[0].score;
+    s.winners = sorted.filter(p => p.score === top).map(p => p.id);
+  }
+
+  s.currentPlayer = nextPlayer;
+  s.turn = nextTurn;
+  s.lastAction = { player: playerIndex, type: action.type, at: Date.now() };
+  return s;
+}
+
+function canGetNoble(player, noble) {
+  // 统计玩家持有的各颜色卡数
+  const ownedCounts = {};
+  for (const c of GEM_COLORS) ownedCounts[c] = countColorInCards(player.ownedCards, c);
+  // 满足 noble 条件
+  for (const c of GEM_COLORS) {
+    const need = noble[c] || 0;
+    if (ownedCounts[c] < need) return false;
+  }
+  return true;
+}
+
+// ===== 便捷：生成所有合法动作（供 AI 使用）=====
+export function listValidActions(state, playerIndex) {
+  const actions = [];
+  const p = state.players[playerIndex];
+
+  // 1) TAKE_DIFF：3 种不同色宝石
+  const availableColors = GEM_COLORS.filter(c => state.gemPool[c] > 0);
+  const combos = get3Combos(availableColors);
+  for (const combo of combos) {
+    const a = { type: 'TAKE_DIFF', colors: combo };
+    if (!validateAction(state, playerIndex, a)) actions.push(a);
+  }
+
+  // 2) TAKE_SAME：某色剩余 ≥4
+  for (const c of GEM_COLORS) {
+    if (state.gemPool[c] >= 4) {
+      const a = { type: 'TAKE_SAME', color: c };
+      if (!validateAction(state, playerIndex, a)) actions.push(a);
+    }
+  }
+
+  // 3) RESERVE（如果还有槽且有黄金）
+  if (p.reserved.length < 3 && state.gemPool.gold >= 1) {
+    for (const tier of [1, 2, 3]) {
+      // top of deck
+      const topA = { type: 'RESERVE', source: 'top', tier };
+      if (!validateAction(state, playerIndex, topA) && state.decks[`tier${tier}`].length > 0) actions.push(topA);
+      // board cards
+      state.board[`tier${tier}`].forEach((card, idx) => {
+        const a = { type: 'RESERVE', source: 'board', tier, cardIndex: idx };
+        if (!validateAction(state, playerIndex, a)) actions.push(a);
+      });
+    }
+  }
+
+  // 4) BUY
+  // from board
+  for (const tier of [1, 2, 3]) {
+    state.board[`tier${tier}`].forEach((card, idx) => {
+      const a = { type: 'BUY', source: 'board', tier, cardIndex: idx };
+      if (!validateAction(state, playerIndex, a)) actions.push(a);
+    });
+  }
+  // from reserved
+  for (const card of p.reserved) {
+    const a = { type: 'BUY', source: 'reserved', cardId: card.id };
+    if (!validateAction(state, playerIndex, a)) actions.push(a);
+  }
+
+  return actions;
+}
+
+function get3Combos(arr) {
+  const result = [];
+  for (let i = 0; i < arr.length - 2; i++)
+    for (let j = i + 1; j < arr.length - 1; j++)
+      for (let k = j + 1; k < arr.length; k++)
+        result.push([arr[i], arr[j], arr[k]]);
+  return result;
+}
