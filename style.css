@@ -728,6 +728,8 @@ body {
   color: var(--gold);
   text-align: right;
   font-family: Georgia, serif;
+  min-height: 24px;
+  flex-shrink: 0;
 }
 .card-cost {
   flex: 1;

@@ -270,7 +270,7 @@ export class SplendorGame {
         const costHTML = GEM_COLORS.filter(g => card.cost[g] > 0)
           .map(g => `<span class="cost-chip"><span class="dot ${g}"></span>${card.cost[g]}</span>`).join('');
         div.innerHTML = `
-          <div class="card-vp">${card.vp || ''}</div>
+          <div class="card-vp">${card.vp ?? 0}</div>
           <div class="card-color-bar ${card.color}"></div>
           <div class="card-cost-inline">${costHTML}</div>
         `;
