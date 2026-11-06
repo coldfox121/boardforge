@@ -40,29 +40,124 @@ export class SplendorGame {
       return;
     }
     this._renderPlayersBar();
-    this._renderGemPool();
     this._renderNobles();
     this._renderTiers();
-    this._renderHand();
+    this._renderGemPool();
+    // 动作条挂到 splendor-side-bottom 里
     this._renderActionBar();
   }
 
-  // ===== 玩家条 =====
+  // ===== 四面玩家区域 =====
   _renderPlayersBar() {
-    const bar = document.getElementById('splendor-players-bar');
-    bar.innerHTML = '';
-    this.state.players.forEach((p, i) => {
-      const isCurrent = i === this.state.currentPlayer;
-      const isMe = i === this.humanIndex;
-      const div = document.createElement('div');
-      div.className = `splendor-player ${isCurrent ? 'active' : ''} ${isMe ? 'me' : ''}`;
-      div.innerHTML = `
-        <div class="sp-name">${isMe ? '👤 ' : ''}${p.isAI ? '🤖 ' : ''}${p.name}${isCurrent ? ' ←' : ''}</div>
-        <div class="sp-score">${p.score} pts</div>
-        <div class="sp-info">卡 ${p.ownedCards.length} · 预 ${p.reserved.length} · 贵族 ${p.nobles.length}</div>
-      `;
-      bar.appendChild(div);
+    // 位置分配：除了自己（humanIndex），其他玩家按顺序分到 上/左/右
+    const total = this.state.players.length;
+    const others = this.state.players.filter((_, i) => i !== this.humanIndex);
+    const positions = ['left', 'top', 'right']; // 3 个坑，按顺序塞
+
+    // 先隐藏所有非底部的位置
+    document.querySelectorAll('.splendor-side:not(.splendor-bottom)').forEach(el => el.classList.add('hidden-seat'));
+
+    others.forEach((p, idx) => {
+      const pos = positions[idx];
+      const el = document.getElementById(`splendor-side-${pos}`);
+      if (!el) return;
+      el.classList.remove('hidden-seat');
+      el.innerHTML = this._renderOpponentHTML(p, this.state.currentPlayer === this.state.players.indexOf(p));
     });
+
+    // 底部是自己
+    const bottom = document.getElementById('splendor-side-bottom');
+    bottom.innerHTML = this._renderMyHTML();
+
+    // 给自己的预留卡绑点击
+    bottom.querySelectorAll('[data-reserved-id]').forEach(el => {
+      const cardId = el.dataset.reservedId;
+      el.addEventListener('click', () => this._onReservedCardClick(cardId));
+    });
+
+    // 给自己的已持有卡（预留点击）留个空位，暂不绑
+  }
+
+  _renderOpponentHTML(p, isCurrent) {
+    const ownedCounts = {};
+    for (const c of GEM_COLORS) ownedCounts[c] = 0;
+    p.ownedCards.forEach(c => ownedCounts[c.color] = (ownedCounts[c.color] || 0) + 1);
+
+    const gemDots = [...GEM_COLORS, 'gold'].map(c => {
+      const n = p.gems[c] || 0;
+      return `<div class="ps-gem ${c} ${n === 0 ? 'empty' : ''}" title="${GEM_NAMES[c]} ${n}">${n || ''}</div>`;
+    }).join('');
+
+    const ownedCards = p.ownedCards.map(c => {
+      const idx = ownedCounts[c.color];
+      ownedCounts[c.color]--;
+      return `<div class="ps-owned-card ${c.color}" title="${GEM_NAMES[c.color]} · VP ${c.vp || 0}">${c.vp || ''}${c.tier ? `·${c.tier}` : ''}</div>`;
+    }).join('');
+
+    const reservedBacks = p.reserved.length > 0
+      ? `<div class="ps-reserved-row">${Array(p.reserved.length).fill(0).map(() => `<div class="ps-reserved-back">背面</div>`).join('')}</div>`
+      : '';
+
+    const nobles = p.nobles.length > 0
+      ? `<div class="ps-nobles">${p.nobles.map(n => `<span class="ps-noble">👑+3</span>`).join('')}</div>`
+      : '';
+
+    return `
+      <div class="ps-name">
+        <span>${p.isAI ? '🤖 ' : ''}${p.name}${isCurrent ? ' ← 回合' : ''}</span>
+        <span class="ps-score">${p.score}</span>
+      </div>
+      <div class="ps-resource-row">${gemDots}</div>
+      <div class="ps-owned">${ownedCards}</div>
+      ${reservedBacks}
+      ${nobles}
+    `;
+  }
+
+  _renderMyHTML() {
+    const p = this.state.players[this.humanIndex];
+    const isMyTurn = this.state.currentPlayer === this.humanIndex;
+
+    // 我自己：全量显示
+    const ownedCards = p.ownedCards.map(c => {
+      return `<div class="splendor-card" style="width:52px;height:72px;background:${this._tierBg(c.tier || 1)}">
+        <div class="card-vp">${c.vp || ''}</div>
+        <div class="card-color-bar ${c.color}"></div>
+        <div class="card-cost">${GEM_COLORS.filter(gc => c.cost[gc]).map(gc => `<div class="card-cost-row"><span class="dot ${gc}"></span><span>${c.cost[gc]}</span></div>`).join('')}</div>
+      </div>`;
+    }).join('');
+
+    const reservedCards = p.reserved.map((c, idx) => {
+      const canBuy = isMyTurn && validateAction(this.state, this.humanIndex, { type: 'BUY', source: 'reserved', cardId: c.id }) === null;
+      const selectedThis = this.selectedCard?.source === 'reserved' && this.selectedCard.cardId === c.id;
+      return `<div class="splendor-card reserved ${canBuy ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}" style="width:52px;height:72px;background:${this._tierBg(c.tier)}" data-reserved-id="${c.id}">
+        <div class="card-vp">${c.vp || ''}</div>
+        <div class="card-color-bar ${c.color}"></div>
+        <div class="card-cost">${GEM_COLORS.filter(gc => c.cost[gc]).map(gc => `<div class="card-cost-row"><span class="dot ${gc}"></span><span>${c.cost[gc]}</span></div>`).join('')}</div>
+      </div>`;
+    }).join('');
+
+    const totalGems = this._totalGems(p.gems);
+    const gemBadges = [...GEM_COLORS, 'gold'].map(c => {
+      const n = p.gems[c] || 0;
+      return `<span class="${n > 0 ? 'hand-gem-badge has' : 'hand-gem-badge'}">${GEM_NAMES[c]} ${n}</span>`;
+    }).join('');
+
+    return `
+      <div class="ps-name" style="justify-content:space-between">
+        <span>👤 我 · ${p.name}${isMyTurn ? ' ← 你的回合' : ''}</span>
+        <span class="ps-score" style="color:var(--gold)">${p.score} pts</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-dim);margin:4px 0">回合 ${this.state.turn} · 宝石 ${totalGems}/10 · 预留 ${p.reserved.length}/3</div>
+      <div class="hand-gems">${gemBadges}</div>
+      <div class="owned-cards-row" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+        ${ownedCards || '<span style="opacity:0.3;font-size:11px">暂无可购卡</span>'}
+      </div>
+      ${p.reserved.length > 0 ? `
+        <div style="font-size:11px;color:var(--text-dim);margin-top:6px">预留区</div>
+        <div class="reserved-cards-row" style="display:flex;gap:4px;margin-top:2px">${reservedCards}</div>
+      ` : ''}
+    `;
   }
 
   // ===== 宝石堆 =====
@@ -167,84 +262,6 @@ export class SplendorGame {
     return 'linear-gradient(135deg, #1f2d1f, #184830)';
   }
 
-  // ===== 手牌区 =====
-  _renderHand() {
-    const hand = document.getElementById('splendor-hand');
-    hand.innerHTML = '';
-    const p = this.state.players[this.humanIndex];
-    const isMyTurn = this.state.currentPlayer === this.humanIndex && !p.isAI;
-
-    // 顶部状态条
-    const header = document.createElement('div');
-    header.className = 'hand-header';
-    header.innerHTML = `<span>回合 ${this.state.turn} · ${this.state.players[this.state.currentPlayer].name}${this.state.players[this.state.currentPlayer].isAI ? ' 🤖' : ''} 的回合</span><span>宝石 ${this._totalGems(p.gems)}/10</span>`;
-    hand.appendChild(header);
-
-    // 宝石统计 badge
-    const badgeRow = document.createElement('div');
-    badgeRow.className = 'hand-gems';
-    for (const color of [...GEM_COLORS, 'gold']) {
-      const count = p.gems[color] || 0;
-      const cls = count > 0 ? 'hand-gem-badge has' : 'hand-gem-badge';
-      badgeRow.innerHTML += `<span class="${cls}">${GEM_NAMES[color]} ${count}</span>`;
-    }
-    hand.appendChild(badgeRow);
-
-    // 已持有卡
-    const cardRow = document.createElement('div');
-    cardRow.className = 'hand-cards-row';
-    p.ownedCards.forEach(card => {
-      const div = document.createElement('div');
-      div.className = 'splendor-card';
-      div.style.background = this._tierBg(card.tier);
-      div.style.cursor = 'default';
-      const costRows = GEM_COLORS.filter(c => card.cost[c]).map(c => `
-        <div class="card-cost-row"><span class="dot ${c}"></span><span>${card.cost[c]}</span></div>
-      `).join('');
-      div.innerHTML = `
-        <div class="card-vp">${card.vp || ''}</div>
-        <div class="card-color-bar ${card.color}"></div>
-        <div class="card-cost">${costRows}</div>
-      `;
-      cardRow.appendChild(div);
-    });
-    hand.appendChild(cardRow);
-
-    // 预留区
-    if (p.reserved.length > 0) {
-      const reserveRow = document.createElement('div');
-      reserveRow.className = 'hand-reserved-row';
-      const title = document.createElement('div');
-      title.style.cssText = 'font-size:11px;color:var(--text-dim);margin-bottom:4px;width:100%';
-      title.textContent = `预留槽 (${p.reserved.length}/3)`;
-      reserveRow.appendChild(title);
-
-      p.reserved.forEach(card => {
-        const canBuyThis = isMyTurn && this.pendingAction?.type === 'BUY' && validateAction(this.state, this.humanIndex, {
-          type: 'BUY', source: 'reserved', cardId: card.id
-        }) === null;
-        const selectedThis = this.selectedCard?.source === 'reserved' && this.selectedCard.cardId === card.id;
-
-        const div = document.createElement('div');
-        div.className = `splendor-card reserved ${canBuyThis ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}`;
-        div.style.background = this._tierBg(card.tier);
-        if (canBuyThis || (this.pendingAction?.type === 'BUY' && isMyTurn)) {
-          div.addEventListener('click', () => this._onReservedCardClick(card.id));
-        }
-        const costRows = GEM_COLORS.filter(c => card.cost[c]).map(c => `
-          <div class="card-cost-row"><span class="dot ${c}"></span><span>${card.cost[c]}</span></div>
-        `).join('');
-        div.innerHTML = `
-          <div class="card-vp">${card.vp || ''}</div>
-          <div class="card-color-bar ${card.color}"></div>
-          <div class="card-cost">${costRows}</div>
-        `;
-        reserveRow.appendChild(div);
-      });
-      hand.appendChild(reserveRow);
-    }
-  }
-
   _totalGems(gems) {
     return [...GEM_COLORS, 'gold'].reduce((s, c) => s + (gems[c] || 0), 0);
   }
@@ -257,7 +274,7 @@ export class SplendorGame {
     const isMyTurn = this.state.currentPlayer === this.humanIndex && !this.state.players[this.humanIndex].isAI;
     if (!isMyTurn) return;
 
-    const hand = document.getElementById('splendor-hand');
+    const hand = document.getElementById('splendor-side-bottom');
     const p = this.state.players[this.humanIndex];
 
     // ===== 动作按钮 =====

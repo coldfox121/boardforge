@@ -113,24 +113,31 @@
 
         <!-- 游戏中 -->
         <div id="splendor-game" class="splendor-game hidden">
-          <!-- 顶部：玩家信息条 -->
-          <div id="splendor-players-bar" class="splendor-players-bar"></div>
+          <!-- 上：玩家3（或2人时不显示） -->
+          <div class="splendor-side splendor-top" id="splendor-side-top"></div>
 
-          <!-- 中间：宝石堆 -->
-          <div id="splendor-gems" class="splendor-gems"></div>
+          <!-- 左：玩家2 -->
+          <div class="splendor-side splendor-left" id="splendor-side-left"></div>
 
-          <!-- 下方：三级卡 + 贵族 -->
-          <div class="splendor-board">
+          <!-- 中央：游戏桌 -->
+          <div class="splendor-center">
+            <!-- 贵族 -->
             <div class="splendor-nobles-row" id="splendor-nobles"></div>
+            <!-- 三级卡 -->
             <div class="splendor-tiers">
               <div class="splendor-tier" data-tier="3" id="splendor-tier-3"></div>
               <div class="splendor-tier" data-tier="2" id="splendor-tier-2"></div>
               <div class="splendor-tier" data-tier="1" id="splendor-tier-1"></div>
             </div>
+            <!-- 宝石堆 -->
+            <div id="splendor-gems" class="splendor-gems"></div>
           </div>
 
-          <!-- 底部：当前玩家手牌 -->
-          <div id="splendor-hand" class="splendor-hand"></div>
+          <!-- 右：玩家4（或3人时） -->
+          <div class="splendor-side splendor-right" id="splendor-side-right"></div>
+
+          <!-- 下：我（自己的手牌 + 动作区） -->
+          <div class="splendor-side splendor-bottom" id="splendor-side-bottom"></div>
         </div>
 
         <!-- 游戏结束 -->
