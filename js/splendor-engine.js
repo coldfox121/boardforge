@@ -282,14 +282,17 @@ export function applyAction(state, playerIndex, action) {
       p.score += (card.vp || 0);
 
       // 贵族检查（是否满足条件）
+      const noblesGained = [];
       for (let i = s.nobles.length - 1; i >= 0; i--) {
         const n = s.nobles[i];
         if (canGetNoble(p, n)) {
           s.nobles.splice(i, 1);
           p.nobles.push(n);
           p.score += 3;
+          noblesGained.push(n);
         }
       }
+      if (noblesGained.length > 0) s._lastNoblesGained = { playerIndex, nobles: noblesGained };
       break;
     }
   }

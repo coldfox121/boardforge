@@ -79,7 +79,13 @@ export class SplendorGame {
       ? `<div class="ps-reserved-row">${Array(p.reserved.length).fill(0).map(() => `<div class="ps-reserved-back">背面</div>`).join('')}</div>`
       : '';
     const nobles = p.nobles.length > 0
-      ? `<div class="ps-nobles">${p.nobles.map(n => `<span class="ps-noble">👑+3</span>`).join('')}</div>`
+      ? `<div class="ps-nobles">${p.nobles.map(n => {
+          const req = n.req || n;
+          const reqs = GEM_COLORS.filter(c => req[c]).map(c =>
+            `<span class="dot ${c}" style="width:8px;height:8px;vertical-align:middle"></span>${req[c]}`
+          ).join('');
+          return `<span class="ps-noble" title="贵族 +3 VP">👑${reqs}</span>`;
+        }).join('')}</div>`
       : '';
     return `
       <div class="ps-name">
@@ -687,6 +693,17 @@ export class SplendorGame {
     }
 
     this.state = applyAction(this.state, this.humanIndex, action);
+
+    // 人类玩家拿贵族 → toast 提示
+    const nobleToast = this.state._lastNoblesGained;
+    if (nobleToast && nobleToast.playerIndex === this.humanIndex && nobleToast.nobles.length > 0) {
+      const first = nobleToast.nobles[0];
+      const req = first.req || first;
+      const reqs = GEM_COLORS.filter(c => req[c]).map(c => `${req[c]}${GEM_NAMES_SHORT[c]}`).join('+');
+      this.lastError = `👑 获得贵族！满足条件 ${reqs}，+3 分`;
+    }
+    // 清掉一次性标记，避免下回合重复提示
+    delete this.state._lastNoblesGained;
 
     // 检查是否超 10 颗 → 让玩家弃掉
     const p = this.state.players[this.humanIndex];
