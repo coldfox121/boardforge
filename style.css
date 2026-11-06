@@ -476,6 +476,26 @@ body {
   box-shadow: 0 0 0 3px var(--gold), 0 0 15px rgba(255,213,79,0.5);
 }
 .gem-pile.selected .gem-count { color: var(--gold); font-weight: 700; }
+/* 手里/预留区的卡：简化版，只留VP+颜色条 */
+.splendor-card.owned-only {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px;
+  gap: 1px;
+}
+.splendor-card.owned-only .card-vp {
+  font-size: 10px;
+  color: var(--gold);
+  font-weight: 700;
+  line-height: 1;
+}
+.splendor-card.owned-only .card-color-bar {
+  flex: 1;
+  width: 100%;
+  min-height: 28px;
+}
+.splendor-card.owned-only .card-cost { display: none; }
 .gem-pile.conflict {
   box-shadow: 0 0 0 3px #e06666, 0 0 15px rgba(224,102,102,0.5);
   animation: shake 0.3s;

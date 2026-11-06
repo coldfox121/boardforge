@@ -88,20 +88,29 @@ export class SplendorGame {
   _renderMyHTML() {
     const p = this.state.players[this.humanIndex];
     const isMyTurn = this.state.currentPlayer === this.humanIndex;
-    const ownedCards = p.ownedCards.map(c =>
-      `<div class="splendor-card" style="width:52px;height:72px;background:${this._tierBg(c.tier || 1)};cursor:default">
-        <div class="card-vp">${c.vp || ''}</div>
-        <div class="card-color-bar ${c.color}"></div>
-        <div class="card-cost">${(() => { let h = ''; for (const g of GEM_COLORS) { const n = c.cost[g] || 0; for (let k = 0; k < n; k++) h += `<span class="dot ${g}"></span>`; } return h; })()}</div>
+
+    // 按 GEM_COLORS 顺序排序，跟宝石列对齐
+    const ownedSorted = [...p.ownedCards].sort((a, b) => {
+      const ai = GEM_COLORS.indexOf(a.color);
+      const bi = GEM_COLORS.indexOf(b.color);
+      return ai - bi;
+    });
+
+    // 手里的卡：只显示 VP + 颜色条，不显示 cost
+    const ownedCards = ownedSorted.map(c =>
+      `<div class="splendor-card owned-only ${c.color}" style="width:40px;height:56px;background:${this._tierBg(c.tier || 1)};cursor:default">
+        <div class="card-vp" style="font-size:10px">${c.vp || ''}</div>
+        <div class="card-color-bar ${c.color}" style="flex:1"></div>
       </div>`
     ).join('');
+
+    // 预留卡：去掉 cost，保留 VP + 颜色条 + tierBg
     const reservedCards = p.reserved.map(c => {
       const canBuy = isMyTurn && this._canBuyCard({ source: 'reserved', cardId: c.id });
       const selectedThis = this.ops.card?.source === 'reserved' && this.ops.card.cardId === c.id;
-      return `<div class="splendor-card reserved ${canBuy ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}" style="width:52px;height:72px;background:${this._tierBg(c.tier)}" data-reserved-id="${c.id}">
-        <div class="card-vp">${c.vp || ''}</div>
-        <div class="card-color-bar ${c.color}"></div>
-        <div class="card-cost">${(() => { let h = ''; for (const g of GEM_COLORS) { const n = c.cost[g] || 0; for (let k = 0; k < n; k++) h += `<span class="dot ${g}"></span>`; } return h; })()}</div>
+      return `<div class="splendor-card reserved owned-only ${canBuy ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}" style="width:40px;height:56px;background:${this._tierBg(c.tier)}" data-reserved-id="${c.id}">
+        <div class="card-vp" style="font-size:10px">${c.vp || ''}</div>
+        <div class="card-color-bar ${c.color}" style="flex:1"></div>
       </div>`;
     }).join('');
     const totalGems = this._totalGems(p.gems);
