@@ -70,6 +70,20 @@ export async function hashPassword(password, saltHex) {
 export function isV2Hash(passHash) {
   return passHash.startsWith('v2:');
 }
+
+// 与前端 clientHashPassword 完全一致的推导（salt = 'boardforge::' + 小写用户名）
+// 仅用于兼容只传明文密码的旧前端
+export async function deriveClientHash(password, username) {
+  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const salt = encoder.encode('boardforge::' + String(username).toLowerCase());
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 },
+    key,
+    256
+  );
+  return toHex(bits);
+}
+
 export async function hashClientResult(clientHash) {
   return 'v2:' + await sha256Hex(clientHash);
 }

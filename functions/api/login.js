@@ -1,5 +1,5 @@
 // 登录：校验密码，返回新会话
-import { json, sha256Hex, hashPassword, isV2Hash, hashClientResult, isValidUsername, createSession, isAdmin } from '../_shared.js';
+import { json, sha256Hex, hashPassword, isV2Hash, hashClientResult, deriveClientHash, isValidUsername, createSession, isAdmin } from '../_shared.js';
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -34,9 +34,14 @@ export async function onRequestPost({ request, env }) {
       const expected = 'v2:' + await sha256Hex(clientHash);
       ok = expected === user.pass_hash;
     }
+    // 兼容加载了旧版前端的浏览器：只传明文密码，后端自行推导后比较
+    if (!ok && password) {
+      const derived = await deriveClientHash(password, username);
+      ok = ('v2:' + await sha256Hex(derived)) === user.pass_hash;
+    }
   } else {
     // 旧格式：后端 PBKDF2（慢），验证通过后自动升级为 v2
-    if (password) {
+    if (password && user.salt) {
       const passHash = await hashPassword(password, user.salt);
       ok = passHash === user.pass_hash;
       if (ok && clientHash) {
