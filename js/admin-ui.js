@@ -2,7 +2,7 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=18';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=19';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -107,10 +107,11 @@ export async function renderAdminPage(gameId = 'splendor') {
     GEM_COLORS: mod.GEM_COLORS
   };
   const adminData = loadAdminData(gameId);
-  const activeData = adminData || baseData;
+  // 深拷贝，避免直接修改原始基线数据
+  const activeData = JSON.parse(JSON.stringify(adminData || baseData));
 
   editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
-  bindAdminEvents(gameId, baseData);
+  bindAdminEvents(gameId, baseData, activeData);
 }
 
 function buildAdminHTML(gameId, baseData, activeData, adminData) {
@@ -151,12 +152,17 @@ function buildAdminHTML(gameId, baseData, activeData, adminData) {
     </div>
 
     <div class="admin-tabs">
-      <button class="tab active" data-tab="balance">平衡性分析</button>
-      <button class="tab" data-tab="json">JSON 编辑器</button>
+      <button class="tab active" data-tab="viz">🎴 可视化编辑</button>
+      <button class="tab" data-tab="balance">平衡性分析</button>
       <button class="tab" data-tab="diff">对比基线</button>
+      <button class="tab" data-tab="json">JSON（高级）</button>
     </div>
 
-    <div class="admin-panel" id="panel-balance">
+    <div class="admin-panel" id="panel-viz">
+      ${buildVisualHTML(activeData)}
+    </div>
+
+    <div class="admin-panel hidden" id="panel-balance">
       <div class="balance-grid">${tiersAnalysisHTML}</div>
       <div class="balance-legend">
         <strong>平衡性指标说明：</strong><br>
@@ -187,7 +193,7 @@ function colorDot(color) {
   return `<span class="cdot" style="background:${map[color] || '#888'}"></span>`;
 }
 
-function bindAdminEvents(gameId, baseData) {
+function bindAdminEvents(gameId, baseData, activeData) {
   // Tab 切换
   document.querySelectorAll('.admin-tabs .tab').forEach(t => {
     t.addEventListener('click', () => {
@@ -200,6 +206,8 @@ function bindAdminEvents(gameId, baseData) {
     });
   });
 
+  bindVisualEvents(gameId, activeData);
+
   // JSON 编辑的保存按钮等
   const saveBtn = document.getElementById('json-save');
   const resetBtn = document.getElementById('json-reset');
@@ -210,6 +218,245 @@ function bindAdminEvents(gameId, baseData) {
       document.getElementById('json-status').textContent = '✅ 已恢复基线，请刷新游戏生效';
     }
   });
+}
+
+// ===== 可视化牌库编辑器 =====
+const VIZ_COLORS = ['white', 'blue', 'green', 'red', 'black'];
+const VIZ_HEX = { white: '#d0d0d0', blue: '#5b9bd5', green: '#70ad47', red: '#e06666', black: '#4a4a4a' };
+const VIZ_NAME = { white: '钻石', blue: '蓝宝石', green: '祖母绿', red: '红宝石', black: '玛瑙' };
+
+function buildVisualHTML(data) {
+  let html = `
+    <div class="viz-toolbar">
+      <button class="btn primary" id="viz-save">💾 保存覆盖</button>
+      <button class="btn" id="viz-reset">↺ 恢复基线</button>
+      <span class="viz-status" id="viz-status"></span>
+    </div>
+    <div class="viz-hint">点击任意卡牌 / 贵族即可修改，改完点「保存覆盖」，刷新游戏生效</div>`;
+
+  for (const t of [1, 2, 3]) {
+    const cards = (data.CARDS && data.CARDS[t]) || [];
+    html += `
+      <div class="viz-tier">
+        <div class="viz-tier-head">
+          <span>等级 ${t} · <b>${cards.length}</b> 张</span>
+          <button class="btn small" data-add-card="${t}">+ 新增卡</button>
+        </div>
+        <div class="viz-grid">${cards.map((c, i) => vizCardHTML(c, t, i)).join('')}</div>
+      </div>`;
+  }
+
+  const nobles = data.NOBLES || [];
+  html += `
+    <div class="viz-tier">
+      <div class="viz-tier-head">
+        <span>👑 贵族 · <b>${nobles.length}</b> 张（固定 3 分）</span>
+        <button class="btn small" data-add-noble="1">+ 新增贵族</button>
+      </div>
+      <div class="viz-grid">${nobles.map((n, i) => vizNobleHTML(n, i)).join('')}</div>
+    </div>
+    <div id="viz-modal-mount"></div>`;
+  return html;
+}
+
+function vizCardHTML(card, tier, index) {
+  const costs = Object.entries(card.cost || {})
+    .filter(([, n]) => n > 0)
+    .map(([c, n]) => `<span class="viz-cost">${colorDot(c)}${n}</span>`)
+    .join('');
+  return `
+    <div class="viz-card" data-card="${tier}:${index}" style="border-left-color:${VIZ_HEX[card.color] || '#888'}">
+      <div class="viz-card-top">
+        <span class="viz-vp">${card.vp || 0}分</span>
+        <span class="viz-color">${VIZ_NAME[card.color] || card.color}</span>
+      </div>
+      <div class="viz-costs">${costs || '<span class="viz-free">无费用</span>'}</div>
+    </div>`;
+}
+
+function vizNobleHTML(noble, index) {
+  const reqs = Object.entries(noble.req || {})
+    .filter(([, n]) => n > 0)
+    .map(([c, n]) => `<span class="viz-cost">${colorDot(c)}${n}</span>`)
+    .join('');
+  return `<div class="viz-card viz-noble" data-noble="${index}">
+    <div class="viz-card-top"><span class="viz-vp">👑 3分</span></div>
+    <div class="viz-costs">${reqs}</div>
+  </div>`;
+}
+
+function renderVisualPanel(gameId, data) {
+  const panel = document.getElementById('panel-viz');
+  if (panel) panel.innerHTML = buildVisualHTML(data);
+}
+
+function bindVisualEvents(gameId, data) {
+  const panel = document.getElementById('panel-viz');
+  if (!panel) return;
+
+  // 用 onclick 赋值，避免多次渲染后监听器叠加；同时兼容面板内部重渲染
+  panel.onclick = (e) => {
+    const status = document.getElementById('viz-status');
+
+    if (e.target.closest('#viz-save')) {
+      try {
+        saveAdminData(gameId, data);
+        if (status) { status.textContent = '✅ 已保存，刷新游戏后生效'; status.style.color = '#70ad47'; }
+      } catch (err) {
+        if (status) { status.textContent = '❌ 保存失败：' + err.message; status.style.color = '#e06666'; }
+      }
+      return;
+    }
+
+    if (e.target.closest('#viz-reset')) {
+      if (!confirm('确定恢复基线？当前 admin 覆盖数据会被清空')) return;
+      clearAdminData(gameId);
+      renderAdminPage(gameId);
+      return;
+    }
+
+    const addCard = e.target.closest('[data-add-card]');
+    if (addCard) { addCardToData(data, Number(addCard.dataset.addCard)); renderVisualPanel(gameId, data); return; }
+
+    const addNoble = e.target.closest('[data-add-noble]');
+    if (addNoble) {
+      data.NOBLES = data.NOBLES || [];
+      let n = data.NOBLES.length + 1;
+      while (data.NOBLES.some(x => x.id === 'N' + n)) n++;
+      data.NOBLES.push({ id: 'N' + n, req: { white: 3, blue: 3, green: 3 } });
+      renderVisualPanel(gameId, data);
+      return;
+    }
+
+    const cardEl = e.target.closest('[data-card]');
+    if (cardEl) {
+      const [t, i] = cardEl.dataset.card.split(':').map(Number);
+      openCardEditor(gameId, data, t, i);
+      return;
+    }
+
+    const nobleEl = e.target.closest('[data-noble]');
+    if (nobleEl) openNobleEditor(gameId, data, Number(nobleEl.dataset.noble));
+  };
+}
+
+function addCardToData(data, tier) {
+  if (!data.CARDS) data.CARDS = {};
+  if (!data.CARDS[tier]) data.CARDS[tier] = [];
+  const list = data.CARDS[tier];
+  let n = list.length + 1;
+  let id = `${tier}-${String(n).padStart(2, '0')}`;
+  while (list.some(c => c.id === id)) { n++; id = `${tier}-${String(n).padStart(2, '0')}`; }
+  list.push({ id, color: 'white', cost: {}, tier, vp: 0 });
+}
+
+function openCardEditor(gameId, data, tier, index) {
+  const card = data.CARDS[tier][index];
+  const mount = document.getElementById('viz-modal-mount');
+  if (!mount) return;
+
+  mount.innerHTML = `
+    <div class="viz-backdrop">
+      <div class="viz-modal">
+        <h3>编辑卡牌 <span class="viz-id">${card.id}</span></h3>
+        <div class="viz-field">
+          <label>产出颜色</label>
+          <select id="ve-color">
+            ${VIZ_COLORS.map(c => `<option value="${c}"${card.color === c ? ' selected' : ''}>${VIZ_NAME[c]}</option>`).join('')}
+          </select>
+        </div>
+        <div class="viz-field">
+          <label>胜利点数</label>
+          <input type="number" id="ve-vp" min="0" max="5" value="${card.vp || 0}">
+        </div>
+        <div class="viz-cost-grid">
+          ${VIZ_COLORS.map(c => `
+            <div class="viz-field">
+              <label>${colorDot(c)} ${VIZ_NAME[c]}</label>
+              <input type="number" id="ve-cost-${c}" min="0" max="7" value="${(card.cost && card.cost[c]) || 0}">
+            </div>`).join('')}
+        </div>
+        <div class="viz-modal-actions">
+          <button class="btn primary" id="ve-ok">完成</button>
+          <button class="btn danger" id="ve-del">删除此卡</button>
+          <button class="btn" id="ve-cancel">取消</button>
+        </div>
+      </div>
+    </div>`;
+
+  mount.onclick = (e) => {
+    if (e.target.id === 've-cancel' || e.target.classList.contains('viz-backdrop')) { mount.innerHTML = ''; return; }
+
+    if (e.target.id === 've-ok') {
+      card.color = document.getElementById('ve-color').value;
+      card.vp = Number(document.getElementById('ve-vp').value) || 0;
+      const cost = {};
+      for (const c of VIZ_COLORS) {
+        const v = Number(document.getElementById('ve-cost-' + c).value) || 0;
+        if (v > 0) cost[c] = v;
+      }
+      card.cost = cost;
+      mount.innerHTML = '';
+      renderVisualPanel(gameId, data);
+      return;
+    }
+
+    if (e.target.id === 've-del') {
+      if (!confirm('确定删除这张卡？')) return;
+      data.CARDS[tier].splice(index, 1);
+      mount.innerHTML = '';
+      renderVisualPanel(gameId, data);
+    }
+  };
+}
+
+function openNobleEditor(gameId, data, index) {
+  const noble = data.NOBLES[index];
+  const mount = document.getElementById('viz-modal-mount');
+  if (!mount) return;
+
+  mount.innerHTML = `
+    <div class="viz-backdrop">
+      <div class="viz-modal">
+        <h3>编辑贵族 <span class="viz-id">${noble.id}</span></h3>
+        <div class="viz-hint">贵族固定 3 分，只需设置所需卡牌数量</div>
+        <div class="viz-cost-grid">
+          ${VIZ_COLORS.map(c => `
+            <div class="viz-field">
+              <label>${colorDot(c)} ${VIZ_NAME[c]}</label>
+              <input type="number" id="vn-req-${c}" min="0" max="5" value="${(noble.req && noble.req[c]) || 0}">
+            </div>`).join('')}
+        </div>
+        <div class="viz-modal-actions">
+          <button class="btn primary" id="vn-ok">完成</button>
+          <button class="btn danger" id="vn-del">删除此贵族</button>
+          <button class="btn" id="vn-cancel">取消</button>
+        </div>
+      </div>
+    </div>`;
+
+  mount.onclick = (e) => {
+    if (e.target.id === 'vn-cancel' || e.target.classList.contains('viz-backdrop')) { mount.innerHTML = ''; return; }
+
+    if (e.target.id === 'vn-ok') {
+      const req = {};
+      for (const c of VIZ_COLORS) {
+        const v = Number(document.getElementById('vn-req-' + c).value) || 0;
+        if (v > 0) req[c] = v;
+      }
+      noble.req = req;
+      mount.innerHTML = '';
+      renderVisualPanel(gameId, data);
+      return;
+    }
+
+    if (e.target.id === 'vn-del') {
+      if (!confirm('确定删除这个贵族？')) return;
+      data.NOBLES.splice(index, 1);
+      mount.innerHTML = '';
+      renderVisualPanel(gameId, data);
+    }
+  };
 }
 
 function loadEditorJSON(gameId, baseData) {

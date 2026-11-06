@@ -1067,6 +1067,34 @@ body {
 .admin-game-tab.disabled { opacity:.55; }
 .admin-placeholder { padding:60px 20px; text-align:center; color:var(--text-dim); font-size:14px; }
 
+/* 可视化牌库编辑器 */
+.viz-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.viz-status { font-size:13px; }
+.viz-hint { font-size:12px; color:var(--text-dim); margin-bottom:14px; }
+.viz-tier { margin-bottom:20px; }
+.viz-tier-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:14px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.viz-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; }
+.viz-card { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-left:4px solid #888; border-radius:8px; padding:8px 10px; cursor:pointer; transition:all .15s; }
+.viz-card:hover { background:rgba(255,255,255,0.1); transform:translateY(-1px); }
+.viz-card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.viz-vp { font-size:13px; font-weight:600; color:var(--gold); }
+.viz-color { font-size:11px; color:var(--text-dim); }
+.viz-costs { display:flex; gap:6px; flex-wrap:wrap; font-size:12px; }
+.viz-cost { display:inline-flex; align-items:center; gap:2px; }
+.viz-free { font-size:11px; color:var(--text-dim); opacity:.6; }
+.viz-noble { border-left-color:#ffd54f; }
+.viz-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.viz-modal { background:#1e2130; border:1px solid var(--border); border-radius:12px; padding:20px; width:min(460px,100%); max-height:85vh; overflow-y:auto; }
+.viz-modal h3 { margin:0 0 14px; font-size:16px; }
+.viz-id { font-size:11px; opacity:.5; font-weight:400; }
+.viz-field { margin-bottom:10px; }
+.viz-field label { display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px; }
+.viz-field select, .viz-field input { width:100%; padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:rgba(255,255,255,0.06); color:var(--text); font-size:13px; box-sizing:border-box; }
+.viz-cost-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(78px,1fr)); gap:8px; margin-bottom:14px; }
+.viz-modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+.btn.small { padding:4px 10px; font-size:12px; }
+.btn.danger { background:rgba(224,102,102,0.15); border-color:#e06666; color:#e06666; }
+
 .admin-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px; }
 .admin-header h2 { margin:0; }
 .admin-status { font-size:13px; padding:4px 12px;border-radius:8px;background:rgba(255,213,79,0.1); color:var(--gold); }
