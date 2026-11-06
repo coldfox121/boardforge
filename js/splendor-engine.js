@@ -22,19 +22,6 @@ function shuffle(arr) {
 function countGems(gems) {
   return GEM_COLORS.reduce((s, c) => s + (gems[c] || 0), 0) + (gems.gold || 0);
 }
-function canAfford(gems, cost, cardBonus) {
-  // 用黄金补缺口，cardBonus 是已持有的卡面宝石（可抵对应颜色）
-  let needGold = 0;
-  for (const color of GEM_COLORS) {
-    const need = cost[color] || 0;
-    const have = (gems[color] || 0) + (cardBonus[color] || 0);
-    if (have < need) needGold += (need - have);
-  }
-  // 检查黄金够不够 + 手牌上限（预留槽）
-  if (needGold > (gems.gold || 0)) return false;
-  // 买卡后宝石总数减 needGold + 剩余 ≤ 10（回合结束检查）
-  return true;
-}
 
 // ===== 游戏初始化 =====
 // playerNames: ['P1','P2'] 或 ['P1','P2','P3','P4']
@@ -107,9 +94,10 @@ export function initGame(playerNames) {
     players,
     // 触发终局的玩家 index（触发后其他人走最后一轮）
     endTriggeredBy: null,
-    endLastRound: false,
     _endCountdown: 0,
-    _justTriggeredEnd: false
+    _justTriggeredEnd: false,
+    // 待弃宝石状态（拿宝石后超 10 时进入，弃完才推进回合）
+    pendingDiscard: null
   };
 }
 
@@ -132,17 +120,13 @@ export function validateAction(state, playerIndex, action) {
       if (set.size !== action.colors.length) return '不能有重复颜色';
       if (action.colors.some(c => !GEM_COLORS.includes(c))) return '颜色无效';
       if (action.colors.some(c => state.gemPool[c] < 1)) return '某颜色宝石不足';
-      // 回合结束必须 ≤10 颗
-      const after = countGems(p.gems) + action.colors.length;
-      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}，拿 ${action.colors.length} 颗后 ${after}）`;
+      // 超 10 颗不在这里拦，拿完后由弃宝石流程处理
       return null;
     }
     case 'TAKE_SAME': {
       if (!GEM_COLORS.includes(action.color)) return '颜色无效';
       if (state.gemPool[action.color] < 4) return '该色剩余不足 4 颗';
-      // 回合结束必须 ≤10 颗
-      const after = countGems(p.gems) + 2;
-      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}，拿 2 颗后 ${after}）`;
+      // 超 10 颗不在这里拦，拿完后由弃宝石流程处理
       return null;
     }
     case 'RESERVE': {
@@ -158,9 +142,8 @@ export function validateAction(state, playerIndex, action) {
         return 'source 必须是 board 或 top';
       }
       if (p.reserved.length >= 3) return '预留槽已满（最多 3 张）';
-      const after = countGems(p.gems) + 1;
-      if (after > 10) return `拿完黄金会超 10 颗（当前 ${countGems(p.gems)}）`;
       if (state.gemPool.gold < 1) return '黄金不足';
+      // 超 10 颗不在这里拦，拿黄金后由弃宝石流程处理
       return null;
     }
     case 'BUY': {
@@ -189,6 +172,9 @@ export function validateAction(state, playerIndex, action) {
       if (needGold > (p.gems.gold || 0)) return '宝石不足，无法支付';
       return null;
     }
+    case 'PASS':
+      // 跳过回合（极端保底：无任何合法动作时使用）
+      return null;
     default:
       return `未知动作类型: ${action.type}`;
   }
@@ -206,6 +192,7 @@ export function applyAction(state, playerIndex, action) {
   const s = deepClone(state);
   const p = s.players[playerIndex];
   p.isAI = p.isAI; // 保持标记
+  s._justTriggeredEnd = false; // 每次动作重置终局触发标记
 
   switch (action.type) {
     case 'TAKE_DIFF':
@@ -215,6 +202,10 @@ export function applyAction(state, playerIndex, action) {
     case 'TAKE_SAME':
       s.gemPool[action.color] -= 2;
       p.gems[action.color] += 2;
+      break;
+
+    case 'PASS':
+      // 跳过回合，不做任何操作
       break;
 
     case 'RESERVE': {
@@ -230,8 +221,6 @@ export function applyAction(state, playerIndex, action) {
       } else {
         card = s.decks[`tier${action.tier}`].shift();
       }
-      // 标记预留卡（后续移走时用）
-      card._reservedSource = action.source;
       p.reserved.push(card);
       // 拿 1 颗黄金
       s.gemPool.gold--;
@@ -306,13 +295,25 @@ export function applyAction(state, playerIndex, action) {
     }
   }
 
-  // ===== 回合结束：检查终局 =====
-  // 公平轮规则：有人达 15 分后，其他人各补走一轮（触发者本轮已走完）→ 所有人总轮数相同才结束
+  // ===== 弃宝石检查：拿宝石/预留后超 10 颗，进入待弃状态（不推进回合）=====
+  const totalAfter = countGems(p.gems);
+  if (totalAfter > 10 && (action.type === 'TAKE_DIFF' || action.type === 'TAKE_SAME' || action.type === 'RESERVE')) {
+    s.pendingDiscard = { playerIndex, count: totalAfter - 10 };
+    s.lastAction = { player: playerIndex, type: action.type, at: Date.now() };
+    return s;
+  }
+
+  return _advanceTurn(s, playerIndex, action.type);
+}
+
+// ===== 回合推进 + 终局检查（applyAction 和 discardGems 弃完后共用）=====
+function _advanceTurn(s, playerIndex, actionType) {
+  const p = s.players[playerIndex];
+
   let nextPlayer = (playerIndex + 1) % s.players.length;
   let nextTurn = s.turn;
   if (nextPlayer === 0) nextTurn = s.turn + 1;
 
-  // 本轮刚触发终局（新有人到 15 分）
   const pScoreNow = p.score;
   if (pScoreNow >= 15 && !s.endTriggeredBy) {
     s.endTriggeredBy = playerIndex;
@@ -327,12 +328,18 @@ export function applyAction(state, playerIndex, action) {
     if (s._endCountdown <= 0) {
       s.gameOver = true;
       s.phase = 'ended';
+      // 官方决胜顺序：分数 > 发展卡少者胜 > 预留卡少者胜
       const sorted = [...s.players].sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        return b.ownedCards.length - a.ownedCards.length;
+        if (a.ownedCards.length !== b.ownedCards.length) return a.ownedCards.length - b.ownedCards.length;
+        return a.reserved.length - b.reserved.length;
       });
-      const top = sorted[0].score;
-      s.winners = sorted.filter(p => p.score === top).map(p => p.id);
+      const topScore = sorted[0].score;
+      const topCards = sorted[0].ownedCards.length;
+      const topReserved = sorted[0].reserved.length;
+      s.winners = sorted
+        .filter(p => p.score === topScore && p.ownedCards.length === topCards && p.reserved.length === topReserved)
+        .map(p => p.id);
     }
   }
 
@@ -342,7 +349,27 @@ export function applyAction(state, playerIndex, action) {
     s.currentPlayer = nextPlayer;
     s.turn = nextTurn;
   }
-  s.lastAction = { player: playerIndex, type: action.type, at: Date.now() };
+  s.lastAction = { player: playerIndex, type: actionType, at: Date.now() };
+  return s;
+}
+
+// ===== 弃宝石（拿宝石后超 10 时调用，弃完才推进回合）=====
+export function discardGems(state, playerIndex, color) {
+  const s = deepClone(state);
+  const p = s.players[playerIndex];
+  if (!s.pendingDiscard || s.pendingDiscard.playerIndex !== playerIndex) {
+    throw new Error('无需弃宝石');
+  }
+  if ((p.gems[color] || 0) <= 0) throw new Error('该颜色没有宝石');
+
+  p.gems[color]--;
+  s.gemPool[color]++;
+  s.pendingDiscard.count--;
+
+  if (s.pendingDiscard.count <= 0) {
+    delete s.pendingDiscard;
+    return _advanceTurn(s, playerIndex, 'DISCARD');
+  }
   return s;
 }
 
@@ -364,9 +391,13 @@ export function listValidActions(state, playerIndex) {
   const actions = [];
   const p = state.players[playerIndex];
 
-  // 1) TAKE_DIFF：3 种不同色宝石
+  // 1) TAKE_DIFF：1-3 种不同色宝石
   const availableColors = GEM_COLORS.filter(c => state.gemPool[c] > 0);
-  const combos = get3Combos(availableColors);
+  const combos = [
+    ...getCombos(availableColors, 1),
+    ...getCombos(availableColors, 2),
+    ...getCombos(availableColors, 3)
+  ];
   for (const combo of combos) {
     const a = { type: 'TAKE_DIFF', colors: combo };
     if (!validateAction(state, playerIndex, a)) actions.push(a);
@@ -411,11 +442,19 @@ export function listValidActions(state, playerIndex) {
   return actions;
 }
 
-function get3Combos(arr) {
+// 从 arr 中取 k 个元素的所有组合
+function getCombos(arr, k) {
   const result = [];
-  for (let i = 0; i < arr.length - 2; i++)
-    for (let j = i + 1; j < arr.length - 1; j++)
-      for (let k = j + 1; k < arr.length; k++)
-        result.push([arr[i], arr[j], arr[k]]);
+  const n = arr.length;
+  if (k > n || k < 1) return result;
+  const indices = Array.from({ length: k }, (_, i) => i);
+  while (true) {
+    result.push(indices.map(i => arr[i]));
+    let i = k - 1;
+    while (i >= 0 && indices[i] === n - k + i) i--;
+    if (i < 0) break;
+    indices[i]++;
+    for (let j = i + 1; j < k; j++) indices[j] = indices[j - 1] + 1;
+  }
   return result;
 }

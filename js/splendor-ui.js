@@ -1,5 +1,5 @@
 // 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions } from './splendor-engine.js';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js';
 import { pickAction } from './splendor-ai.js';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js';
 
@@ -332,7 +332,6 @@ export class SplendorGame {
       container.innerHTML = '';
       const cards = this.state.board[`tier${tier}`];
       cards.forEach((card, idx) => {
-        if (card._reservedSource === 'board') return;
         const canBuy = isMyTurn && this._canBuyCard({ source: 'board', tier, cardIndex: idx });
         const isSelected = this.ops.card?.source === 'board' && this.ops.card.tier === tier && this.ops.card.cardIndex === idx;
         const div = document.createElement('div');
@@ -372,6 +371,9 @@ export class SplendorGame {
 
     const isMyTurn = this.state.currentPlayer === this.humanIndex;
     if (!isMyTurn) return;
+
+    // 弃宝石模式：不渲染操作按钮（弃宝石操作在 _renderMyHTML 的宝石 badge 上）
+    if (this.state.pendingDiscard) return;
 
     const p = this.state.players[this.humanIndex];
 
@@ -523,84 +525,30 @@ export class SplendorGame {
     return { intent: null, ok: false, hint: '' };
   }
 
-  // ===== 点击宝石 =====
+  // ===== 点击黄金（进入预留模式）普通宝石走 _onGemPlus =====
   _onGemClick(color) {
     if (this.state.currentPlayer !== this.humanIndex) return;
+    if (color !== 'gold') return;
     this.lastError = null;
 
-    // 点黄金：进入预留模式
-    if (color === 'gold') {
-      if (this.ops.gems.length > 0) {
-        this.lastError = '已选普通宝石，黄金不能与普通宝石同回合';
-        this._renderAll();
-        return;
-      }
-      if (this.ops.goldTaken) {
-        // 取消黄金
-        this.ops.goldTaken = false;
-        if (this.ops.card?.source === 'top' || this.ops.card?.source === 'board') {
-          this.ops.card = null;
-        }
-        this._renderAll();
-        return;
-      }
-      const p = this.state.players[this.humanIndex];
-      if (p.reserved.length >= 3) { this.lastError = '预留槽已满'; this._renderAll(); return; }
-      if (this.state.gemPool.gold < 1) { this.lastError = '黄金不足（需要池里至少 1 颗才能预留）'; this._renderAll(); return; }
-      this.ops.goldTaken = true;
-      this._renderAll();
-      return;
-    }
-
-    // 已经在买卡或预留模式，不再接受宝石选择
-    if (this.ops.card && !this.ops.goldTaken) {
-      this.lastError = '已选中卡片，先取消卡片或点"取消"';
+    if (this.ops.gems.length > 0) {
+      this.lastError = '已选普通宝石，黄金不能与普通宝石同回合';
       this._renderAll();
       return;
     }
     if (this.ops.goldTaken) {
-      this.lastError = '已进入预留模式，不能再拿普通宝石';
+      // 取消黄金
+      this.ops.goldTaken = false;
+      if (this.ops.card?.source === 'top' || this.ops.card?.source === 'board') {
+        this.ops.card = null;
+      }
       this._renderAll();
       return;
     }
-
-    // 上限 3 颗
-    if (this.ops.gems.length >= 3) {
-      this.lastError = '最多选 3 颗宝石（想减的话点下方"已选"小圆点）';
-      this._renderAll();
-      return;
-    }
-
-    // 点击宝石堆永远 = +1（取消操作在状态栏已选小圆点上做）
-    const test = [...this.ops.gems, color];
-    const counts = {};
-    test.forEach(g => counts[g] = (counts[g] || 0) + 1);
-    const hasTwoSame = Object.values(counts).some(n => n >= 2);
-    const colors = Object.keys(counts);
-
-    // 如果当前模式是 2 颗同色，第三颗不同色 → 冲突
-    if (hasTwoSame && test.length === 3) {
-      this.lastError = '已选 2 颗同色，不能混拿第三种颜色（规则：要么 2 同色要么 3 不同色）';
-      this._renderAll();
-      return;
-    }
-
-    // pool 里够不够
-    if ((this.state.gemPool[color] || 0) < (counts[color] || 1)) {
-      this.lastError = `${GEM_NAMES[color]} 剩余不足`;
-      this._renderAll();
-      return;
-    }
-
-    // 宝石上限
     const p = this.state.players[this.humanIndex];
-    if (this._totalGems(p.gems) + test.length > 10) {
-      this.lastError = '拿完会超 10 颗上限';
-      this._renderAll();
-      return;
-    }
-
-    this.ops.gems.push(color);
+    if (p.reserved.length >= 3) { this.lastError = '预留槽已满'; this._renderAll(); return; }
+    if (this.state.gemPool.gold < 1) { this.lastError = '黄金不足（需要池里至少 1 颗才能预留）'; this._renderAll(); return; }
+    this.ops.goldTaken = true;
     this._renderAll();
   }
 
@@ -730,14 +678,12 @@ export class SplendorGame {
       this.lastError = null;
     }
 
-    // 检查是否超 10 颗 → 让玩家弃掉
-    const p = this.state.players[this.humanIndex];
-    const totalNow = this._totalGems(p.gems);
-    if (totalNow > 10) {
-      this._discardNeeded = totalNow - 10;
+    // 检查是否需要弃宝石（引擎拿宝石后超 10 会设置 pendingDiscard，不推进回合）
+    if (this.state.pendingDiscard) {
+      this._discardNeeded = this.state.pendingDiscard.count;
       this._clearOps({ keepDiscard: true });
       this._renderAll();
-      return; // 不结束回合，等弃完再手动结束
+      return; // 不结束回合，等弃完再推进
     }
 
     this._clearOps();
@@ -745,20 +691,20 @@ export class SplendorGame {
     this._maybeAIMove();
   }
 
-  // ===== 弃宝石 =====
+  // ===== 弃宝石（调用引擎 discardGems，弃完引擎自动推进回合）=====
   _onDiscardGem(color) {
-    if (!this._discardNeeded || this._discardNeeded <= 0) return;
-    const p = this.state.players[this.humanIndex];
-    if ((p.gems[color] || 0) <= 0) return;
-    // 从玩家手里 -1，加回公共池
-    p.gems[color]--;
-    this.state.gemPool[color]++;
-    this._discardNeeded--;
-    if (this._discardNeeded === 0) {
-      // 弃完了，正常结束回合
-      this._discardNeeded = 0;
+    if (!this.state.pendingDiscard) return;
+    try {
+      this.state = discardGems(this.state, this.humanIndex, color);
+    } catch (e) {
+      this.lastError = e.message;
       this._renderAll();
-      this._clearOps();
+      return;
+    }
+    this._discardNeeded = this.state.pendingDiscard ? this.state.pendingDiscard.count : 0;
+    if (!this.state.pendingDiscard) {
+      // 弃完了，回合已由引擎推进
+      this._renderAll();
       this._checkGameOver();
       this._maybeAIMove();
     } else {
@@ -771,11 +717,59 @@ export class SplendorGame {
     if (this.state.gameOver) return;
     const p = this.state.players[this.state.currentPlayer];
     if (!p.isAI) return;
+
+    // AI 处于弃宝石状态 → 自动弃（优先弃最多的普通宝石，保留黄金）
+    if (this.state.pendingDiscard) {
+      this.aiTimer = setTimeout(() => {
+        const ai = this.state.players[this.state.currentPlayer];
+        let bestColor = null, bestCount = 0;
+        for (const c of GEM_COLORS) {
+          if ((ai.gems[c] || 0) > bestCount) { bestCount = ai.gems[c]; bestColor = c; }
+        }
+        if (bestColor) {
+          try {
+            this.state = discardGems(this.state, this.state.currentPlayer, bestColor);
+            this._renderAll();
+            this._maybeAIMove();
+          } catch (e) { console.error('[AI] 弃宝石报错:', e); }
+        }
+      }, 400);
+      return;
+    }
+
     console.log('[AI] currentPlayer:', this.state.currentPlayer, 'name:', p.name);
     this.aiTimer = setTimeout(() => {
-      const actions = listValidActions(this.state, this.state.currentPlayer);
+      let actions = listValidActions(this.state, this.state.currentPlayer);
       console.log('[AI] valid actions:', actions.length);
-      if (actions.length === 0) return;
+
+      // 保底：无合法动作时，先弃宝石腾出空间再试
+      if (actions.length === 0) {
+        const ai = this.state.players[this.state.currentPlayer];
+        if (this._totalGems(ai.gems) > 10) {
+          let bestColor = null, bestCount = 0;
+          for (const c of GEM_COLORS) {
+            if ((ai.gems[c] || 0) > bestCount) { bestCount = ai.gems[c]; bestColor = c; }
+          }
+          if (bestColor) {
+            ai.gems[bestColor]--;
+            this.state.gemPool[bestColor]++;
+            actions = listValidActions(this.state, this.state.currentPlayer);
+          }
+        }
+      }
+
+      // 还是没有合法动作 → PASS 跳过回合
+      if (actions.length === 0) {
+        console.log('[AI] 无合法动作，PASS 跳过回合');
+        try {
+          this.state = applyAction(this.state, this.state.currentPlayer, { type: 'PASS' });
+          this._renderAll();
+          this._checkGameOver();
+          this._maybeAIMove();
+        } catch (e) { console.error('[AI] PASS 报错:', e); }
+        return;
+      }
+
       const action = pickAction(this.state, this.state.currentPlayer);
       console.log('[AI] picked:', action);
       if (!action) return;
@@ -799,7 +793,11 @@ export class SplendorGame {
     endEl.classList.remove('hidden');
     const scores = document.getElementById('splendor-scores');
     scores.innerHTML = '';
-    const sorted = [...this.state.players].sort((a, b) => b.score - a.score);
+    const sorted = [...this.state.players].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.ownedCards.length !== b.ownedCards.length) return a.ownedCards.length - b.ownedCards.length;
+      return a.reserved.length - b.reserved.length;
+    });
     sorted.forEach((p, i) => {
       const row = document.createElement('div');
       row.className = `score-row ${this.state.winners.includes(p.id) ? 'winner' : ''}`;
