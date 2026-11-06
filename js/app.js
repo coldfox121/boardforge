@@ -1,6 +1,6 @@
-// BoardForge · 前端入口
-import { SplendorGame } from './splendor-ui.js?v=13';
-import { renderAdminPage, mountAdminButton } from './admin-ui.js?v=13';
+﻿// BoardForge · 前端入口
+import { SplendorGame } from './splendor-ui.js?v=14';
+import { renderAdminPage, mountAdminButton } from './admin-ui.js?v=14';
 
 // === 全局状态 ===
 const state = {

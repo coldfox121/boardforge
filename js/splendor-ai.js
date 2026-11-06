@@ -1,5 +1,5 @@
-// 璀璨宝石 AI（贪心策略）
-import { listValidActions } from './splendor-engine.js?v=13';
+﻿// 璀璨宝石 AI（贪心策略）
+import { listValidActions } from './splendor-engine.js?v=14';
 
 // 评估动作"值不值"，分数越高越优先
 function scoreAction(state, action, playerIndex) {
@@ -7,19 +7,14 @@ function scoreAction(state, action, playerIndex) {
 
   switch (action.type) {
     case 'BUY': {
-      // 能买卡优先，vp 越高越好
+      // 买卡是唯一得分手段，只要买得起就必须买，优先级远高于拿宝石
       let card;
       if (action.source === 'board') card = state.board[`tier${action.tier}`][action.cardIndex];
       else card = p.reserved.find(c => c.id === action.cardId);
       if (!card) return -9999;
-      const costTotal = Object.values(card.cost).reduce((s, v) => s + v, 0);
       const cardOwned = p.ownedCards.filter(c => c.color === card.color).length;
-      // 买卡的核心价值 = vp分数 + 宝石折扣价值（每买一张该色卡，未来该色花费-1） + 连锁效应
-      const vpScore = (card.vp || 0) * 3;
-      const discountValue = 3;       // 每张卡提供的宝石折扣基础价值
-      const synergy = cardOwned * 0.5; // 已有同色卡越多，连锁越强
-      const costPenalty = costTotal * 0.05; // 轻微的代价惩罚
-      return vpScore + discountValue + synergy - costPenalty;
+      // 同一次能买多张时：vp 越高越优先，同色联动加分
+      return 100 + (card.vp || 0) * 10 + cardOwned * 0.5;
     }
     case 'RESERVE': {
       // 预留一般不优先，除非紧急缺
@@ -27,35 +22,45 @@ function scoreAction(state, action, playerIndex) {
     }
     case 'TAKE_DIFF':
     case 'TAKE_SAME': {
-      // 看当前最缺什么，拿什么补
+      // 只补"最接近买得起"的卡的缺口，避免盲囤
       const needed = computeNeeded(state, playerIndex);
       let score = 0;
       const takeColors = action.type === 'TAKE_DIFF' ? action.colors : [action.color];
       for (const c of takeColors) score += needed[c] || 0;
-      // 权重降低，让买卡更有竞争力
-      return score * 0.2;
+      return score * 0.5;
     }
   }
   return 0;
 }
 
-// 看买什么卡最急缺对应颜色
+// 找当前最接近买得起的目标卡，只统计这些卡的缺口
 function computeNeeded(state, playerIndex) {
   const p = state.players[playerIndex];
+  const COLORS = ['white', 'blue', 'green', 'red', 'black'];
   const needed = {};
-  for (const c of ['white','blue','green','red','black']) needed[c] = 0;
+  for (const c of COLORS) needed[c] = 0;
 
-  // 场上所有可买的卡，累计缺的颜色
-  for (const tier of [1,2,3]) {
+  const candidates = [];
+  for (const tier of [1, 2, 3]) {
     for (const card of state.board[`tier${tier}`]) {
       if (!card) continue;
-      for (const c of ['white','blue','green','red','black']) {
+      let deficit = 0;
+      for (const c of COLORS) {
         const cost = card.cost[c] || 0;
-        // 已有卡面产出
-        const owned = p.ownedCards.filter(o => o.color === c).length;
-        const have = (p.gems[c] || 0) + owned;
-        needed[c] += Math.max(0, cost - have);
+        const have = (p.gems[c] || 0) + p.ownedCards.filter(o => o.color === c).length;
+        deficit += Math.max(0, cost - have);
       }
+      candidates.push({ card, deficit });
+    }
+  }
+  candidates.sort((a, b) => a.deficit - b.deficit);
+
+  // 只盯最接近的 2 张卡，集中财力
+  for (const { card } of candidates.slice(0, 2)) {
+    for (const c of COLORS) {
+      const cost = card.cost[c] || 0;
+      const have = (p.gems[c] || 0) + p.ownedCards.filter(o => o.color === c).length;
+      needed[c] += Math.max(0, cost - have);
     }
   }
   return needed;

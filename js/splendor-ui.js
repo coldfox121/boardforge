@@ -1,7 +1,7 @@
-// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=13';
-import { pickAction } from './splendor-ai.js?v=13';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=13';
+﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=14';
+import { pickAction } from './splendor-ai.js?v=14';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=14';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
