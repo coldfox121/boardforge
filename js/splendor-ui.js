@@ -78,7 +78,7 @@ export class SplendorGame {
     }
   }
 
-  // ===== Noble =====
+  // ===== 贵族 =====
   _renderNobles() {
     const row = document.getElementById('splendor-nobles');
     row.innerHTML = '';
@@ -93,7 +93,7 @@ export class SplendorGame {
       `;
       row.appendChild(div);
     });
-    // 已获得的 Noble 在自己手牌区展示
+    // 已获得的贵族在自己手牌区展示
   }
 
   // ===== 三级卡 =====

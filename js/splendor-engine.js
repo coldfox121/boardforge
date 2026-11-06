@@ -59,7 +59,7 @@ export function initGame(playerNames) {
   for (const c of GEM_COLORS) gemPool[c] = setup.gemsPerColor;
   gemPool.gold = 5;
 
-  // Noble 翻出
+  // 贵族翻出
   const nobleDeck = shuffle(NOBLES.map(n => ({ ...n })));
   const nobles = nobleDeck.splice(0, setup.nobles);
 
@@ -74,9 +74,9 @@ export function initGame(playerNames) {
     ownedCards: [],
     // 预留槽（最多 3 张）
     reserved: [],
-    // 已获得 Noble
+    // 已获得贵族
     nobles: [],
-    // 当前分数（卡 vp + noble vp）
+    // 当前分数（卡 vp + 贵族 vp）
     score: 0
   }));
 
@@ -94,7 +94,7 @@ export function initGame(playerNames) {
     board,
     // 宝石堆
     gemPool,
-    // Noble 图板
+    // 贵族图板
     nobles,
     // 玩家
     players,
@@ -270,7 +270,7 @@ export function applyAction(state, playerIndex, action) {
       // 更新分数（卡 vp）
       p.score += (card.vp || 0);
 
-      // Noble 检查（是否满足条件）
+      // 贵族检查（是否满足条件）
       for (let i = s.nobles.length - 1; i >= 0; i--) {
         const n = s.nobles[i];
         if (canGetNoble(p, n)) {
@@ -333,7 +333,7 @@ function canGetNoble(player, noble) {
   // 统计玩家持有的各颜色卡数
   const ownedCounts = {};
   for (const c of GEM_COLORS) ownedCounts[c] = countColorInCards(player.ownedCards, c);
-  // 满足 noble 条件
+  // 满足贵族条件
   for (const c of GEM_COLORS) {
     const need = noble[c] || 0;
     if (ownedCounts[c] < need) return false;
