@@ -27,7 +27,12 @@ function navigate(path, query = null) {
   if (query && Object.keys(query).length) {
     url += '?' + Object.entries(query).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
   }
-  location.hash = url;
+  if (location.hash === url) {
+    // hash 相同浏览器不会派发 hashchange，手动触发
+    handleRoute();
+  } else {
+    location.hash = url;
+  }
 }
 
 // === 路由处理 ===
