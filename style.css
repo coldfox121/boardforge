@@ -363,11 +363,11 @@ body {
   box-shadow: inset 0 -2px 3px rgba(0,0,0,0.3);
 }
 .splendor-side .ps-gem.empty { opacity: 0.2; }
-.splendor-side .ps-gem.white { background: linear-gradient(135deg, #fff, #ccc); color: #555; }
+.splendor-side .ps-gem.white { background: linear-gradient(135deg, #fff, #d0d0d0); color: #444; border: 1px solid #999; }
 .splendor-side .ps-gem.blue  { background: linear-gradient(135deg, #5b9bd5, #2e5984); }
 .splendor-side .ps-gem.green { background: linear-gradient(135deg, #70ad47, #375623); }
 .splendor-side .ps-gem.red   { background: linear-gradient(135deg, #e06666, #993333); }
-.splendor-side .ps-gem.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
+.splendor-side .ps-gem.black { background: linear-gradient(135deg, #444, #0a0a0a); color: #fff; border: 1px solid rgba(255,255,255,0.5); }
 .splendor-side .ps-gem.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); }
 .splendor-side .ps-owned {
   display: flex;
@@ -526,11 +526,11 @@ body {
   justify-content: center;
   font-size: 16px;
 }
-.gem-circle.white { background: linear-gradient(135deg, #f5f5f5, #bbb); color: #888; border: 1px solid #aaa; }
+.gem-circle.white { background: linear-gradient(135deg, #fff, #d0d0d0); color: #555; border: 1px solid #999; }
 .gem-circle.blue  { background: linear-gradient(135deg, #7fb3e0, #2e5984); border: 1px solid rgba(255,255,255,0.3); }
 .gem-circle.green { background: linear-gradient(135deg, #95c76d, #375623); border: 1px solid rgba(255,255,255,0.3); }
 .gem-circle.red   { background: linear-gradient(135deg, #ef8a8a, #993333); border: 1px solid rgba(255,255,255,0.3); }
-.gem-circle.black { background: linear-gradient(135deg, #888, #333); border: 1px solid rgba(255,255,255,0.2); }
+.gem-circle.black { background: linear-gradient(135deg, #444, #0a0a0a); border: 1px solid rgba(255,255,255,0.5); }
 .gem-circle.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); border: 1px solid rgba(255,255,255,0.4); }
 .gem-count {
   font-size: 11px;
@@ -682,8 +682,7 @@ body {
   box-shadow: 0 0 0 3px #4fc3f7, 0 6px 20px rgba(79,195,247,0.4);
 }
 .splendor-card.reserved {
-  opacity: 0.7;
-  transform: rotate(-3deg);
+  opacity: 0.85;
 }
 .card-color-bar {
   height: 14px;
@@ -691,11 +690,11 @@ body {
   margin-bottom: 4px;
   border: 1px solid rgba(255,255,255,0.2);
 }
-.card-color-bar.white { background: linear-gradient(90deg, #f5f5f5, #c4c4c4); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+.card-color-bar.white { background: linear-gradient(90deg, #fff, #d8d8d8); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
 .card-color-bar.blue  { background: linear-gradient(90deg, #7fb3e0, #3a6da3); }
 .card-color-bar.green { background: linear-gradient(90deg, #95c76d, #4d7a2b); }
 .card-color-bar.red   { background: linear-gradient(90deg, #ef8a8a, #b84040); }
-.card-color-bar.black { background: linear-gradient(90deg, #999, #555); }
+.card-color-bar.black { background: linear-gradient(90deg, #444, #0a0a0a); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); }
 .card-cost-inline {
   display: flex;
   flex-wrap: wrap;
@@ -741,13 +740,13 @@ body {
   border-radius: 50%;
   display: inline-block;
 }
-/* 全局 dot 颜色（cost-chip 里也能用） */
-.dot.white { background: linear-gradient(135deg, #f5f5f5, #c4c4c4); }
-.dot.blue  { background: linear-gradient(135deg, #7fb3e0, #2e5984); }
-.dot.green { background: linear-gradient(135deg, #95c76d, #375623); }
-.dot.red   { background: linear-gradient(135deg, #ef8a8a, #993333); }
-.dot.black { background: linear-gradient(135deg, #999, #333); }
-.dot.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); }
+/* 全局 dot 颜色（cost-chip 里也能用）— 黑白拉开明度 + 描边色相反 */
+.dot.white { background: linear-gradient(135deg, #fff, #e0e0e0); border: 1px solid #999; }
+.dot.blue  { background: linear-gradient(135deg, #7fb3e0, #2e5984); border: 1px solid rgba(255,255,255,0.3); }
+.dot.green { background: linear-gradient(135deg, #95c76d, #375623); border: 1px solid rgba(255,255,255,0.3); }
+.dot.red   { background: linear-gradient(135deg, #ef8a8a, #993333); border: 1px solid rgba(255,255,255,0.3); }
+.dot.black { background: linear-gradient(135deg, #555, #0a0a0a); border: 1px solid rgba(255,255,255,0.6); }
+.dot.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); border: 1px solid rgba(255,255,255,0.3); }
 
 .dot {
   display: inline-block;
@@ -802,18 +801,18 @@ body {
   transition: transform 0.15s;
 }
 .gem-dot-inline:hover { transform: scale(1.2); box-shadow: inset 0 -2px 4px rgba(0,0,0,0.3), 0 0 0 3px #e06666; }
-.gem-dot-inline.white { background: linear-gradient(135deg, #fff, #bbb); }
+.gem-dot-inline.white { background: linear-gradient(135deg, #fff, #d0d0d0); border: 1px solid #999; }
 .gem-dot-inline.blue  { background: linear-gradient(135deg, #5b9bd5, #2e5984); }
 .gem-dot-inline.green { background: linear-gradient(135deg, #70ad47, #375623); }
 .gem-dot-inline.red   { background: linear-gradient(135deg, #e06666, #993333); }
-.gem-dot-inline.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
+.gem-dot-inline.black { background: linear-gradient(135deg, #444, #0a0a0a); border: 1px solid rgba(255,255,255,0.5); }
 .gem-dot-inline.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); }
 .my-gem-badge.empty { opacity: 0.25; }
-.my-gem-badge.white { background: linear-gradient(135deg, #fff, #bbb); color: #555; }
+.my-gem-badge.white { background: linear-gradient(135deg, #fff, #d0d0d0); color: #444; border: 1px solid #999; }
 .my-gem-badge.blue  { background: linear-gradient(135deg, #5b9bd5, #2e5984); }
 .my-gem-badge.green { background: linear-gradient(135deg, #70ad47, #375623); }
 .my-gem-badge.red   { background: linear-gradient(135deg, #e06666, #993333); }
-.my-gem-badge.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
+.my-gem-badge.black { background: linear-gradient(135deg, #444, #0a0a0a); color: #fff; border: 1px solid rgba(255,255,255,0.5); }
 .my-gem-badge.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); color: #553; }
 .my-gem-badge.clickable {
   cursor: pointer;
