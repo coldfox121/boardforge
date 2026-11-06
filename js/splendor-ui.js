@@ -67,8 +67,13 @@ export class SplendorGame {
       const n = p.gems[c] || 0;
       return `<div class="ps-gem ${c} ${n === 0 ? 'empty' : ''}" title="${GEM_NAMES[c]} ${n}">${n || ''}</div>`;
     }).join('');
-    const ownedCards = p.ownedCards.map(c =>
-      `<div class="ps-owned-card ${c.color}" title="${GEM_NAMES[c.color]} · VP ${c.vp || 0}">${c.vp || ''}${c.tier ? `·${c.tier}` : ''}</div>`
+    // 按 GEM_COLORS 排序，跟自己的宝石列对齐
+    const ownedSorted = [...p.ownedCards].sort((a, b) => GEM_COLORS.indexOf(a.color) - GEM_COLORS.indexOf(b.color));
+    const ownedCards = ownedSorted.map(c =>
+      `<div class="splendor-card owned-only ${c.color}" style="width:32px;height:44px;background:${this._tierBg(c.tier || 1)};cursor:default" title="${GEM_NAMES[c.color]} · VP ${c.vp || 0}">
+        <div class="card-vp" style="font-size:9px">${c.vp || ''}</div>
+        <div class="card-color-bar ${c.color}" style="flex:1"></div>
+      </div>`
     ).join('');
     const reservedBacks = p.reserved.length > 0
       ? `<div class="ps-reserved-row">${Array(p.reserved.length).fill(0).map(() => `<div class="ps-reserved-back">背面</div>`).join('')}</div>`
