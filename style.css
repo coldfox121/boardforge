@@ -476,6 +476,15 @@ body {
   box-shadow: 0 0 0 3px var(--gold), 0 0 15px rgba(255,213,79,0.5);
 }
 .gem-pile.selected .gem-count { color: var(--gold); font-weight: 700; }
+.gem-pile.conflict {
+  box-shadow: 0 0 0 3px #e06666, 0 0 15px rgba(224,102,102,0.5);
+  animation: shake 0.3s;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-3px)}
+  75%{transform:translateX(3px)}
+}
 /* 黄金拉开距离 + 更突出 */
 .gem-pile[data-color="gold"] {
   margin-left: 24px;
