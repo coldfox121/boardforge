@@ -355,10 +355,22 @@ export class SplendorGame {
   // ===== 动作/状态条 =====
   _renderActionBar() {
     document.querySelectorAll('.action-row, .preview-row, .confirm-row, .status-row').forEach(n => n.remove());
+    const bottom = document.getElementById('splendor-side-bottom');
+
+    // 终局倒计时条：不管谁的回合都显示，让所有人看见
+    if (this.state.endTriggeredBy !== null && !this.state.gameOver) {
+      const triggerName = this.state.players[this.state.endTriggeredBy].name;
+      const cd = this.state._endCountdown || 0;
+      const endRow = document.createElement('div');
+      endRow.className = 'status-row';
+      endRow.style.cssText = 'padding:8px 10px;border-radius:8px;margin-top:8px;font-size:12px;background:rgba(255,213,79,0.15);border:1px solid rgba(255,213,79,0.4);color:var(--gold);text-align:center';
+      endRow.textContent = `🏆 ${triggerName} 已达 15 分触发终局！剩余 ${cd} 回合，走完游戏结束`;
+      bottom.appendChild(endRow);
+    }
+
     const isMyTurn = this.state.currentPlayer === this.humanIndex;
     if (!isMyTurn) return;
 
-    const bottom = document.getElementById('splendor-side-bottom');
     const p = this.state.players[this.humanIndex];
 
     // 状态说明行
@@ -704,6 +716,17 @@ export class SplendorGame {
     }
     // 清掉一次性标记，避免下回合重复提示
     delete this.state._lastNoblesGained;
+
+    // 人类玩家触发终局（达到 15 分）→ toast 提示
+    if (this.state._justTriggeredEnd) {
+      const p = this.state.players[this.humanIndex];
+      const cd = this.state._endCountdown || 0;
+      this.lastError = `🏆 你达到 ${p.score} 分！终局触发，对手还有 ${cd} 轮走，他们走完游戏结束`;
+      delete this.state._justTriggeredEnd;
+    } else if (this.state.gameOver) {
+      // 非触发者走完了，游戏结束
+      this.lastError = null;
+    }
 
     // 检查是否超 10 颗 → 让玩家弃掉
     const p = this.state.players[this.humanIndex];

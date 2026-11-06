@@ -98,9 +98,11 @@ export function initGame(playerNames) {
     nobles,
     // 玩家
     players,
-    // 触发终局的玩家 id（触发后其他人走最后一轮）
+    // 触发终局的玩家 index（触发后其他人走最后一轮）
     endTriggeredBy: null,
-    endLastRound: false
+    endLastRound: false,
+    _endCountdown: 0,
+    _justTriggeredEnd: false
   };
 }
 
@@ -298,47 +300,44 @@ export function applyAction(state, playerIndex, action) {
   }
 
   // ===== 回合结束：检查终局 =====
-  // 触发终局：有人先达 15 分
+  // 触发终局：有人先达 15 分 → 其他人各走最后一轮，触发者不走了
   let nextPlayer = (playerIndex + 1) % s.players.length;
   let nextTurn = s.turn;
   if (nextPlayer === 0) nextTurn = s.turn + 1;
 
-  // 检测终局
-  const prevEndTriggered = s.endTriggeredBy;
-  // 如果本轮刚触发了终局（新有人到 15 分，之前没人触发过）
+  // 本轮刚触发了终局（新有人到 15 分，之前没人触发过）
   const pScoreNow = p.score;
-  if (pScoreNow >= 15 && !prevEndTriggered) {
+  if (pScoreNow >= 15 && !s.endTriggeredBy) {
     s.endTriggeredBy = playerIndex;
-    // 最后一轮：其他人还能走一轮，轮到触发者之前结束
-    // 简化：给所有人再走一轮（让 nextPlayer = 0 后还能到 s.endTriggeredBy 再停）
+    // 其他人还要走 players.length - 1 轮才结束
+    s._endCountdown = s.players.length - 1;
+    s._justTriggeredEnd = true; // 标记刚触发，让 UI 知道
   }
 
-  // 计算玩家走完顺序是否到了终局
-  if (s.endTriggeredBy !== null && !s.endLastRound) {
-    // 触发终局的玩家走完之后，其他人走最后一轮
-    // 当我们已经给所有人都多走了一轮（nextPlayer 再次到 endTriggeredBy）
-    if (nextPlayer === s.endTriggeredBy) {
-      s.endLastRound = true;
-      // 下一次 applyAction 再被调用时会触发 gameOver
+  // 终局倒计时：每个非触发者走完一轮 -1
+  if (s.endTriggeredBy !== null && playerIndex !== s.endTriggeredBy) {
+    s._endCountdown = (s._endCountdown || 0) - 1;
+    if (s._endCountdown <= 0) {
+      // 其他人都走完最后一轮了 → 立刻结束
+      s.gameOver = true;
+      s.phase = 'ended';
+      // 算赢家（分数最高者，同分时卡数多者胜）
+      const sorted = [...s.players].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.ownedCards.length - a.ownedCards.length;
+      });
+      const top = sorted[0].score;
+      s.winners = sorted.filter(p => p.score === top).map(p => p.id);
     }
   }
-  // 简化：这里不提前设置 gameOver，等下一次回合开始时检查
-  // （或者直接在这里检查：如果 endLastRound 且当前走完了 endTriggeredBy 的回合）
-  if (s.endLastRound && playerIndex === s.endTriggeredBy) {
-    // 所有人走完最后一轮了
-    s.gameOver = true;
-    s.phase = 'ended';
-    // 算赢家（分数最高者，同分时卡数多者胜）
-    const sorted = [...s.players].sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return b.ownedCards.length - a.ownedCards.length;
-    });
-    const top = sorted[0].score;
-    s.winners = sorted.filter(p => p.score === top).map(p => p.id);
-  }
 
-  s.currentPlayer = nextPlayer;
-  s.turn = nextTurn;
+  // 如果 gameOver 了就不要循环 currentPlayer 回触发者
+  if (s.gameOver) {
+    s.currentPlayer = -1;
+  } else {
+    s.currentPlayer = nextPlayer;
+    s.turn = nextTurn;
+  }
   s.lastAction = { player: playerIndex, type: action.type, at: Date.now() };
   return s;
 }
