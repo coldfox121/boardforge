@@ -285,6 +285,28 @@ body {
 }
 .share-box .btn-primary { padding: 10px 18px; white-space: nowrap; }
 
+/* ===== 规则 Modal ===== */
+.rules-card {
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.rules-card h2 { font-size: 18px; margin-bottom: 18px; }
+.rules-body { display: flex; flex-direction: column; gap: 14px; }
+.rule-section h4 {
+  font-size: 13px;
+  color: var(--gold);
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.rule-section p {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin: 0;
+}
+.rule-section p br { display: block; margin: 4px 0; content: ""; }
+
 /* ===== 受限模式（朋友入口） ===== */
 .restricted-game {
   max-width: 360px;

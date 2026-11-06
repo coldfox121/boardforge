@@ -182,6 +182,73 @@ document.getElementById('btn-room-back').addEventListener('click', () => {
   else navigate('/lobby');
 });
 
+// 规则按钮（只在房间页显示）
+document.addEventListener('click', e => {
+  if (e.target.id === 'btn-rules') {
+    const gameId = state.guestGame || 'splendor'; // 完整模式默认璀璨宝石
+    openRulesModal(gameId);
+  }
+});
+
+// === 规则 Modal ===
+const GAME_RULES = {
+  splendor: {
+    name: '璀璨宝石 · 基础规则',
+    sections: [
+      {
+        title: '🎯 游戏目标',
+        body: '第一个先达到 15 分的玩家触发终局，其他人走最后一轮后比较总分，最高分获胜。'
+      },
+      {
+        title: '🎴 资源卡（90 张）',
+        body: '分三个等级。一级最便宜，三级最贵。每级场上永远翻出 4 张。买了卡之后卡面宝石永久归你，无需再用宝石支付。'
+      },
+      {
+        title: '💎 每回合四选一',
+        body: '① 拿 3 颗不同颜色的宝石<br>② 拿 2 颗同色（该色剩余 ≥4）<br>③ 预留一张场上或牌堆顶的卡 + 拿 1 颗黄金（占手牌）<br>④ 支付宝石买一张资源卡'
+      },
+      {
+        title: '🔒 宝石上限',
+        body: '每回合结束你的宝石必须 ≤10 颗，超出需主动归还。'
+      },
+      {
+        title: '👑 贵族图板',
+        body: '场上翻出 N 张（2 人 3 张 / 3 人 4 张 / 4 人 5 张），满足条件自动获得 +3 分。黄金可以当任意颜色宝石使用。'
+      },
+      {
+        title: '⚙️ 开局设置',
+        body: '2 人：每色宝石 4 颗 / Noble 3 张<br>3 人：每色宝石 5 颗 / Noble 4 张<br>4 人：每色宝石 7 颗 / Noble 5 张<br>黄金永远 5 颗不变。每级永远翻 4 张。'
+      },
+      {
+        title: '💰 黄金规则',
+        body: '黄金是万能宝石，每手牌最多持有 3 颗。买卡时每颗黄金可抵任意颜色 1 颗。'
+      }
+    ]
+  }
+};
+
+function openRulesModal(gameId) {
+  const rules = GAME_RULES[gameId] || GAME_RULES.splendor;
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card rules-card">
+      <button class="modal-close">✕</button>
+      <h2>${rules.name}</h2>
+      <div class="rules-body">
+        ${rules.sections.map(s => `
+          <div class="rule-section">
+            <h4>${s.title}</h4>
+            <p>${s.body}</p>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
 // === 受限模式：朋友只看到单个游戏 ===
 const GAME_NAMES = { splendor: '璀璨宝石' };
 function enterRestrictedGame(gameId) {
