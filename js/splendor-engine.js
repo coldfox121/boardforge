@@ -247,22 +247,25 @@ export function applyAction(state, playerIndex, action) {
       }
 
       // 支付（卡面宝石先抵 → 玩家宝石 → 黄金补缺口）
-      const payGold = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+      const payBack = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
       for (const color of GEM_COLORS) {
         const need = card.cost[color] || 0;
         if (need === 0) continue;
-        // 卡面免费
         // 先扣玩家宝石
         const fromGems = Math.min(p.gems[color] || 0, need);
         p.gems[color] -= fromGems;
-        payGold[color] += fromGems;
+        payBack[color] += fromGems;
         // 缺口用黄金
         const goldNeed = need - fromGems;
         if (goldNeed > 0) {
           p.gems.gold -= goldNeed;
-          payGold.gold += goldNeed;
+          payBack.gold += goldNeed;
         }
       }
+
+      // === 关键：支付的宝石全部归还公共资源池 ===
+      for (const color of GEM_COLORS) s.gemPool[color] += payBack[color];
+      s.gemPool.gold += payBack.gold;
 
       // 卡加入手牌
       p.ownedCards.push(card);
