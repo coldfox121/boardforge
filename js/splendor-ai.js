@@ -1,5 +1,5 @@
 ﻿// 璀璨宝石 AI（贪心策略）
-import { listValidActions } from './splendor-engine.js?v=16';
+import { listValidActions } from './splendor-engine.js?v=17';
 
 // 评估动作"值不值"，分数越高越优先
 function scoreAction(state, action, playerIndex) {

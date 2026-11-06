@@ -2,7 +2,7 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=16';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=17';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -46,15 +46,16 @@ const GAMES = {
 // === Admin 入口 ===
 export function mountAdminButton() {
   const isAdmin = localStorage.getItem('bf_is_admin') === 'true';
-  const lobbyActions = document.querySelector('.lobby-actions');
-  if (!isAdmin || !lobbyActions || document.getElementById('admin-entry')) return;
+  // 大厅头部实际容器是 .user-info，兼容 .lobby-actions
+  const host = document.querySelector('.lobby-actions') || document.querySelector('.lobby-header .user-info');
+  if (!isAdmin || !host || document.getElementById('admin-entry')) return;
   const btn = document.createElement('button');
   btn.id = 'admin-entry';
   btn.className = 'btn ghost';
   btn.textContent = '🛠 Admin 牌库编辑';
-  btn.style.cssText = 'margin-left:auto;background:linear-gradient(135deg,#ffd54f33,#ff980033);border-color:#ffd54f88;color:#ffd54f';
+  btn.style.cssText = 'background:linear-gradient(135deg,#ffd54f33,#ff980033);border-color:#ffd54f88;color:#ffd54f;font-size:12px;padding:4px 10px';
   btn.addEventListener('click', () => navigateToAdmin());
-  lobbyActions.appendChild(btn);
+  host.insertBefore(btn, host.firstChild);
 }
 
 export function navigateToAdmin() {
