@@ -741,7 +741,6 @@ export class SplendorGame {
     this.aiTimer = setTimeout(() => {
       let actions = listValidActions(this.state, this.state.currentPlayer);
       console.log('[AI] valid actions:', actions.length);
-
       // 保底：无合法动作时，先弃宝石腾出空间再试
       if (actions.length === 0) {
         const ai = this.state.players[this.state.currentPlayer];
@@ -779,7 +778,7 @@ export class SplendorGame {
         this._checkGameOver();
         this._maybeAIMove();
       } catch (e) { console.error('[AI] 报错:', e); }
-    }, 800);
+    }, 400);
   }
 
   // ===== 终局 =====
