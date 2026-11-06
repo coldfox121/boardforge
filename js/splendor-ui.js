@@ -97,20 +97,34 @@ export class SplendorGame {
     const p = this.state.players[this.humanIndex];
     const isMyTurn = this.state.currentPlayer === this.humanIndex;
 
-    // 按 GEM_COLORS 顺序排序，跟宝石列对齐
+    // 按 GEM_COLORS 排序，跟宝石列对齐；再同色分组竖叠
     const ownedSorted = [...p.ownedCards].sort((a, b) => {
       const ai = GEM_COLORS.indexOf(a.color);
       const bi = GEM_COLORS.indexOf(b.color);
-      return ai - bi;
+      if (ai !== bi) return ai - bi;
+      return (b.vp || 0) - (a.vp || 0); // 同色内 VP 高的在前（底层）
     });
+    const ownedByColor = {};
+    for (const g of GEM_COLORS) ownedByColor[g] = [];
+    for (const c of ownedSorted) ownedByColor[c.color].push(c);
 
-    // 手里的卡：只显示 VP + 颜色条，不显示 cost
-    const ownedCards = ownedSorted.map(c =>
-      `<div class="splendor-card owned-only ${c.color}" style="width:40px;height:56px;background:${this._tierBg(c.tier || 1)};cursor:default">
-        <div class="card-vp" style="font-size:10px">${c.vp ?? 0}</div>
-        <div class="card-color-bar ${c.color}" style="flex:1"></div>
-      </div>`
-    ).join('');
+    const ownedCardsHTML = GEM_COLORS.map(color => {
+      const cards = ownedByColor[color];
+      if (cards.length === 0) return '';
+      // 同色竖叠：后面的卡向左上偏一点叠在前一张上
+      const stacked = cards.map((c, i) => {
+        const offset = i * (-3); // 每张向左偏 3px 叠在前一张上
+        return `<div class="splendor-card owned-only ${c.color}" style="width:40px;height:56px;background:${this._tierBg(c.tier || 1)};position:absolute;left:${offset}px;top:${offset}px" title="${GEM_NAMES[color]} · VP ${c.vp ?? 0}">
+          <div class="card-vp" style="font-size:10px">${c.vp ?? 0}</div>
+          <div class="card-color-bar ${c.color}" style="flex:1"></div>
+        </div>`;
+      }).join('');
+      // 容器宽 = 基础宽 + 最后一张的偏移量
+      const stackW = 40 + Math.abs((cards.length - 1) * -3);
+      const stackH = 56 + Math.abs((cards.length - 1) * -3);
+      const countTag = cards.length > 1 ? `<span class="stack-count">×${cards.length}</span>` : '';
+      return `<div class="owned-stack" data-color="${color}" style="width:${stackW}px;height:${stackH}px">${stacked}${countTag}</div>`;
+    }).join('');
 
     // 预留卡：VP + 颜色条 + tierBg + cost
     const reservedCards = p.reserved.map(c => {
@@ -142,7 +156,7 @@ export class SplendorGame {
       </div>
       <div class="hand-gems ${isDiscardMode ? 'discard-mode' : ''}">${gemBadges}</div>
       <div style="font-size:11px;color:var(--text-dim);margin-top:6px">已持有</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${ownedCards || '<span style="opacity:0.3;font-size:11px">暂无</span>'}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;align-items:flex-start">${ownedCardsHTML || '<span style="opacity:0.3;font-size:11px">暂无</span>'}</div>
       ${p.reserved.length > 0 ? `
         <div style="font-size:11px;color:var(--text-dim);margin-top:6px">预留区 · 点击可购买</div>
         <div style="display:flex;gap:4px;margin-top:2px">${reservedCards}</div>
@@ -162,6 +176,52 @@ export class SplendorGame {
 
   _canBuyCard(cardRef) {
     return validateAction(this.state, this.humanIndex, { type: 'BUY', ...cardRef }) === null;
+  }
+
+  // ===== 计算购买某张卡的实际消耗（对齐引擎 applyAction）=====
+  _calcBuyDetail(cardRef) {
+    const p = this.state.players[this.humanIndex];
+    let card;
+    try {
+      if (cardRef.source === 'board') {
+        card = this.state.board[`tier${cardRef.tier}`][cardRef.cardIndex];
+      } else if (cardRef.source === 'reserved') {
+        card = p.reserved.find(c => c.id === cardRef.cardId);
+      }
+    } catch(e) { return null; }
+    if (!card) return null;
+
+    // 先卡面 → 再普通宝石 → 最后黄金（对齐引擎 applyAction）
+    const cardBonus = {};
+    for (const c of GEM_COLORS) cardBonus[c] = 0;
+    for (const c of p.ownedCards) cardBonus[c.color]++;
+
+    const gemsUsed = {};
+    let goldUsed = 0;
+    const lines = [];
+    for (const color of GEM_COLORS) {
+      const need = card.cost[color] || 0;
+      if (need === 0) continue;
+      const payFromBonus = Math.min(cardBonus[color], need);
+      const gemNeed = need - payFromBonus;
+      const payFromGems = Math.min(p.gems[color] || 0, gemNeed);
+      gemsUsed[color] = payFromGems;
+      const goldNeed = gemNeed - payFromGems;
+      if (goldNeed > 0) goldUsed += goldNeed;
+
+      // 拼这条颜色的说明
+      const parts = [];
+      if (payFromBonus > 0) parts.push(`${payFromBonus} 卡面`);
+      if (payFromGems > 0) parts.push(`${payFromGems}${GEM_NAMES_SHORT[color]}`);
+      if (goldNeed > 0) parts.push(`${goldNeed}金`);
+      lines.push(`${need}×${GEM_NAMES_SHORT[color]}（${parts.join('+')}）`);
+    }
+
+    return {
+      card,
+      gemsUsed, goldUsed, lines,
+      totalText: lines.join(' '),
+    };
   }
 
   // ===== 宝石堆 =====
@@ -321,7 +381,19 @@ export class SplendorGame {
       }
     } else if (intent === 'buy') {
       statusColor = ok ? 'rgba(112,173,71,0.12)' : 'rgba(224,102,102,0.15)';
-      statusText = ok ? `💰 购买卡片 · 点击"结束回合"确认` : `💰 卡片宝石不足，无法购买`;
+      if (ok) {
+        const detail = this._calcBuyDetail(this.ops.card);
+        if (detail) {
+          const goldTag = detail.goldUsed > 0
+            ? `<span style="color:var(--gold)">⛏ 消耗 ${detail.goldUsed} 黄金</span>`
+            : '<span style="opacity:0.6">⛏ 无需黄金</span>';
+          statusText = `💰 购买卡片 → ${detail.totalText} · ${goldTag} · 点"结束回合"确认`;
+        } else {
+          statusText = `💰 购买卡片 · 点击"结束回合"确认`;
+        }
+      } else {
+        statusText = `💰 卡片宝石不足，无法购买`;
+      }
     } else {
       statusColor = 'rgba(255,255,255,0.04)';
       statusText = '💡 直接点击宝石拿取、点击黄金+选卡预留、点击场上卡购买 · 点"结束回合"确认操作';
