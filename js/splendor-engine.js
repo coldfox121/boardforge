@@ -123,13 +123,17 @@ export function validateAction(state, playerIndex, action) {
       if (set.size !== action.colors.length) return '不能有重复颜色';
       if (action.colors.some(c => !GEM_COLORS.includes(c))) return '颜色无效';
       if (action.colors.some(c => state.gemPool[c] < 1)) return '某颜色宝石不足';
-      // 超 10 颗允许拿，UI 层会让玩家弃掉多余的
+      // 回合结束必须 ≤10 颗
+      const after = countGems(p.gems) + action.colors.length;
+      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}，拿 ${action.colors.length} 颗后 ${after}）`;
       return null;
     }
     case 'TAKE_SAME': {
       if (!GEM_COLORS.includes(action.color)) return '颜色无效';
       if (state.gemPool[action.color] < 4) return '该色剩余不足 4 颗';
-      // 超 10 颗允许拿，UI 层会让玩家弃掉多余的
+      // 回合结束必须 ≤10 颗
+      const after = countGems(p.gems) + 2;
+      if (after > 10) return `拿完会超 10 颗（当前 ${countGems(p.gems)}，拿 2 颗后 ${after}）`;
       return null;
     }
     case 'RESERVE': {
