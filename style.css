@@ -1060,8 +1060,9 @@ body {
 
 /* ===== Admin 牌库编辑器 ===== */
 /* Admin 游戏切换 */
-.admin-game-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-.admin-game-tab { padding:8px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-dim); cursor:pointer; font-size:13px; transition:all .15s; }
+.admin-game-tabs { display:flex; flex-direction:column; gap:6px; margin-bottom:16px; max-width:380px; }
+.admin-game-tab { display:flex; justify-content:space-between; align-items:center; width:100%; padding:10px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-dim); cursor:pointer; font-size:13px; text-align:left; transition:all .15s; }
+.admin-game-tab-state { font-size:11px; opacity:.6; }
 .admin-game-tab:hover:not(.disabled) { background:rgba(255,255,255,0.1); color:#fff; }
 .admin-game-tab.active { background:linear-gradient(135deg,#ffd54f33,#ff980033); border-color:#ffd54f88; color:var(--gold); }
 .admin-game-tab.disabled { opacity:.55; }

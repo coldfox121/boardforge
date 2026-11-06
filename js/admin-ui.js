@@ -2,7 +2,7 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=19';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=20';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -76,7 +76,10 @@ export async function renderAdminPage(gameId = 'splendor') {
   if (!root) return;
 
   const tabsHTML = ADMIN_GAMES.map(g =>
-    `<button class="admin-game-tab${g.id === gameId ? ' active' : ''}${g.ready ? '' : ' disabled'}" data-game="${g.id}">${g.name}</button>`
+    `<button class="admin-game-tab${g.id === gameId ? ' active' : ''}${g.ready ? '' : ' disabled'}" data-game="${g.id}">
+      <span>${g.name}</span>
+      <span class="admin-game-tab-state">${g.ready ? (g.id === gameId ? '编辑中' : '可编辑') : '未开放'}</span>
+    </button>`
   ).join('');
 
   root.innerHTML = `<div class="admin-game-tabs">${tabsHTML}</div><div id="admin-editor"></div>`;
