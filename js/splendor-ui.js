@@ -20,6 +20,10 @@ export class SplendorGame {
 
   start() {
     this.state = initGame(this.playerNames);
+    // 给非人类玩家打 AI 标记
+    this.state.players.forEach((p, i) => {
+      p.isAI = i !== this.humanIndex;
+    });
     this._renderAll();
     this._maybeAIMove();
   }
