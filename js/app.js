@@ -35,6 +35,11 @@ function handleRoute() {
   const { segments, query } = parseHash();
   const first = segments[0] || '';
 
+  // 受限模式标记（提前解析，后面用到）
+  let guestGame = null;
+  if (first === 'g') guestGame = segments[1];
+  state.guestGame = guestGame;
+
   // 未登录 → 保存目标路径，跳登录
   if (!state.token && first !== '' && first !== 'login') {
     state.pendingPath = '#' + (location.hash || '/');
@@ -42,9 +47,10 @@ function handleRoute() {
     return;
   }
 
-  // 已登录 → 空路径跳大厅
+  // 已登录 → 空路径受限模式保持，否则跳大厅
   if (state.token && first === '') {
-    navigate('/lobby');
+    if (guestGame) navigate('/g/' + guestGame);
+    else navigate('/lobby');
     return;
   }
 
@@ -53,13 +59,19 @@ function handleRoute() {
     showView('auth');
   } else if (first === 'lobby') {
     enterLobby();
+  } else if (first === 'g' && segments[1]) {
+    // #/g/splendor/room/ABCD → 受限模式展示房间
+    if (segments[2] === 'room' && segments[3]) {
+      showRoomByCode(segments[3], segments[1]);
+    } else {
+      // #/g/splendor → 受限模式入口
+      enterRestrictedGame(segments[1]);
+    }
   } else if (first === 'game' && segments[1]) {
-    // #/game/splendor → 进入房间流程
     enterLobby();
     closeRoomModal();
     openRoomModal(segments[1]);
   } else if (first === 'room' && segments[1]) {
-    // #/room/ABCD12 → 加入房间 / 展示房间页
     showRoomByCode(segments[1]);
   } else {
     if (state.token) navigate('/lobby');
@@ -163,7 +175,141 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   navigate('/login');
 });
 
-document.getElementById('btn-room-back').addEventListener('click', () => navigate('/lobby'));
+document.getElementById('btn-room-back').addEventListener('click', () => {
+  // 受限模式返回受限入口，完整模式返回大厅
+  if (state.guestGame) navigate('/g/' + state.guestGame);
+  else navigate('/lobby');
+});
+
+// === 受限模式：朋友只看到单个游戏 ===
+const GAME_NAMES = { splendor: '璀璨宝石' };
+function enterRestrictedGame(gameId) {
+  state.guestGame = gameId;
+  const gameName = GAME_NAMES[gameId] || gameId;
+
+  // 用大厅容器但只显示受限内容
+  showView('lobby');
+  document.getElementById('username').textContent = state.username;
+
+  // 隐藏完整模式元素
+  document.querySelector('.logo-sm').textContent = gameName;
+  // 受限模式：不显示"退出"按钮的导航感（但保留登出能力在菜单里）
+
+  const main = document.querySelector('.lobby-main');
+  main.innerHTML = `
+    <div class="restricted-game">
+      <div class="rg-header">
+        <h2>${gameName}</h2>
+        <p class="hint">通过专属链接进入 · 仅可游玩此游戏</p>
+      </div>
+      <div class="rg-actions">
+        <button class="btn-primary rg-btn" data-action="create">创建房间</button>
+        <button class="btn-ghost rg-btn" data-action="join">加入房间</button>
+      </div>
+      <p class="rg-logout"><a id="rg-logout-link">退出登录</a></p>
+    </div>`;
+
+  main.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!state.cloudOk) { alert('后端暂不可用'); return; }
+      const action = btn.dataset.action;
+      closeRoomModal();
+      openRestrictedModal(gameId, action);
+    });
+  });
+  document.getElementById('rg-logout-link').addEventListener('click', async e => {
+    e.preventDefault();
+    try { await api('/api/logout', { method: 'POST' }); } catch {}
+    clearAuth();
+    navigate('/login');
+  });
+}
+
+// 受限模式 Modal（简化版，不带游戏切换）
+function openRestrictedModal(gameId, defaultTab) {
+  const gameName = GAME_NAMES[gameId] || gameId;
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card">
+      <button class="modal-close">✕</button>
+      <h2>${gameName}</h2>
+      <div class="modal-tabs">
+        <button class="modal-tab ${defaultTab==='create'?'active':''}" data-tab="create">创建房间</button>
+        <button class="modal-tab ${defaultTab==='join'?'active':''}" data-tab="join">加入房间</button>
+      </div>
+      <div class="modal-panel" data-panel="create" style="display:${defaultTab==='create'?'':'none'}">
+        <label>房间名称</label>
+        <input id="rm-name" placeholder="${state.username}的房间" maxlength="30">
+        <label>人数</label>
+        <select id="rm-max">
+          <option value="2">2 人</option>
+          <option value="3">3 人</option>
+          <option value="4" selected>4 人</option>
+        </select>
+        <button class="btn-primary" id="rm-create">创建并进入</button>
+        <p id="rm-create-msg" class="msg"></p>
+      </div>
+      <div class="modal-panel" data-panel="join" style="display:${defaultTab==='join'?'':'none'}">
+        <label>房间号</label>
+        <input id="rm-code" placeholder="6 位房间号" maxlength="6" style="text-transform:uppercase">
+        <button class="btn-primary" id="rm-join">查询房间</button>
+        <div id="rm-join-info"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  showRestrictedTab(modal, defaultTab);
+
+  modal.querySelectorAll('.modal-tab').forEach(tab => {
+    tab.addEventListener('click', () => showRestrictedTab(modal, tab.dataset.tab));
+  });
+  modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  // 创建
+  modal.querySelector('#rm-create').addEventListener('click', async () => {
+    const name = document.getElementById('rm-name').value.trim();
+    const maxPlayers = Number(document.getElementById('rm-max').value);
+    const msgEl = document.getElementById('rm-create-msg');
+    msgEl.className = 'msg'; msgEl.textContent = '';
+    try {
+      const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId, maxPlayers }) });
+      modal.remove();
+      // 受限模式：房间链接也带游戏路径
+      navigate('/g/' + gameId + '/room/' + data.room_code);
+    } catch (err) {
+      msgEl.className = 'msg error'; msgEl.textContent = err.message;
+    }
+  });
+
+  // 加入
+  modal.querySelector('#rm-join').addEventListener('click', async () => {
+    const code = document.getElementById('rm-code').value.trim().toUpperCase();
+    const infoEl = document.getElementById('rm-join-info');
+    infoEl.innerHTML = '';
+    if (!code || code.length !== 6) { infoEl.innerHTML = '<p class="msg error">请输入 6 位房间号</p>'; return; }
+    try {
+      const data = await api('/api/rooms?code=' + code);
+      infoEl.innerHTML = `
+        <div class="join-info">
+          <p><strong>${data.name}</strong> · ${data.game_name}</p>
+          <p>状态：${data.status === 'waiting' ? '等待中' : '进行中'} · ${data.current_players}/${data.max_players} 人</p>
+          <button class="btn-primary" id="rm-confirm-join" style="margin-top:10px;width:100%">加入房间</button>
+        </div>`;
+      document.getElementById('rm-confirm-join').addEventListener('click', () => {
+        modal.remove();
+        navigate('/g/' + gameId + '/room/' + code);
+      });
+    } catch (err) {
+      infoEl.innerHTML = `<p class="msg error">${err.message}</p>`;
+    }
+  });
+}
+
+function showRestrictedTab(modal, tab) {
+  modal.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  modal.querySelectorAll('.modal-panel').forEach(p => p.style.display = p.dataset.panel === tab ? '' : 'none');
+}
 
 // === 游戏卡片点击 ===
 document.querySelectorAll('.game-card').forEach(card => {
@@ -283,24 +429,35 @@ function closeRoomModal() {
 }
 
 // 展示房间页（创建后或直接通过链接访问）
-async function showRoomByCode(code) {
+async function showRoomByCode(code, gameId) {
   const title = document.getElementById('room-title');
   showView('room');
   const placeholder = document.getElementById('room-placeholder');
   closeRoomModal();
-  const shareUrl = location.origin + location.pathname + '#/room/' + code.toUpperCase();
 
-  title.textContent = `房间 · ${code.toUpperCase()}`;
+  // 分享链接：受限模式带游戏路径，完整模式不带
+  const upper = code.toUpperCase();
+  let shareUrl;
+  if (gameId) {
+    state.guestGame = gameId;
+    shareUrl = location.origin + location.pathname + '#/g/' + gameId + '/room/' + upper;
+  } else {
+    state.guestGame = null;
+    shareUrl = location.origin + location.pathname + '#/room/' + upper;
+  }
+  const gameName = gameId ? (GAME_NAMES[gameId] || gameId) : '🎲 桌游';
+
+  title.textContent = `${gameName} · ${upper}`;
   placeholder.innerHTML = `
     <div class="game-room-info">
-      <h2>🎲 桌游房间</h2>
-      <p class="room-code">房间号：<strong>${code.toUpperCase()}</strong></p>
+      <h2>${gameName}</h2>
+      <p class="room-code">房间号：<strong>${upper}</strong></p>
       <p class="hint">🔗 分享链接</p>
       <div class="share-box">
         <input id="share-input" readonly value="${shareUrl}">
         <button id="share-copy" class="btn-primary">复制</button>
       </div>
-      <p class="hint">游戏引擎开发中，很快就能联机对战</p>
+      ${gameId ? '<p class="hint">朋友收到此链接后只能游玩 ' + gameName + '</p>' : '<p class="hint">游戏引擎开发中，很快就能联机对战</p>'}
     </div>`;
   document.getElementById('share-copy').addEventListener('click', () => {
     const input = document.getElementById('share-input');
