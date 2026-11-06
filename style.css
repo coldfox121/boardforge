@@ -1,4 +1,4 @@
-/* BoardForge · 桌游工坊 · 暗色简约风格 */
+﻿/* BoardForge · 桌游工坊 · 暗色简约风格 */
 :root {
   --bg: #0f1115;
   --bg-2: #161a21;
@@ -1059,6 +1059,14 @@ body {
 }
 
 /* ===== Admin 牌库编辑器 ===== */
+/* Admin 游戏切换 */
+.admin-game-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.admin-game-tab { padding:8px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-dim); cursor:pointer; font-size:13px; transition:all .15s; }
+.admin-game-tab:hover:not(.disabled) { background:rgba(255,255,255,0.1); color:#fff; }
+.admin-game-tab.active { background:linear-gradient(135deg,#ffd54f33,#ff980033); border-color:#ffd54f88; color:var(--gold); }
+.admin-game-tab.disabled { opacity:.55; }
+.admin-placeholder { padding:60px 20px; text-align:center; color:var(--text-dim); font-size:14px; }
+
 .admin-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px; }
 .admin-header h2 { margin:0; }
 .admin-status { font-size:13px; padding:4px 12px;border-radius:8px;background:rgba(255,213,79,0.1); color:var(--gold); }

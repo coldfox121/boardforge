@@ -2,7 +2,7 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=17';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=18';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -63,16 +63,44 @@ export function navigateToAdmin() {
 }
 
 // === Admin 页面渲染 ===
-export async function renderAdminPage() {
+// 可编辑牌库的游戏（ready=false 表示暂无牌库编辑）
+const ADMIN_GAMES = [
+  { id: 'splendor', name: '💎 璀璨宝石', ready: true },
+  { id: 'catan', name: '🗺️ 卡坦岛', ready: false },
+  { id: 'ticket', name: '🚂 铁路环游', ready: false },
+  { id: 'hotel', name: '🏨 奥地利大饭店', ready: false }
+];
+
+export async function renderAdminPage(gameId = 'splendor') {
   const root = document.getElementById('admin-root');
   if (!root) return;
-  root.innerHTML = '<div class="loading">加载默认牌库...</div>';
+
+  const tabsHTML = ADMIN_GAMES.map(g =>
+    `<button class="admin-game-tab${g.id === gameId ? ' active' : ''}${g.ready ? '' : ' disabled'}" data-game="${g.id}">${g.name}</button>`
+  ).join('');
+
+  root.innerHTML = `<div class="admin-game-tabs">${tabsHTML}</div><div id="admin-editor"></div>`;
+
+  root.querySelectorAll('.admin-game-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!btn.disabled && btn.dataset.game !== gameId) renderAdminPage(btn.dataset.game);
+    });
+  });
+
+  const editor = document.getElementById('admin-editor');
+  if (!editor) return;
+
+  if (!ADMIN_GAMES.find(g => g.id === gameId && g.ready)) {
+    editor.innerHTML = '<div class="admin-placeholder">该游戏的牌库编辑尚未开放</div>';
+    return;
+  }
+
+  editor.innerHTML = '<div class="loading">加载默认牌库...</div>';
 
   // 动态加载 splendor-data 拿默认基线
   const mod = await import('./splendor-data.js').catch(() => null);
-  if (!mod) { root.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
+  if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
 
-  const gameId = 'splendor';
   const baseData = {
     CARDS: mod.CARDS,
     NOBLES: mod.NOBLES,
@@ -81,7 +109,7 @@ export async function renderAdminPage() {
   const adminData = loadAdminData(gameId);
   const activeData = adminData || baseData;
 
-  root.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
+  editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
   bindAdminEvents(gameId, baseData);
 }
 
