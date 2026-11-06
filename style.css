@@ -741,11 +741,22 @@ body {
   border-radius: 50%;
   display: inline-block;
 }
-.card-cost .dot.white { background: #ddd; grid-column: 1; }
-.card-cost .dot.blue  { background: #5b9bd5; grid-column: 2; }
-.card-cost .dot.green { background: #70ad47; grid-column: 3; }
-.card-cost .dot.red   { background: #e06666; grid-column: 4; }
-.card-cost .dot.black { background: #434343; grid-column: 5; }
+/* 全局 dot 颜色（cost-chip 里也能用） */
+.dot.white { background: linear-gradient(135deg, #f5f5f5, #c4c4c4); }
+.dot.blue  { background: linear-gradient(135deg, #7fb3e0, #2e5984); }
+.dot.green { background: linear-gradient(135deg, #95c76d, #375623); }
+.dot.red   { background: linear-gradient(135deg, #ef8a8a, #993333); }
+.dot.black { background: linear-gradient(135deg, #999, #333); }
+.dot.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); }
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.3);
+  vertical-align: middle;
+}
 
 /* 手牌区 */
 .splendor-hand {
