@@ -713,7 +713,6 @@ body {
 .noble-card .noble-vp { font-size: 20px; font-weight: 700; }
 .noble-card.noble-has-art { width:70px; height:98px; padding:0; background:none; box-shadow:none; overflow:hidden; }
 .noble-has-art .noble-art { width:100%; height:100%; object-fit:cover; display:block; border-radius:8px; }
-.card-art-full { opacity:1; }
 .noble-card .noble-req {
   font-size: 11px;
   display: flex;
@@ -1099,6 +1098,7 @@ body {
 .viz-card.viz-has-img { padding:0; border-left-width:1px; overflow:hidden; background:none; }
 .viz-card.viz-has-img .viz-thumb { height:auto; aspect-ratio:260/360; margin:0; border:none; border-radius:7px; display:block; }
 .card-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.32; pointer-events:none; }
+.splendor-card > .card-art.card-art-full { opacity:1; }
 .splendor-card { position:relative; overflow:hidden; }
 .splendor-card > .card-vp, .splendor-card > .card-color-bar, .splendor-card > .card-cost-inline { position:relative; z-index:1; }
 .btn.small { padding:4px 10px; font-size:12px; }
