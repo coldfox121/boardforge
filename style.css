@@ -382,6 +382,11 @@ body {
 }
 .gem-pile:hover { transform: scale(1.1); }
 .gem-pile.disabled { opacity: 0.3; cursor: not-allowed; }
+.gem-pile.selected {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--gold), 0 0 15px rgba(255,213,79,0.5);
+}
+.gem-pile.selected .gem-count { color: var(--gold); font-weight: 700; }
 .gem-circle {
   width: 36px; height: 36px;
   border-radius: 50%;
