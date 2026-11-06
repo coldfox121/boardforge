@@ -72,7 +72,7 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./admin-ui.js?v=15').then(m => m.renderAdminPage());
+    import('./admin-ui.js?v=16').then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
     if (segments[2] === 'room' && segments[3]) {
@@ -180,7 +180,7 @@ document.getElementById('form-register').addEventListener('submit', async e => {
     }
     const clientHash = await clientHashPassword(password, username);
     const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, client_hash: clientHash }) });
-    setAuth(data.token, data.username);
+    setAuth(data.token, data.username, data.is_admin);
     const target = state.pendingPath || '/lobby';
     state.pendingPath = null;
     navigate(target.startsWith('#') ? target : target);
@@ -427,7 +427,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=15').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=16').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -601,7 +601,7 @@ async function showRoomByCode(code, gameId) {
     while (names.length < 2) names.push(`AI-${names.length}`);
 
     // 进入游戏时才加载游戏模块
-    const { SplendorGame } = await import('./splendor-ui.js?v=15');
+    const { SplendorGame } = await import('./splendor-ui.js?v=16');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0
