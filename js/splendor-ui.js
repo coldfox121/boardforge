@@ -187,8 +187,13 @@ export class SplendorGame {
       `;
       const [minus, plus] = div.querySelectorAll('.gem-btn');
       minus.addEventListener('click', (e) => { e.stopPropagation(); this._onGemMinus(color); });
-      plus.addEventListener('click', (e) => { e.stopPropagation(); this._onGemPlus(color); });
-      div.addEventListener('click', () => this._onGemPlus(color));
+      if (color === 'gold') {
+        // 黄金：走预留模式专用逻辑（不是普通宝石的加减）
+        div.addEventListener('click', (e) => { e.stopPropagation(); this._onGemClick('gold'); });
+      } else {
+        plus.addEventListener('click', (e) => { e.stopPropagation(); this._onGemPlus(color); });
+        div.addEventListener('click', () => this._onGemPlus(color));
+      }
       pool.appendChild(div);
     }
   }
