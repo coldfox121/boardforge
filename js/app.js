@@ -35,8 +35,9 @@ function handleRoute() {
   const { segments, query } = parseHash();
   const first = segments[0] || '';
 
-  // 未登录 → 任何路径都跳登录
-  if (!state.token && first !== '') {
+  // 未登录 → 保存目标路径，跳登录
+  if (!state.token && first !== '' && first !== 'login') {
+    state.pendingPath = '#' + (location.hash || '/');
     navigate('/login');
     return;
   }
@@ -55,11 +56,11 @@ function handleRoute() {
   } else if (first === 'game' && segments[1]) {
     // #/game/splendor → 进入房间流程
     enterLobby();
+    closeRoomModal();
     openRoomModal(segments[1]);
   } else if (first === 'room' && segments[1]) {
-    // #/room/ABCD12 → 加入房间
-    enterLobby();
-    openRoomModal(null, segments[1].toUpperCase());
+    // #/room/ABCD12 → 加入房间 / 展示房间页
+    showRoomByCode(segments[1]);
   } else {
     if (state.token) navigate('/lobby');
     else navigate('/login');
@@ -119,7 +120,9 @@ document.getElementById('form-login').addEventListener('submit', async e => {
   try {
     const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     setAuth(data.token, data.username);
-    navigate('/lobby');
+    const target = state.pendingPath || '/lobby';
+    state.pendingPath = null;
+    navigate(target.startsWith('#') ? target : target);
   } catch (err) {
     msg.className = 'msg error'; msg.textContent = err.message;
   }
@@ -134,7 +137,9 @@ document.getElementById('form-register').addEventListener('submit', async e => {
   try {
     const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, password }) });
     setAuth(data.token, data.username);
-    navigate('/lobby');
+    const target = state.pendingPath || '/lobby';
+    state.pendingPath = null;
+    navigate(target.startsWith('#') ? target : target);
   } catch (err) {
     msg.className = 'msg error'; msg.textContent = err.message;
   }
@@ -238,9 +243,8 @@ function openRoomModal(gameId, presetCode) {
       const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId, maxPlayers }) });
       state.currentRoomCode = data.room_code;
       state.currentGame = gameId;
-      enterGameLobby(data);
       closeRoomModal();
-      navigate('/room/' + data.room_code);
+      enterGameLobby(data);
     } catch (err) {
       msgEl.className = 'msg error'; msgEl.textContent = err.message;
     }
@@ -278,20 +282,48 @@ function closeRoomModal() {
   if (m) m.remove();
 }
 
-// 进入游戏房间占位页
-function enterGameLobby(room) {
+// 展示房间页（创建后或直接通过链接访问）
+async function showRoomByCode(code) {
   const title = document.getElementById('room-title');
-  title.textContent = `${room.game_name} · ${room.room_code}`;
   showView('room');
   const placeholder = document.getElementById('room-placeholder');
+  closeRoomModal();
+  const shareUrl = location.origin + location.pathname + '#/room/' + code.toUpperCase();
+
+  title.textContent = `房间 · ${code.toUpperCase()}`;
   placeholder.innerHTML = `
     <div class="game-room-info">
-      <h2>${room.game_name}</h2>
-      <p class="room-code">房间号：<strong>${room.room_code}</strong></p>
-      <p class="hint">🔗 分享链接：<code id="share-link"></code></p>
-      <p class="hint">游戏引擎开发中，很快就能联机对战 🎲</p>
+      <h2>🎲 桌游房间</h2>
+      <p class="room-code">房间号：<strong>${code.toUpperCase()}</strong></p>
+      <p class="hint">🔗 分享链接</p>
+      <div class="share-box">
+        <input id="share-input" readonly value="${shareUrl}">
+        <button id="share-copy" class="btn-primary">复制</button>
+      </div>
+      <p class="hint">游戏引擎开发中，很快就能联机对战</p>
     </div>`;
-  document.getElementById('share-link').textContent = location.origin + location.pathname + '#/room/' + room.room_code;
+  document.getElementById('share-copy').addEventListener('click', () => {
+    const input = document.getElementById('share-input');
+    input.select();
+    navigator.clipboard?.writeText(input.value).then(() => {
+      const btn = document.getElementById('share-copy');
+      btn.textContent = '已复制 ✓';
+      setTimeout(() => btn.textContent = '复制', 1500);
+    });
+  });
+
+  // 异步查房间信息（如果不存在说明创建失败，等后续 Durable Object）
+  try {
+    const data = await api('/api/rooms?code=' + code.toUpperCase());
+    title.textContent = `${data.game_name} · ${data.room_code}`;
+    placeholder.querySelector('h2').textContent = data.game_name;
+  } catch {}
+}
+
+// 进入房间占位页（创建房间后）
+function enterGameLobby(room) {
+  // 直接调路由，让 hashchange 触发 showRoomByCode
+  navigate('/room/' + room.room_code);
 }
 
 // === 启动 ===

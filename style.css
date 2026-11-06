@@ -272,10 +272,18 @@ body {
   color: var(--gold); font-size: 22px; letter-spacing: 4px;
   font-family: 'Courier New', monospace;
 }
-.game-room-info code {
-  background: var(--bg-3); padding: 3px 8px; border-radius: 4px;
-  font-size: 12px; word-break: break-all;
+.share-box {
+  display: flex; gap: 8px; max-width: 420px;
+  margin: 10px auto;
 }
+.share-box input {
+  flex: 1; padding: 10px 12px;
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-size: 12px; font-family: monospace;
+  outline: none;
+}
+.share-box .btn-primary { padding: 10px 18px; white-space: nowrap; }
 
 /* ===== 响应式 ===== */
 @media (max-width: 640px) {
