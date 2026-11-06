@@ -12,12 +12,14 @@ function scoreAction(state, action, playerIndex) {
       if (action.source === 'board') card = state.board[`tier${action.tier}`][action.cardIndex];
       else card = p.reserved.find(c => c.id === action.cardId);
       if (!card) return -9999;
-      // 高分 + 低代价
       const costTotal = Object.values(card.cost).reduce((s, v) => s + v, 0);
       const cardOwned = p.ownedCards.filter(c => c.color === card.color).length;
-      // 优先补自己已有的宝石色（连锁效应）
-      const synergy = cardOwned * 0.3;
-      return (card.vp || 0) * 3 + (5 - costTotal) * 0.1 + synergy + (card.tier - 1) * 0.5;
+      // 买卡的核心价值 = vp分数 + 宝石折扣价值（每买一张该色卡，未来该色花费-1） + 连锁效应
+      const vpScore = (card.vp || 0) * 3;
+      const discountValue = 3;       // 每张卡提供的宝石折扣基础价值
+      const synergy = cardOwned * 0.5; // 已有同色卡越多，连锁越强
+      const costPenalty = costTotal * 0.05; // 轻微的代价惩罚
+      return vpScore + discountValue + synergy - costPenalty;
     }
     case 'RESERVE': {
       // 预留一般不优先，除非紧急缺
@@ -30,8 +32,8 @@ function scoreAction(state, action, playerIndex) {
       let score = 0;
       const takeColors = action.type === 'TAKE_DIFF' ? action.colors : [action.color];
       for (const c of takeColors) score += needed[c] || 0;
-      // 黄金只在必要时才拿（通过 reserve），这里不算
-      return score * 0.5;
+      // 权重降低，让买卡更有竞争力
+      return score * 0.2;
     }
   }
   return 0;
