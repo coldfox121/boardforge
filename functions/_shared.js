@@ -73,7 +73,7 @@ export async function getAuthUser(request, env) {
 
   const tokenHash = await sha256Hex(match[1].toLowerCase());
   const row = await env.DB.prepare(
-    'SELECT s.token_hash, s.user_id, s.expires_at, u.username, u.role, u.save, u.last_seen ' +
+    'SELECT s.token_hash, s.user_id, s.expires_at, u.username, u.save, u.last_seen ' +
     'FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?'
   ).bind(tokenHash).first();
 
