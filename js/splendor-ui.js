@@ -541,7 +541,11 @@ export class SplendorGame {
 
     if (!action) return;
     const err = validateAction(this.state, this.humanIndex, action);
-    if (err) { alert('规则不合法：' + err); return; }
+    if (err) {
+      this.lastError = '规则不合法：' + err;
+      this._renderAll();
+      return;
+    }
 
     this.state = applyAction(this.state, this.humanIndex, action);
     this._clearOps();
