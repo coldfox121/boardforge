@@ -155,21 +155,61 @@ export class SplendorGame {
     pool.innerHTML = '';
     for (const color of [...GEM_COLORS, 'gold']) {
       const count = this.state.gemPool[color] || 0;
-      const selectedIdx = this.ops.gems.indexOf(color);
+      const selCount = this.ops.gems.filter(g => g === color).length;
       const div = document.createElement('div');
       const cls = ['gem-pile'];
       if (count === 0) cls.push('disabled');
-      if (selectedIdx >= 0) cls.push('selected');
-      // 选中不同颗数显示不同颜色
+      if (selCount > 0) cls.push('selected');
       div.className = cls.join(' ');
       div.dataset.color = color;
-      const extra = selectedIdx >= 0 ? ` ✓${this.ops.gems.filter(g => g === color).length}` : '';
       div.innerHTML = `
         <div class="gem-circle ${color}">${color === 'gold' ? '★' : ''}</div>
-        <div class="gem-count">${GEM_NAMES[color]} · ${count}${extra}</div>
+        <div class="gem-count">${GEM_NAMES[color]} · ${count}</div>
+        <div class="gem-stepper">
+          <button class="gem-btn minus" ${selCount === 0 ? 'disabled' : ''}>−</button>
+          <span class="gem-sel-count ${selCount > 0 ? 'has' : ''}">${selCount > 0 ? selCount : ''}</span>
+          <button class="gem-btn plus" ${count === 0 || this.ops.gems.length >= 3 ? 'disabled' : ''}>+</button>
+        </div>
       `;
-      if (count > 0) div.addEventListener('click', () => this._onGemClick(color));
+      const [minus, plus] = div.querySelectorAll('.gem-btn');
+      minus.addEventListener('click', (e) => { e.stopPropagation(); this._onGemMinus(color); });
+      plus.addEventListener('click', (e) => { e.stopPropagation(); this._onGemPlus(color); });
+      div.addEventListener('click', () => this._onGemPlus(color));
       pool.appendChild(div);
+    }
+  }
+
+  _onGemPlus(color) {
+    // 复用 _onGemClick 里的合法性检查逻辑，但把"取消"分支删掉
+    if (this.state.currentPlayer !== this.humanIndex) return;
+    this.lastError = null;
+    if (color === 'gold') { this._onGemClick(color); return; }
+    if (this.ops.card && !this.ops.goldTaken) { this.lastError = '已选中卡片，先取消卡片'; this._renderAll(); return; }
+    if (this.ops.goldTaken) { this.lastError = '已进入预留模式'; this._renderAll(); return; }
+    if (this.ops.gems.length >= 3) { this.lastError = '最多选 3 颗'; this._renderAll(); return; }
+    const test = [...this.ops.gems, color];
+    const counts = {};
+    test.forEach(g => counts[g] = (counts[g] || 0) + 1);
+    const hasTwoSame = Object.values(counts).some(n => n >= 2);
+    const colors = Object.keys(counts);
+    if (hasTwoSame && test.length === 3) { this.lastError = '2 颗同色不能混拿第三种颜色'; this._renderAll(); return; }
+    if ((this.state.gemPool[color] || 0) < (counts[color] || 1)) { this.lastError = `${GEM_NAMES[color]} 不足`; this._renderAll(); return; }
+    const p = this.state.players[this.humanIndex];
+    if (this._totalGems(p.gems) + test.length > 10) { this.lastError = '拿完会超 10 颗'; this._renderAll(); return; }
+    this.ops.gems.push(color);
+    this._renderAll();
+  }
+
+  _onGemMinus(color) {
+    if (this.state.currentPlayer !== this.humanIndex) return;
+    this.lastError = null;
+    // 从后往前删，视觉上取消"最后加的那颗"
+    for (let i = this.ops.gems.length - 1; i >= 0; i--) {
+      if (this.ops.gems[i] === color) {
+        this.ops.gems.splice(i, 1);
+        this._renderAll();
+        return;
+      }
     }
   }
 
@@ -265,28 +305,6 @@ export class SplendorGame {
     statusRow.style.background = statusColor;
     statusRow.innerHTML = statusText;
     bottom.appendChild(statusRow);
-
-    // 已选宝石小圆点（可点击单个取消）
-    if (this.ops.gems.length > 0) {
-      const selRow = document.createElement('div');
-      selRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;padding:4px 10px;border-radius:8px;background:rgba(0,0,0,0.2)';
-      const label = document.createElement('span');
-      label.style.cssText = 'font-size:11px;color:var(--text-dim);margin-right:2px';
-      label.textContent = '已选（点圆点可减）：';
-      selRow.appendChild(label);
-      this.ops.gems.forEach((c, idx) => {
-        const dot = document.createElement('span');
-        dot.className = `gem-dot-inline ${c}`;
-        dot.title = `点掉这颗 ${GEM_NAMES[c]}`;
-        dot.addEventListener('click', () => {
-          this.ops.gems.splice(idx, 1);
-          this.lastError = null;
-          this._renderAll();
-        });
-        selRow.appendChild(dot);
-      });
-      bottom.appendChild(selRow);
-    }
 
     // 按钮行
     const btnRow = document.createElement('div');
