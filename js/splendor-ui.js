@@ -430,7 +430,7 @@ export class SplendorGame {
     if (this.state.currentPlayer !== this.humanIndex) return;
     this.lastError = null;
 
-    // 点黄金：进入预留模式（不阻塞，最终校验在确认时由引擎做）
+    // 点黄金：进入预留模式
     if (color === 'gold') {
       if (this.ops.gems.length > 0) {
         this.lastError = '已选普通宝石，黄金不能与普通宝石同回合';
@@ -448,6 +448,7 @@ export class SplendorGame {
       }
       const p = this.state.players[this.humanIndex];
       if (p.reserved.length >= 3) { this.lastError = '预留槽已满'; this._renderAll(); return; }
+      if (this.state.gemPool.gold < 1) { this.lastError = '黄金不足（需要池里至少 1 颗才能预留）'; this._renderAll(); return; }
       this.ops.goldTaken = true;
       this._renderAll();
       return;
@@ -534,16 +535,16 @@ export class SplendorGame {
         if (this._canBuyCard(cardRef)) {
           this.ops.card = cardRef;
         } else {
-          // 尝试预留？
-          const reserveErr = validateAction(this.state, this.humanIndex, { type: 'RESERVE', ...cardRef });
-          if (reserveErr === null) {
-            this.ops.card = cardRef;
-            // 自动进入预留模式（因为买不了）
-            this.lastError = '宝石不足无法购买，已切换为预留模式（点黄金后可完成预留）';
-          } else {
-            this.lastError = '宝石不足无法购买';
-          }
+        // 尝试自动切预留（但前提是黄金够）
+        const reserveErr = validateAction(this.state, this.humanIndex, { type: 'RESERVE', ...cardRef });
+        if (reserveErr === null) {
+          this.ops.card = cardRef;
+          this.ops.goldTaken = true;  // ← 关键：自动切预留时也要设！
+          this.lastError = '宝石不足无法购买，已自动切换为预留模式（已拿 1 颗黄金）';
+        } else {
+          this.lastError = '宝石不足无法购买（预留也不行：' + reserveErr + '）';
         }
+      }
       }
     }
     this._renderAll();
