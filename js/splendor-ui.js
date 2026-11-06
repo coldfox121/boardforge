@@ -92,7 +92,7 @@ export class SplendorGame {
       `<div class="splendor-card" style="width:52px;height:72px;background:${this._tierBg(c.tier || 1)};cursor:default">
         <div class="card-vp">${c.vp || ''}</div>
         <div class="card-color-bar ${c.color}"></div>
-        <div class="card-cost">${GEM_COLORS.filter(gc => c.cost[gc]).map(gc => `<div class="card-cost-row"><span class="dot ${gc}"></span><span>${c.cost[gc]}</span></div>`).join('')}</div>
+        <div class="card-cost">${(() => { let h = ''; for (const g of GEM_COLORS) { const n = c.cost[g] || 0; for (let k = 0; k < n; k++) h += `<span class="dot ${g}"></span>`; } return h; })()}</div>
       </div>`
     ).join('');
     const reservedCards = p.reserved.map(c => {
@@ -101,13 +101,13 @@ export class SplendorGame {
       return `<div class="splendor-card reserved ${canBuy ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}" style="width:52px;height:72px;background:${this._tierBg(c.tier)}" data-reserved-id="${c.id}">
         <div class="card-vp">${c.vp || ''}</div>
         <div class="card-color-bar ${c.color}"></div>
-        <div class="card-cost">${GEM_COLORS.filter(gc => c.cost[gc]).map(gc => `<div class="card-cost-row"><span class="dot ${gc}"></span><span>${c.cost[gc]}</span></div>`).join('')}</div>
+        <div class="card-cost">${(() => { let h = ''; for (const g of GEM_COLORS) { const n = c.cost[g] || 0; for (let k = 0; k < n; k++) h += `<span class="dot ${g}"></span>`; } return h; })()}</div>
       </div>`;
     }).join('');
     const totalGems = this._totalGems(p.gems);
     const gemBadges = [...GEM_COLORS, 'gold'].map(c => {
       const n = p.gems[c] || 0;
-      return `<span class="${n > 0 ? 'hand-gem-badge has' : 'hand-gem-badge'}">${GEM_NAMES[c]} ${n}</span>`;
+      return `<div class="my-gem-badge ${c} ${n > 0 ? 'has' : 'empty'}">${n}</div>`;
     }).join('');
 
     return `
@@ -201,7 +201,7 @@ export class SplendorGame {
         div.innerHTML = `
           <div class="card-vp">${card.vp || ''}</div>
           <div class="card-color-bar ${card.color}"></div>
-          <div class="card-cost">${GEM_COLORS.filter(c => card.cost[c]).map(c => `<div class="card-cost-row"><span class="dot ${c}"></span><span>${card.cost[c]}</span></div>`).join('')}</div>
+          <div class="card-cost">${(() => { let h = ''; for (const g of GEM_COLORS) { const n = card.cost[g] || 0; for (let k = 0; k < n; k++) h += `<span class="dot ${g}"></span>`; } return h; })()}</div>
         `;
         if (isMyTurn) div.addEventListener('click', () => this._onBoardCardClick(tier, idx));
         container.appendChild(div);

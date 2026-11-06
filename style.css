@@ -624,27 +624,27 @@ body {
 }
 .card-cost {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 2px;
-  font-size: 9px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  align-content: end;
+  gap: 1px;
+  font-size: 8px;
+  padding: 2px;
 }
 .card-cost-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: contents;
 }
 .card-cost .dot {
-  width: 8px; height: 8px;
+  width: 9px; height: 9px;
   border-radius: 50%;
   display: inline-block;
 }
-.card-cost .dot.white { background: #ddd; }
-.card-cost .dot.blue  { background: #5b9bd5; }
-.card-cost .dot.green { background: #70ad47; }
-.card-cost .dot.red   { background: #e06666; }
-.card-cost .dot.black { background: #434343; }
+.card-cost .dot.white { background: #ddd; grid-column: 1; }
+.card-cost .dot.blue  { background: #5b9bd5; grid-column: 2; }
+.card-cost .dot.green { background: #70ad47; grid-column: 3; }
+.card-cost .dot.red   { background: #e06666; grid-column: 4; }
+.card-cost .dot.black { background: #434343; grid-column: 5; }
 
 /* 手牌区 */
 .splendor-hand {
@@ -667,18 +667,31 @@ body {
   gap: 8px;
   flex-wrap: wrap;
 }
-.hand-gem-badge {
-  display: inline-flex;
+/* 自己的宝石 badge（圆点 + 数量，无文字） */
+.my-gem-badge {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  background: rgba(255,255,255,0.06);
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: inset 0 -3px 5px rgba(0,0,0,0.3);
 }
-.hand-gem-badge.has {
-  background: rgba(255,213,79,0.15);
-  color: var(--gold);
+.my-gem-badge.empty { opacity: 0.25; }
+.my-gem-badge.white { background: linear-gradient(135deg, #fff, #bbb); color: #555; }
+.my-gem-badge.blue  { background: linear-gradient(135deg, #5b9bd5, #2e5984); }
+.my-gem-badge.green { background: linear-gradient(135deg, #70ad47, #375623); }
+.my-gem-badge.red   { background: linear-gradient(135deg, #e06666, #993333); }
+.my-gem-badge.black { background: linear-gradient(135deg, #434343, #1a1a1a); }
+.my-gem-badge.gold  { background: linear-gradient(135deg, #ffd54f, #b8860b); color: #553; }
+
+.hand-gems {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .hand-cards-row {
