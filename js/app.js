@@ -65,18 +65,14 @@ function handleRoute() {
   } else if (first === 'lobby') {
     enterLobby();
   } else if (first === 'g' && segments[1]) {
-    // #/g/splendor/room/ABCD → 受限模式展示房间
+    // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
     if (segments[2] === 'room' && segments[3]) {
       showRoomByCode(segments[3], segments[1]);
     } else {
-      // #/g/splendor → 受限模式入口
       enterRestrictedGame(segments[1]);
     }
-  } else if (first === 'game' && segments[1]) {
-    enterLobby();
-    closeRoomModal();
-    openRoomModal(segments[1]);
   } else if (first === 'room' && segments[1]) {
+    // #/room/ABCD → 分享链接直达房间
     showRoomByCode(segments[1]);
   } else {
     if (state.token) navigate('/lobby');
@@ -318,7 +314,9 @@ document.querySelectorAll('.game-card').forEach(card => {
       alert('后端暂不可用，需要 Cloudflare Pages 后端。');
       return;
     }
-    navigate('/game/' + game);
+    // 弹出 Modal 只是 UI 层选择，URL 保持大厅不变；真正创建/加入房间才改 URL
+    closeRoomModal();
+    openRoomModal(game);
   });
 });
 
