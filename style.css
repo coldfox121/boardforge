@@ -1101,6 +1101,7 @@ body {
 
 .admin-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px; }
 .admin-header h2 { margin:0; }
+.admin-head-right { display:flex; align-items:center; gap:10px; }
 .admin-status { font-size:13px; padding:4px 12px;border-radius:8px;background:rgba(255,213,79,0.1); color:var(--gold); }
 .admin-tabs { display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:0; }
 .admin-tabs .tab { background:none; border:none; color:var(--text-dim); padding:8px 16px; cursor:pointer; border-bottom:2px solid transparent; }

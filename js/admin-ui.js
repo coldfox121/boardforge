@@ -2,8 +2,8 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=23';
-import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=23';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=24';
+import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=24';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -146,8 +146,11 @@ function buildAdminHTML(gameId, baseData, activeData, adminData) {
   return `
     <div class="admin-header">
       <h2>🛠 Admin 牌库编辑器</h2>
-      <div class="admin-status">
-        ${hasOverride ? `⚠️ 当前有 admin 覆盖数据（保存于 ${savedStr}）` : 'ℹ️ 当前使用官方基线数据'}
+      <div class="admin-head-right">
+        <div class="admin-status">
+          ${hasOverride ? `⚠️ 当前有 admin 覆盖数据（保存于 ${savedStr}）` : 'ℹ️ 当前使用官方基线数据'}
+        </div>
+        <button class="btn" id="admin-back">← 返回大厅</button>
       </div>
     </div>
 
@@ -194,6 +197,9 @@ function colorDot(color) {
 }
 
 function bindAdminEvents(gameId, baseData, activeData) {
+  const backBtn = document.getElementById('admin-back');
+  if (backBtn) backBtn.addEventListener('click', () => { location.hash = '#/lobby'; });
+
   // Tab 切换
   document.querySelectorAll('.admin-tabs .tab').forEach(t => {
     t.addEventListener('click', () => {
