@@ -71,7 +71,7 @@ export class SplendorGame {
     const ownedSorted = [...p.ownedCards].sort((a, b) => GEM_COLORS.indexOf(a.color) - GEM_COLORS.indexOf(b.color));
     const ownedCards = ownedSorted.map(c =>
       `<div class="splendor-card owned-only ${c.color}" style="width:32px;height:44px;background:${this._tierBg(c.tier || 1)};cursor:default" title="${GEM_NAMES[c.color]} · VP ${c.vp || 0}">
-        <div class="card-vp" style="font-size:9px">${c.vp || ''}</div>
+        <div class="card-vp" style="font-size:9px">${c.vp ?? 0}</div>
         <div class="card-color-bar ${c.color}" style="flex:1"></div>
       </div>`
     ).join('');
@@ -107,7 +107,7 @@ export class SplendorGame {
     // 手里的卡：只显示 VP + 颜色条，不显示 cost
     const ownedCards = ownedSorted.map(c =>
       `<div class="splendor-card owned-only ${c.color}" style="width:40px;height:56px;background:${this._tierBg(c.tier || 1)};cursor:default">
-        <div class="card-vp" style="font-size:10px">${c.vp || ''}</div>
+        <div class="card-vp" style="font-size:10px">${c.vp ?? 0}</div>
         <div class="card-color-bar ${c.color}" style="flex:1"></div>
       </div>`
     ).join('');
@@ -119,7 +119,7 @@ export class SplendorGame {
       const costHTML = GEM_COLORS.filter(g => c.cost[g] > 0)
         .map(g => `<span class="cost-chip"><span class="dot ${g}"></span>${c.cost[g]}</span>`).join('');
       return `<div class="splendor-card reserved owned-only ${canBuy ? 'buyable' : ''} ${selectedThis ? 'selected' : ''}" style="width:40px;height:56px;background:${this._tierBg(c.tier)}" data-reserved-id="${c.id}">
-        <div class="card-vp" style="font-size:10px">${c.vp || ''}</div>
+        <div class="card-vp" style="font-size:10px">${c.vp ?? 0}</div>
         <div class="card-color-bar ${c.color}" style="flex:1"></div>
         <div class="card-cost-inline" style="font-size:8px">${costHTML}</div>
       </div>`;
