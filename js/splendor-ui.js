@@ -254,6 +254,28 @@ export class SplendorGame {
     statusRow.innerHTML = statusText;
     bottom.appendChild(statusRow);
 
+    // 已选宝石小圆点（可点击单个取消）
+    if (this.ops.gems.length > 0) {
+      const selRow = document.createElement('div');
+      selRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;padding:4px 10px;border-radius:8px;background:rgba(0,0,0,0.2)';
+      const label = document.createElement('span');
+      label.style.cssText = 'font-size:11px;color:var(--text-dim);margin-right:2px';
+      label.textContent = '已选（点圆点可减）：';
+      selRow.appendChild(label);
+      this.ops.gems.forEach((c, idx) => {
+        const dot = document.createElement('span');
+        dot.className = `gem-dot-inline ${c}`;
+        dot.title = `点掉这颗 ${GEM_NAMES[c]}`;
+        dot.addEventListener('click', () => {
+          this.ops.gems.splice(idx, 1);
+          this.lastError = null;
+          this._renderAll();
+        });
+        selRow.appendChild(dot);
+      });
+      bottom.appendChild(selRow);
+    }
+
     // 按钮行
     const btnRow = document.createElement('div');
     btnRow.className = 'action-row';
@@ -398,22 +420,14 @@ export class SplendorGame {
       return;
     }
 
-    // 已经选过这颗宝石，再点 = 取消这一颗
-    const existingIdx = this.ops.gems.indexOf(color);
-    if (existingIdx >= 0) {
-      this.ops.gems.splice(existingIdx, 1);
-      this._renderAll();
-      return;
-    }
-
     // 上限 3 颗
     if (this.ops.gems.length >= 3) {
-      this.lastError = '最多选 3 颗宝石，再点已选的可以取消';
+      this.lastError = '最多选 3 颗宝石（想减的话点下方"已选"小圆点）';
       this._renderAll();
       return;
     }
 
-    // 先检查加上这颗是否合法（避免即时冲突）
+    // 点击宝石堆永远 = +1（取消操作在状态栏已选小圆点上做）
     const test = [...this.ops.gems, color];
     const counts = {};
     test.forEach(g => counts[g] = (counts[g] || 0) + 1);
