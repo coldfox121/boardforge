@@ -564,6 +564,9 @@ async function showRoomByCode(code, gameId) {
     const names = [myName];
     for (let i = 1; i <= aiCountVal; i++) names.push(`AI-${i}`);
 
+    // 保底：至少 2 人（璀璨宝石最低 2 人）
+    while (names.length < 2) names.push(`AI-${names.length}`);
+
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0
