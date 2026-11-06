@@ -50,7 +50,7 @@ export class SplendorGame {
       div.innerHTML = `
         <div class="sp-name">${isMe ? '👤 ' : ''}${p.isAI ? '🤖 ' : ''}${p.name}${isCurrent ? ' ←' : ''}</div>
         <div class="sp-score">${p.score} pts</div>
-        <div class="sp-info">卡 ${p.ownedCards.length} · 预 ${p.reserved.length} · Noble ${p.nobles.length}</div>
+        <div class="sp-info">卡 ${p.ownedCards.length} · 预 ${p.reserved.length} · 贵族 ${p.nobles.length}</div>
       `;
       bar.appendChild(div);
     });
@@ -483,7 +483,7 @@ export class SplendorGame {
       row.className = `score-row ${this.state.winners.includes(p.id) ? 'winner' : ''}`;
       row.innerHTML = `
         <span>${i === 0 && this.state.winners.includes(p.id) ? '🏆 ' : ''}${p.name}${p.isAI ? ' 🤖' : ''}</span>
-        <span>${p.score} pts · ${p.ownedCards.length} 卡 · ${p.nobles.length} 👑</span>
+        <span>${p.score} pts · ${p.ownedCards.length} 卡 · ${p.nobles.length} 👑 贵族</span>
       `;
       scores.appendChild(row);
     });
