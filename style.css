@@ -1162,9 +1162,23 @@ body {
 .ttr-route line { transition:opacity .12s, filter .12s; }
 .ttr-route .ttr-hit { stroke:transparent; stroke-width:18; fill:none; pointer-events:stroke; }
 .ttr-route.claimable .ttr-hit { cursor:pointer; }
-.ttr-route.claimable:hover line:not(.ttr-hit) { filter:brightness(1.45); }
-.ttr-route.foe { opacity:.62; }
-.ttr-route.mine { filter:drop-shadow(0 0 3px rgba(255,255,255,0.35)); }
+.ttr-route.claimable:hover .ttr-seg { filter:brightness(1.7); }
+/* 未占领：细线低对比；已占领：粗线 + 深色外壳 + 白色轨枕（见 JS 渲染） */
+.ttr-route.free .ttr-seg { opacity:.55; }
+.ttr-route.mine .ttr-seg { filter:drop-shadow(0 0 5px rgba(255,255,255,.45)); }
+.ttr-route.foe .ttr-seg { opacity:.95; }
+.ttr-route .ttr-rail { pointer-events:none; }
+
+.ttr-legend {
+  position:absolute; left:10px; bottom:8px; display:flex; gap:12px;
+  padding:4px 9px; border-radius:7px; font-size:11px; color:var(--text-dim);
+  background:rgba(8,14,20,.65); border:1px solid var(--border); pointer-events:none;
+}
+.ttr-legend span { display:inline-flex; align-items:center; gap:5px; }
+.ttr-legend i { width:18px; height:5px; border-radius:3px; display:inline-block; }
+.ttr-legend i.free { background:rgba(180,196,212,.45); }
+.ttr-legend i.mine { background:#43b581; box-shadow:0 0 0 1px #fff inset; }
+.ttr-legend i.foe { background:#4a90d9; box-shadow:0 0 0 1px #fff inset; }
 
 .ttr-city text {
   font-size:13px; fill:#c9d6e4; pointer-events:none;
@@ -1298,8 +1312,20 @@ body {
 .ttr-prompt h4 { font-size:13px; color:var(--text-dim); margin-top:4px; }
 .ttr-prompt p { font-size:12px; }
 .ttr-prompt .ttr-btn { align-self:stretch; }
-.ttr-prompt-actions { display:flex; gap:8px; }
+.ttr-prompt .ttr-btn.ttr-confirm,
+.ttr-prompt-actions .ttr-btn.ttr-confirm {
+  align-self:flex-end; flex:0 0 auto; padding:7px 16px; font-size:12px;
+}
+.ttr-prompt-actions { display:flex; gap:8px; justify-content:flex-end; }
 .ttr-prompt-actions .ttr-btn { flex:1; }
+.ttr-prompt-actions .ttr-btn.ttr-confirm { flex:0 0 auto; }
+.ttr-claim-title { font-size:14px; font-weight:600; }
+.ttr-pay { display:flex; gap:6px; flex-wrap:wrap; }
+.ttr-pay-missing { color:#ff9f9f; }
+.ttr-note { margin-top:6px; line-height:1.5; }
+.ttr-ticket-state { flex-shrink:0; font-size:10px; border-radius:4px; padding:1px 5px; }
+.ttr-ticket-state.ok { color:#7fe0b0; background:rgba(67,181,129,.15); border:1px solid rgba(67,181,129,.5); }
+.ttr-ticket-state.bad { color:#ff9f9f; background:rgba(224,92,92,.12); border:1px solid rgba(224,92,92,.45); }
 .ttr-mini { display:inline-block; width:22px; height:28px; line-height:28px; text-align:center; border-radius:4px; font-size:11px; color:#10151c; background:var(--cc); margin-right:3px; }
 
 .ttr-score-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }

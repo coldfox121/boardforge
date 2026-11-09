@@ -8,7 +8,7 @@ import {
   STARTING_HAND, FACE_UP_COUNT, TICKETS_DRAWN_PER_ACTION, MIN_INITIAL_TICKETS,
   UNUSED_STATION_POINTS, LONGEST_PATH_BONUS, ROUTE_SCORES, STATION_COSTS,
   CITY_MAP, normalizeColor
-} from './ticket-data.js?v=33';
+} from './ticket-data.js?v=34';
 
 // ===== 基础工具 =====
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -168,7 +168,7 @@ export function initGame(playerNames, opts = {}) {
   // 翻开 5 张
   refillFaceUp(s);
 
-  // 任务牌：长程洗匀每人 1 张（多余移出游戏），普通洗匀每人 3 张
+  // 开局任务牌：每人 1 张长途 + 2 张普通，共 3 张
   const longDeck = shuffleInPlace(s, TICKETS.filter(t => t.long).map(t => t.id));
   const regularDeck = shuffleInPlace(s, TICKETS.filter(t => !t.long).map(t => t.id));
 
@@ -177,7 +177,7 @@ export function initGame(playerNames, opts = {}) {
     const long = longDeck.pop();
     if (long) s.initialTickets[p.id].push(long);
   }
-  for (let round = 0; round < 3; round++) {
+  for (let round = 0; round < 2; round++) {
     for (const p of s.players) {
       const t = regularDeck.pop();
       if (t) s.initialTickets[p.id].push(t);
@@ -480,7 +480,10 @@ export function applyAction(state, playerIndex, action) {
       const card = takeTrainCard(s, action);
       giveCard(p, card);
       s.drawnThisTurn++;
-      s.log.push(`${p.name} 抽到 ${COLOR_NAMES[card] || card} 车票`);
+      // 盲抽不公开颜色，面朝上抽牌公开
+      s.log.push(action.source === 'deck'
+        ? `${p.name} 盲抽 1 张车票`
+        : `${p.name} 抽到 ${COLOR_NAMES[card] || card} 车票`);
 
       const single = (action.source === 'faceup' && card === 'loco');
       if (single || s.drawnThisTurn >= 2) {

@@ -1,12 +1,12 @@
 // 铁路环游：欧洲版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete } from './ticket-engine.js?v=33';
-import { pickAction } from './ticket-ai.js?v=33';
+import { initGame, applyAction, validateAction, isTicketComplete, claimPayment } from './ticket-engine.js?v=34';
+import { pickAction } from './ticket-ai.js?v=34';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
-  STATION_COSTS, STATIONS_PER_PLAYER
-} from './ticket-data.js?v=33';
+  STATION_COSTS, STATIONS_PER_PLAYER, ROUTE_SCORES
+} from './ticket-data.js?v=34';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
@@ -56,6 +56,9 @@ function ticketHTML(id, opts = {}) {
     opts.ok === true ? 'ok' : opts.ok === false ? 'bad' : ''
   ].filter(Boolean).join(' ');
   const pts = (opts.ok === false ? '-' : '+') + t.points;
+  const state = opts.ok === true
+    ? '<span class="ttr-ticket-state ok">已完成</span>'
+    : opts.ok === false ? '<span class="ttr-ticket-state bad">未完成</span>' : '';
   const mark = opts.toggle
     ? `<span class="ttr-ticket-toggle ${opts.selected ? 'on' : ''}" data-act="toggle-sel" data-id="${id}">${opts.selected ? '✓' : ''}</span>`
     : opts.selected ? '<span class="ttr-ticket-check">✓</span>' : '';
@@ -64,6 +67,7 @@ function ticketHTML(id, opts = {}) {
       <span class="ttr-ticket-pts">${pts}</span>
       <span class="ttr-ticket-line">${esc(cityName(t.a))} → ${esc(cityName(t.b))}</span>
       ${t.long ? '<span class="ttr-ticket-tag">长途</span>' : ''}
+      ${state}
       ${mark}
     </div>`;
 }
@@ -76,6 +80,7 @@ export class TicketGame {
     this.state = null;
     this.mode = null;          // null | 'station'
     this.focusTicket = null;   // 高亮某张票的起终点城市
+    this.claimDraft = null;    // 待确认占领的路线 index
     this.msg = '';
     this.sel = new Set();
     this.selKey = '';
@@ -88,6 +93,7 @@ export class TicketGame {
     this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
     this.mode = null;
     this.focusTicket = null;
+    this.claimDraft = null;
     this.msg = '';
     this.sel = new Set();
     this.selKey = '';
@@ -113,6 +119,11 @@ export class TicketGame {
     // 只允许在自己回合操作（游戏结束后除重开外都忽略）
     const myTurn = s.phase !== 'ended' && s.currentPlayer === this.humanIndex;
 
+    // 占领确认面板打开时，其他操作先关闭面板
+    if (this.claimDraft !== null && act !== 'confirm-claim' && act !== 'cancel-claim') {
+      this.claimDraft = null;
+    }
+
     // 选票/隧道抉择期间，只允许处理提示面板内的操作（地图仍可见）
     if (s.phase === 'setup' || s.turnPhase === 'tickets' || s.turnPhase === 'tunnel') {
       const allowed = ['toggle-sel', 'focus-ticket', 'confirm-initial', 'confirm-drawn', 'pay-tunnel', 'decline-tunnel', 'restart'];
@@ -120,11 +131,30 @@ export class TicketGame {
     }
 
     switch (act) {
-      case 'claim':
-        if (!myTurn) return;
+      case 'claim': {
+        if (!myTurn || s.turnPhase !== 'idle') return;
+        const rid = Number(el.dataset.rid);
+        const err = validateAction(s, this.humanIndex, { type: 'CLAIM_ROUTE', routeId: rid });
+        if (err) { this.msg = err; this.render(); return; }
         this.mode = null;
-        this.do({ type: 'CLAIM_ROUTE', routeId: Number(el.dataset.rid) });
-        break;
+        this.claimDraft = rid;
+        this.msg = '';
+        this.render();
+        return;
+      }
+
+      case 'confirm-claim': {
+        if (!myTurn || this.claimDraft === null) return;
+        const rid = this.claimDraft;
+        this.claimDraft = null;
+        this.do({ type: 'CLAIM_ROUTE', routeId: rid });
+        return;
+      }
+
+      case 'cancel-claim':
+        this.claimDraft = null;
+        this.render();
+        return;
 
       case 'draw-faceup':
         if (!myTurn) return;
@@ -144,7 +174,9 @@ export class TicketGame {
       case 'station-mode':
         if (!myTurn) return;
         this.mode = this.mode === 'station' ? null : 'station';
-        this.msg = this.mode === 'station' ? '请点击地图上的空城市放置火车站' : '';
+        this.msg = this.mode === 'station'
+          ? '建车站：点击地图上的城市放置。车站可借用对手 1 条连接到该城市的路线来完成任务。'
+          : '';
         this.render();
         break;
 
@@ -286,7 +318,8 @@ export class TicketGame {
     const routes = ROUTES.map((r, i) => {
       const g = routeGeom(i);
       const owner = s.routeOwner[i];
-      const color = owner !== null ? PCOLORS[owner] : (HEX[r.color] || '#8b95a3');
+      const claimed = owner !== null;
+      const color = claimed ? PCOLORS[owner] : (HEX[r.color] || '#8b95a3');
       const t0 = 9 / g.L;
       const t1 = 1 - 9 / g.L;
       const span = (t1 - t0) / r.len;
@@ -297,9 +330,17 @@ export class TicketGame {
         const b = t0 + span * (k + 0.88);
         const x1 = g.x1 + (g.x2 - g.x1) * a, y1 = g.y1 + (g.y2 - g.y1) * a;
         const x2 = g.x1 + (g.x2 - g.x1) * b, y2 = g.y1 + (g.y2 - g.y1) * b;
-        segs.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${owner !== null ? 8 : 7}" stroke-linecap="round"/>`);
+        // 已占领：粗线 + 白色虚线轨枕；未占领：细线、低对比
+        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${claimed ? 10 : 4.5}" stroke-linecap="round"/>`);
+        if (claimed) {
+          segs.push(`<line class="ttr-rail" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round" opacity=".85"/>`);
+        }
       }
 
+      // 已占领的路线加一层深色外壳，进一步和“未占领细线”区分
+      const casing = claimed
+        ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" stroke="#05090e" stroke-width="14" stroke-linecap="round"/>`
+        : '';
       const halo = r.tunnel
         ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" stroke="#0b1119" stroke-width="14" stroke-linecap="round" opacity=".85"/>`
         : '';
@@ -319,7 +360,7 @@ export class TicketGame {
       ].filter(Boolean).join(' ');
 
       return `<g class="${cls}" data-rid="${i}">
-        ${halo}${segs.join('')}${ferries}
+        ${casing}${halo}${segs.join('')}${ferries}
         <line class="ttr-hit" data-act="claim" data-rid="${i}" x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}"/>
       </g>`;
     }).join('');
@@ -347,7 +388,12 @@ export class TicketGame {
       <g class="ttr-routes">${routes}</g>
       ${focusLine}
       <g class="ttr-cities">${cities}</g>
-    </svg>`;
+    </svg>
+    <div class="ttr-legend">
+      <span><i class="free"></i>未占领</span>
+      <span><i class="mine"></i>我的</span>
+      <span><i class="foe"></i>对手</span>
+    </div>`;
   }
 
   panelHTML(s, myTurn, idle, my) {
@@ -387,13 +433,16 @@ export class TicketGame {
         </div>
       </section>
 
-      <section class="ttr-block ttr-btn-row">
-        <button class="ttr-btn" data-act="draw-tickets" ${canDrawTicket ? '' : 'disabled'}>
-          抽任务牌<small>剩 ${s.ticketDeck.length}</small>
-        </button>
-        <button class="ttr-btn ${this.mode === 'station' ? 'active' : ''}" data-act="station-mode" ${canStation ? '' : 'disabled'}>
-          建车站<small>剩 ${my.stations} 座 · 需 ${my.stations > 0 ? STATION_COSTS[STATIONS_PER_PLAYER - my.stations] : 0} 张同色</small>
-        </button>
+      <section class="ttr-block">
+        <div class="ttr-btn-row">
+          <button class="ttr-btn" data-act="draw-tickets" ${canDrawTicket ? '' : 'disabled'}>
+            抽任务牌<small>剩 ${s.ticketDeck.length}</small>
+          </button>
+          <button class="ttr-btn ${this.mode === 'station' ? 'active' : ''}" data-act="station-mode" ${canStation ? '' : 'disabled'}>
+            建车站<small>剩 ${my.stations} 座 · 需 ${my.stations > 0 ? STATION_COSTS[STATIONS_PER_PLAYER - my.stations] : 0} 张同色</small>
+          </button>
+        </div>
+        <p class="ttr-dim ttr-note">车站放在城市上，可借用对手 1 条连接到该城市的路线来完成任务（不计入最长路线）。</p>
       </section>
 
       <section class="ttr-block">
@@ -428,11 +477,12 @@ export class TicketGame {
   hintText(s, myTurn) {
     if (s.phase === 'ended') return '游戏结束';
     if (!myTurn) return `${s.players[s.currentPlayer].name} 行动中…`;
-    if (s.phase === 'setup') return '开局：选择要保留的任务牌（至少 2 张）';
+    if (s.phase === 'setup') return '开局：共 3 张任务牌（1 长途 + 2 普通），至少保留 2 张';
     if (s.turnPhase === 'tunnel') return `隧道：翻出了同色牌，需要额外支付 ${s.pendingTunnel.extraNeeded} 张`;
     if (s.turnPhase === 'tickets') return '选择要保留的任务牌（至少 1 张）';
     if (s.turnPhase === 'drawing') return `本回合还可抽 ${2 - s.drawnThisTurn} 张车票`;
-    return '你的回合：点击地图路线占领 / 点击右侧车票抽牌 / 也可抽任务牌或建车站';
+    if (this.claimDraft !== null) return '确认占领：核对要支付的车票后点击「确认占领」，或点「取消」';
+    return '你的回合：点击地图路线 → 确认花费后占领；点击右侧车票抽牌；也可抽任务牌或建车站';
   }
 
   promptHTML(s, myTurn) {
@@ -451,10 +501,10 @@ export class TicketGame {
       })).join('');
       return `<div class="ttr-overlay dock"><div class="ttr-prompt">
         <h3>选择开局任务牌</h3>
-        <p class="ttr-dim">至少保留 2 张（长途票通常更值钱，但更难完成）</p>
+        <p class="ttr-dim">共 3 张（1 张长途 + 2 张普通），至少保留 2 张，其余移出游戏</p>
         <p class="ttr-dim">点击任务票 → 地图高亮起点（绿）与终点（红）；右侧圆点控制是否保留</p>
         <div class="ttr-ticket-list">${cards}</div>
-        <button class="ttr-btn primary" data-act="confirm-initial" ${this.sel.size < 2 ? 'disabled' : ''}>确认保留 ${this.sel.size} 张</button>
+        <button class="ttr-btn primary ttr-confirm" data-act="confirm-initial" ${this.sel.size < 2 ? 'disabled' : ''}>确认保留 ${this.sel.size} 张</button>
       </div></div>`;
     }
 
@@ -468,9 +518,10 @@ export class TicketGame {
         <p>翻开的 3 张牌：${pt.revealed.map(c => `<span class="ttr-mini" style="--cc:${HEX[c] || '#888'}">${SHORT_NAME[c]}</span>`).join('')}</p>
         <p>需要额外支付 <b>${pt.extraNeeded}</b> 张${esc(COLOR_NAMES[pt.color] || '同色')}车票（车头可替代）</p>
         <p class="ttr-dim">手上有 ${esc(COLOR_NAMES[pt.color] || '')} ${handColor} 张 + 车头 ${handLoco} 张</p>
+        <p class="ttr-dim">规则：你可以支付额外费用继续占领；也可以选择不支付，此时已打出的车票全部收回，本回合结束。</p>
         <div class="ttr-prompt-actions">
-          <button class="ttr-btn primary" data-act="pay-tunnel" ${canPay ? '' : 'disabled'}>支付并占领</button>
-          <button class="ttr-btn" data-act="decline-tunnel">放弃</button>
+          <button class="ttr-btn primary ttr-confirm" data-act="pay-tunnel" ${canPay ? '' : 'disabled'}>支付并占领</button>
+          <button class="ttr-btn ttr-confirm" data-act="decline-tunnel">不支付，放弃本回合</button>
         </div>
       </div></div>`;
     }
@@ -481,18 +532,61 @@ export class TicketGame {
         toggle: true,
         clickable: true,
         focus: this.focusTicket === id,
+        ok: isTicketComplete(s, this.humanIndex, id),
         attrs: `data-act="focus-ticket" data-id="${id}"`
       })).join('');
       return `<div class="ttr-overlay dock"><div class="ttr-prompt">
         <h3>选择要保留的任务牌</h3>
         <p class="ttr-dim">至少保留 1 张，其余放回牌堆</p>
-        <p class="ttr-dim">点击任务票 → 地图高亮起点（绿）与终点（红）；右侧圆点控制是否保留</p>
+        <p class="ttr-dim">「已完成」= 你自己的铁轨已连通起终点；仅经过对手铁轨不算</p>
         <div class="ttr-ticket-list">${cards}</div>
-        <button class="ttr-btn primary" data-act="confirm-drawn" ${this.sel.size < 1 ? 'disabled' : ''}>确认保留 ${this.sel.size} 张</button>
+        <button class="ttr-btn primary ttr-confirm" data-act="confirm-drawn" ${this.sel.size < 1 ? 'disabled' : ''}>确认保留 ${this.sel.size} 张</button>
       </div></div>`;
     }
 
+    if (this.claimDraft !== null) return this.claimHTML(s);
+
     return '';
+  }
+
+  claimHTML(s) {
+    const rid = this.claimDraft;
+    const r = ROUTES[rid];
+    if (!r || s.turnPhase !== 'idle') return '';
+    const my = s.players[this.humanIndex];
+    const pay = claimPayment(my.hand, rid);
+    const pts = ROUTE_SCORES[r.len] || 0;
+
+    const tags = [];
+    if (r.tunnel) tags.push('隧道（可能需额外支付）');
+    if (r.ferries) tags.push(`渡轮（需 ${r.ferries} 张车头）`);
+
+    let payHTML;
+    if (!pay) {
+      payHTML = '<p class="ttr-pay-missing">车票不足，无法占领</p>';
+    } else {
+      const chips = [];
+      if (pay.colorCards > 0) {
+        chips.push(`<span class="ttr-hand-chip" style="--cc:${HEX[pay.color] || '#888'}"><b>${pay.colorCards}</b>${SHORT_NAME[pay.color] || '?'}</span>`);
+      }
+      if (pay.locos > 0) {
+        chips.push(`<span class="ttr-hand-chip loco"><b>${pay.locos}</b>车头</span>`);
+      }
+      payHTML = `<div class="ttr-pay">${chips.join('')}</div>
+        <p class="ttr-dim">${r.color ? `颜色路线，只能用${esc(COLOR_NAMES[r.color] || '')}车票或车头` : '灰色路线，自动使用你手上数量最多的颜色'} · 占领后剩 ${my.trains - r.len} 节车厢</p>`;
+    }
+
+    return `<div class="ttr-overlay dock"><div class="ttr-prompt">
+      <h3>占领路线</h3>
+      <p class="ttr-claim-title">${esc(cityName(r.a))} → ${esc(cityName(r.b))}</p>
+      <p class="ttr-dim">长度 ${r.len} 格 · 得分 +${pts}${tags.length ? ' · ' + tags.join(' · ') : ''}</p>
+      <h4>需要支付</h4>
+      ${payHTML}
+      <div class="ttr-prompt-actions">
+        <button class="ttr-btn ttr-confirm" data-act="cancel-claim">取消</button>
+        <button class="ttr-btn primary ttr-confirm" data-act="confirm-claim" ${pay ? '' : 'disabled'}>确认占领</button>
+      </div>
+    </div></div>`;
   }
 
   endHTML(s) {
@@ -520,6 +614,7 @@ export class TicketGame {
         <tbody>${rows}</tbody>
       </table>
       <h4>我的任务牌结算</h4>
+      <p class="ttr-dim">判定标准：必须用你自己的铁轨把起点和终点连通；只有建了车站才能借用对手路线，单纯经过对手铁轨不算完成。</p>
       <div class="ttr-ticket-list">${myTickets || '<p class="ttr-dim">无</p>'}</div>
       <details class="ttr-end-log">
         <summary>📜 查看本局操作记录（${(s.log || []).length} 条）</summary>

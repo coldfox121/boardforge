@@ -73,9 +73,9 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./config-sync.js?v=33')
+    import('./config-sync.js?v=34')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=33'))
+      .then(() => import('./admin-ui.js?v=34'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -287,7 +287,7 @@ const GAME_RULES = {
       },
       {
         title: '🕳️ 隧道',
-        body: '先打出基础车票，再从牌堆翻 3 张：每翻到一张同色（彩虹票也算）就需额外支付一张同色车票，付不起可放弃（收回基础车票，回合结束）。'
+        body: '先打出基础车票，再从牌堆翻 3 张：每翻到一张同色（彩虹票也算）就需额外支付一张同色车票。你可以支付后继续占领；也可以选择不支付，此时已打出的车票全部收回，本回合结束。'
       },
       {
         title: '⛴️ 渡轮',
@@ -295,7 +295,7 @@ const GAME_RULES = {
       },
       {
         title: '🚉 火车站',
-        body: '每人 3 座。第 1/2/3 座分别需支付 1/2/3 张同色车票。车站可借用对手的一段铁轨来连通任务票上的城市。游戏结束时每座未使用的车站 +4 分。'
+        body: '欧洲版规则：每人 3 座。第 1/2/3 座分别需支付 1/2/3 张同色车票。车站建在城市里，可借用对手的 1 条连接到该城市的铁轨来连通任务票上的城市（不计入最长路线）。游戏结束时每座未使用的车站 +4 分。'
       },
       {
         title: '🏁 终局',
@@ -303,7 +303,7 @@ const GAME_RULES = {
       },
       {
         title: '⚙️ 开局',
-        body: '每人随机 1 张长途票 + 3 张普通票，至少保留 2 张，其余移出游戏。'
+        body: '每人随机 1 张长途票 + 2 张普通票（共 3 张），至少保留 2 张，其余移出游戏。'
       }
     ]
   }
@@ -474,7 +474,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=33').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=34').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -674,7 +674,7 @@ async function showRoomByCode(code, gameId) {
       fresh.innerHTML = '';
       root.replaceWith(fresh);
 
-      const { TicketGame } = await import('./ticket-ui.js?v=33');
+      const { TicketGame } = await import('./ticket-ui.js?v=34');
       fresh.classList.remove('hidden');
       document.getElementById('room-waiting').classList.add('hidden');
       document.getElementById('splendor-game').classList.add('hidden');
@@ -686,9 +686,9 @@ async function showRoomByCode(code, gameId) {
     }
 
     // 璀璨宝石：进入游戏时才加载游戏模块；先同步云端牌库配置（含卡图）
-    const { syncGameConfig } = await import('./config-sync.js?v=33');
+    const { syncGameConfig } = await import('./config-sync.js?v=34');
     await syncGameConfig('splendor');
-    const { SplendorGame } = await import('./splendor-ui.js?v=33');
+    const { SplendorGame } = await import('./splendor-ui.js?v=34');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0
