@@ -1,6 +1,6 @@
 ﻿// 云端牌库配置同步：进入游戏 / admin 前拉取，写入 localStorage 缓存，
 // 让 splendor-engine.js 这类同步读取模块能拿到最新配置。
-import { saveAdminData } from './admin.js?v=30';
+import { saveAdminData } from './admin.js?v=31';
 
 export async function syncGameConfig(gameId) {
   try {

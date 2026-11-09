@@ -1138,3 +1138,158 @@ body {
 .diff-section div { font-size:12px; padding:2px 0; color:var(--text-dim); }
 .loading { text-align:center; padding:40px; color:var(--text-dim); }
 @media (max-width: 800px) { .balance-grid { grid-template-columns:1fr; } }
+
+/* ===== 铁路环游：欧洲版 ===== */
+#ticket-game { width:100%; align-self:stretch; min-height:0; }
+.ttr-shell { position:relative; display:flex; flex-direction:column; gap:8px; height:100%; min-height:0; }
+
+/* 玩家条 */
+.ttr-players { display:flex; gap:8px; flex-wrap:wrap; }
+.ttr-chip { display:flex; flex-direction:column; gap:2px; padding:5px 10px; border-radius:8px; background:var(--bg-2); border:1px solid var(--border); border-left:3px solid var(--pc); font-size:12px; min-width:150px; }
+.ttr-chip.active { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; background:rgba(245,197,66,0.06); }
+.ttr-chip-name { font-weight:600; color:var(--text); }
+.ttr-chip-stat { color:var(--text-dim); font-size:11px; }
+
+/* 主体：地图 + 侧栏 */
+.ttr-body { display:flex; gap:8px; flex:1; min-height:0; }
+.ttr-board-wrap {
+  position:relative; flex:1; min-width:0; min-height:0;
+  background:radial-gradient(120% 90% at 40% 30%, #1b2a3a 0%, #101a24 60%, #0a1118 100%);
+  border:1px solid var(--border); border-radius:12px; overflow:hidden;
+}
+.ttr-board { width:100%; height:100%; display:block; touch-action:manipulation; }
+
+.ttr-route line { transition:opacity .12s, filter .12s; }
+.ttr-route .ttr-hit { stroke:transparent; stroke-width:18; fill:none; pointer-events:stroke; }
+.ttr-route.claimable .ttr-hit { cursor:pointer; }
+.ttr-route.claimable:hover line:not(.ttr-hit) { filter:brightness(1.45); }
+.ttr-route.foe { opacity:.62; }
+.ttr-route.mine { filter:drop-shadow(0 0 3px rgba(255,255,255,0.35)); }
+
+.ttr-city text {
+  font-size:13px; fill:#c9d6e4; pointer-events:none;
+  paint-order:stroke; stroke:#081018; stroke-width:3px; stroke-linejoin:round;
+}
+.ttr-city .ttr-city-dot { fill:#0b1119; stroke:#b9c7d6; stroke-width:1.6; }
+.ttr-city .ttr-city-halo { fill:none; stroke:transparent; stroke-width:2; }
+.ttr-city .ttr-station { fill:none; stroke-width:3; }
+.ttr-city.focused .ttr-city-dot { fill:var(--gold); stroke:#fff3c4; }
+.ttr-city.focused .ttr-city-halo { stroke:rgba(245,197,66,.5); }
+.ttr-city.focused text { fill:var(--gold); }
+.ttr-city.selectable { cursor:pointer; }
+.ttr-city.selectable .ttr-city-halo { stroke:var(--gold); stroke-dasharray:3 3; animation:ttr-pulse 1.4s infinite; }
+.ttr-city .ttr-city-hit { fill:transparent; cursor:pointer; }
+.ttr-city.selectable .ttr-city-dot { fill:#3a3323; stroke:var(--gold); }
+.ttr-city.selectable text { fill:var(--gold); }
+@keyframes ttr-pulse { 0%,100% { opacity:.35; } 50% { opacity:1; } }
+
+/* 侧栏 */
+.ttr-panel { width:296px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding-right:2px; }
+.ttr-block { background:var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:10px; }
+.ttr-block h4 { font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:8px; display:flex; justify-content:space-between; gap:8px; }
+.ttr-dim { color:var(--text-dim); font-size:11px; }
+.ttr-market { display:flex; gap:6px; flex-wrap:wrap; }
+.ttr-card {
+  width:44px; height:58px; border-radius:7px; border:1px solid rgba(255,255,255,.25);
+  background:linear-gradient(160deg, var(--cc), rgba(0,0,0,.35)), var(--cc);
+  color:#10151c; font-weight:700; font-size:15px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .1s, box-shadow .1s;
+}
+.ttr-card:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 4px 10px rgba(0,0,0,.45); }
+.ttr-card:disabled { opacity:.4; cursor:not-allowed; }
+.ttr-card.loco { background:linear-gradient(135deg,#e26d6d,#e6c246,#43b581,#4a90d9,#a06bd0); color:#fff; text-shadow:0 1px 2px #000; }
+.ttr-card.empty { background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.12); color:var(--text-dim); cursor:default; }
+.ttr-deck {
+  width:60px; height:58px; border-radius:7px; cursor:pointer;
+  background:repeating-linear-gradient(45deg,#2b3444,#2b3444 4px,#242c3a 4px,#242c3a 8px);
+  border:1px solid #3a4657; color:var(--text); font-size:11px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+}
+.ttr-deck small { color:var(--text-dim); font-size:10px; }
+.ttr-deck:hover:not(:disabled) { border-color:var(--accent); }
+.ttr-deck:disabled { opacity:.4; cursor:not-allowed; }
+
+.ttr-btn-row { display:flex; gap:8px; }
+.ttr-btn {
+  flex:1; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:12px;
+  background:var(--bg-3); color:var(--text); border:1px solid var(--border);
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+}
+.ttr-btn small { font-size:10px; color:var(--text-dim); }
+.ttr-btn:hover:not(:disabled) { border-color:var(--accent); }
+.ttr-btn:disabled { opacity:.4; cursor:not-allowed; }
+.ttr-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-size:13px; }
+.ttr-btn.primary:hover:not(:disabled) { background:var(--accent-hover); }
+.ttr-btn.active { border-color:var(--gold); color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+
+/* 任务票卡片 */
+.ttr-ticket-list { display:flex; flex-direction:column; gap:5px; }
+.ttr-ticket {
+  position:relative; display:flex; align-items:center; gap:8px;
+  padding:5px 8px; border-radius:7px; font-size:12px;
+  background:rgba(255,255,255,.04); border:1px solid var(--border);
+}
+.ttr-ticket.long { background:rgba(74,144,217,.12); border-color:rgba(74,144,217,.45); }
+.ttr-ticket.clickable { cursor:pointer; }
+.ttr-ticket.clickable:hover { border-color:var(--accent); }
+.ttr-ticket.focused { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+.ttr-ticket.ok { border-color:rgba(67,181,129,.55); }
+.ttr-ticket.bad { border-color:rgba(224,92,92,.55); opacity:.85; }
+.ttr-ticket-pts { font-weight:700; color:var(--gold); min-width:26px; }
+.ttr-ticket.bad .ttr-ticket-pts { color:#e05c5c; }
+.ttr-ticket-line { flex:1; color:var(--text); }
+.ttr-ticket-tag { font-size:10px; color:#8fc0f0; border:1px solid rgba(74,144,217,.5); border-radius:4px; padding:0 4px; }
+.ttr-ticket.selected { border-color:var(--gold); background:rgba(245,197,66,.1); }
+.ttr-ticket-check { color:var(--gold); font-weight:700; }
+.ttr-ticket.bad .ttr-ticket-check { color:#e05c5c; }
+
+.ttr-log { flex:1; min-height:60px; overflow-y:auto; }
+.ttr-log p { font-size:11px; color:var(--text-dim); padding:1px 0; line-height:1.5; }
+
+/* 我的信息条 */
+.ttr-me { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:7px 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:10px; }
+.ttr-me-name { font-weight:700; color:var(--pc); font-size:13px; }
+.ttr-me-stats { display:flex; gap:12px; font-size:12px; color:var(--text-dim); }
+.ttr-hand { display:flex; gap:6px; flex-wrap:wrap; }
+.ttr-hand-chip {
+  display:inline-flex; align-items:center; gap:4px; font-size:11px; color:#10151c;
+  background:var(--cc); border:1px solid rgba(0,0,0,.35); border-radius:6px; padding:1px 7px 1px 4px;
+}
+.ttr-hand-chip b { font-size:12px; }
+.ttr-hand-chip.loco { background:linear-gradient(135deg,#e26d6d,#e6c246,#43b581,#4a90d9,#a06bd0); color:#fff; }
+
+.ttr-status { font-size:12px; color:var(--text-dim); min-height:18px; padding:0 4px; }
+.ttr-status.warn { color:var(--gold); }
+
+/* 覆盖层：开局选票 / 隧道 / 抽票 / 终局 */
+.ttr-overlay {
+  position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
+  background:rgba(6,10,15,.72); backdrop-filter:blur(2px); padding:16px;
+}
+.ttr-prompt {
+  width:100%; max-width:480px; max-height:88%; overflow-y:auto;
+  background:var(--bg-2); border:1px solid var(--border); border-radius:12px;
+  padding:18px; box-shadow:0 18px 50px rgba(0,0,0,.6);
+  display:flex; flex-direction:column; gap:10px;
+}
+.ttr-prompt h3 { font-size:16px; }
+.ttr-prompt h4 { font-size:13px; color:var(--text-dim); margin-top:4px; }
+.ttr-prompt p { font-size:12px; }
+.ttr-prompt .ttr-btn { align-self:stretch; }
+.ttr-prompt-actions { display:flex; gap:8px; }
+.ttr-prompt-actions .ttr-btn { flex:1; }
+.ttr-mini { display:inline-block; width:22px; height:28px; line-height:28px; text-align:center; border-radius:4px; font-size:11px; color:#10151c; background:var(--cc); margin-right:3px; }
+
+.ttr-score-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.ttr-score-table th, .ttr-score-table td { padding:5px 6px; text-align:center; border-bottom:1px solid var(--border); }
+.ttr-score-table th { color:var(--text-dim); font-weight:500; font-size:11px; }
+.ttr-score-table tr.win td { color:var(--gold); }
+
+@media (max-width: 980px) {
+  .ttr-body { flex-direction:column; }
+  .ttr-panel { width:100%; max-height:38vh; flex-direction:row; flex-wrap:wrap; overflow-y:auto; }
+  .ttr-panel .ttr-block { flex:1; min-width:240px; }
+  .ttr-log { display:none; }
+  .ttr-board-wrap { min-height:46vh; }
+}

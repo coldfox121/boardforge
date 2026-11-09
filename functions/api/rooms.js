@@ -77,11 +77,10 @@ export async function onRequestPost({ request, env }) {
 
   const gameId = String(body.game || 'splendor');
   const roomName = String(body.name || `${user.username}的房间`).slice(0, 30);
-  const maxPlayers = Math.max(2, Math.min(4, Number(body.maxPlayers) || 4));
 
   const game = GAMES[gameId];
   if (!game) return json({ error: '未知游戏' }, 400);
-  if (maxPlayers > game.maxPlayers) return json({ error: `该游戏最多 ${game.maxPlayers} 人` }, 400);
+  const maxPlayers = Math.max(2, Math.min(game.maxPlayers, Number(body.maxPlayers) || game.maxPlayers));
 
   const id = randomHex(16);
   const now = Date.now();

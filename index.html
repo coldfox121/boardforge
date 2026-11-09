@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BoardForge · 桌游工坊</title>
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=33">
 </head>
 <body>
   <div id="app">
@@ -59,12 +59,12 @@
               <span class="game-badge soon">敬请期待</span>
             </div>
           </div>
-          <div class="game-card coming-soon">
+          <div class="game-card locked" data-game="ticket">
             <div class="game-cover">🚂</div>
             <div class="game-meta">
               <h3>铁路环游</h3>
-              <p class="game-desc">连接大陆 · 2-5人</p>
-              <span class="game-badge soon">敬请期待</span>
+              <p class="game-desc">连接欧洲大陆 · 2-5人 · 60分钟</p>
+              <span class="game-badge">欧洲版 ✅ 可玩</span>
             </div>
           </div>
           <div class="game-card coming-soon">
@@ -103,6 +103,7 @@
                   <option value="1">1 个 AI</option>
                   <option value="2" selected>2 个 AI</option>
                   <option value="3">3 个 AI</option>
+                  <option value="4">4 个 AI</option>
                 </select>
               </label>
             </div>
@@ -151,6 +152,9 @@
             <button id="btn-new-game" class="btn-primary">再来一局</button>
           </div>
         </div>
+
+        <!-- 铁路环游 -->
+        <div id="ticket-game" class="hidden"></div>
       </main>
     </section>
 
@@ -160,6 +164,6 @@
     </section>
   </div>
 
-  <script type="module" src="js/app.js?v=30"></script>
+  <script type="module" src="js/app.js?v=31"></script>
 </body>
 </html>
