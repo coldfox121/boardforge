@@ -1,14 +1,14 @@
-// 铁路环游：欧洲版 · 游戏引擎（纯函数）
+// 铁路环游：美国版 · 游戏引擎（纯函数）
 // initGame(state) → validateAction / applyAction（输入 state + action → 新 state）
 // 不含 DOM / 网络 / 存储，可被 UI、AI、Node 模拟共用
 
 import {
   TRAIN_COLORS, COLOR_NAMES, ROUTES, TICKETS, TICKET_MAP,
-  TRAIN_CARS_PER_PLAYER, STATIONS_PER_PLAYER, CARDS_PER_COLOR, LOCOMOTIVES,
+  TRAIN_CARS_PER_PLAYER, CARDS_PER_COLOR, LOCOMOTIVES,
   STARTING_HAND, FACE_UP_COUNT, TICKETS_DRAWN_PER_ACTION, MIN_INITIAL_TICKETS,
-  UNUSED_STATION_POINTS, LONGEST_PATH_BONUS, ROUTE_SCORES, STATION_COSTS,
+  LONGEST_PATH_BONUS, ROUTE_SCORES,
   CITY_MAP, normalizeColor
-} from './ticket-data.js?v=34';
+} from './ticket-data.js?v=35';
 
 // ===== 基础工具 =====
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -118,16 +118,14 @@ export function initGame(playerNames, opts = {}) {
     phase: 'setup',            // setup | playing | finalRound | ended
     currentPlayer: 0,
     turn: 0,
-    turnPhase: 'idle',         // idle | drawing | tunnel | tickets
+    turnPhase: 'idle',         // idle | drawing | tickets
     drawnThisTurn: 0,
     players: [],
     routeOwner: new Array(ROUTES.length).fill(null),
-    cityStations: {},          // cityId -> playerIndex
     trainDeck: [],
     discard: [],
     faceUp: new Array(FACE_UP_COUNT).fill(null),
-    ticketDeck: [],            // 普通票牌堆（id 列表）
-    pendingTunnel: null,
+    ticketDeck: [],            // 目的地票牌堆（id 列表）
     pendingTickets: null,
     initialTickets: [],        // 开局每人待选票
     finalTurnsRemaining: 0,
@@ -145,8 +143,6 @@ export function initGame(playerNames, opts = {}) {
     hand: emptyHand(),
     handCount: 0,
     trains: TRAIN_CARS_PER_PLAYER,
-    stations: STATIONS_PER_PLAYER,
-    stationCities: [],
     tickets: [],
     claimed: [],
     score: 0,
@@ -168,16 +164,11 @@ export function initGame(playerNames, opts = {}) {
   // 翻开 5 张
   refillFaceUp(s);
 
-  // 开局任务牌：每人 1 张长途 + 2 张普通，共 3 张
-  const longDeck = shuffleInPlace(s, TICKETS.filter(t => t.long).map(t => t.id));
-  const regularDeck = shuffleInPlace(s, TICKETS.filter(t => !t.long).map(t => t.id));
+  // 开局任务牌：每人 3 张（美国版无长途票）
+  const regularDeck = shuffleInPlace(s, TICKETS.map(t => t.id));
 
   s.initialTickets = s.players.map(() => []);
-  for (const p of s.players) {
-    const long = longDeck.pop();
-    if (long) s.initialTickets[p.id].push(long);
-  }
-  for (let round = 0; round < 2; round++) {
+  for (let round = 0; round < 3; round++) {
     for (const p of s.players) {
       const t = regularDeck.pop();
       if (t) s.initialTickets[p.id].push(t);
@@ -196,10 +187,9 @@ export function claimPayment(hand, routeIdx, preferredColor = null) {
   const r = ROUTES[routeIdx];
   if (!r) return null;
   const len = r.len;
-  const ferries = r.ferries || 0;
 
   const tryColor = (color) => {
-    const colorCards = Math.min(hand[color] || 0, len - ferries);
+    const colorCards = Math.min(hand[color] || 0, len);
     const locos = len - colorCards;
     if (locos > (hand.loco || 0)) return null;
     return { color, colorCards, locos };
@@ -240,46 +230,18 @@ function buildOwnAdj(state, playerIndex) {
   return adj;
 }
 
-// 目的地票连通判定（允许使用自己的火车站借用对手一段铁轨）
-export function canConnect(state, playerIndex, from, to, maxStations = null) {
+// 目的地票连通判定（只算自己的铁轨）
+export function canConnect(state, playerIndex, from, to) {
   if (from === to) return true;
-  const p = state.players[playerIndex];
   const ownAdj = buildOwnAdj(state, playerIndex);
-
-  // 对手的铁轨（按城市索引）
-  const oppAdj = new Map();
-  ROUTES.forEach((r, i) => {
-    const owner = state.routeOwner[i];
-    if (owner === null || owner === playerIndex) return;
-    if (!oppAdj.has(r.a)) oppAdj.set(r.a, []);
-    if (!oppAdj.has(r.b)) oppAdj.set(r.b, []);
-    oppAdj.get(r.a).push(r.b);
-    oppAdj.get(r.b).push(r.a);
-  });
-
-  const stationCities = p.stationCities.slice(0, maxStations == null ? p.stationCities.length : maxStations);
-  const stationIdx = new Map(stationCities.map((c, i) => [c, i]));
-
-  const seen = new Set();
-  const queue = [[from, 0]];
-  seen.add(`${from}#0`);
+  const seen = new Set([from]);
+  const queue = [from];
 
   while (queue.length) {
-    const [city, mask] = queue.shift();
+    const city = queue.shift();
     if (city === to) return true;
-
     for (const nxt of ownAdj.get(city) || []) {
-      const key = `${nxt}#${mask}`;
-      if (!seen.has(key)) { seen.add(key); queue.push([nxt, mask]); }
-    }
-
-    const si = stationIdx.get(city);
-    if (si !== undefined && !(mask & (1 << si))) {
-      const newMask = mask | (1 << si);
-      for (const nxt of oppAdj.get(city) || []) {
-        const key = `${nxt}#${newMask}`;
-        if (!seen.has(key)) { seen.add(key); queue.push([nxt, newMask]); }
-      }
+      if (!seen.has(nxt)) { seen.add(nxt); queue.push(nxt); }
     }
   }
   return false;
@@ -343,7 +305,6 @@ export function validateAction(state, playerIndex, action) {
 
   switch (action.type) {
     case 'DRAW_CARDS': {
-      if (state.turnPhase === 'tunnel') return '请先处理隧道';
       if (state.turnPhase === 'tickets') return '请先选择要保留的任务牌';
       if (state.turnPhase !== 'idle' && state.turnPhase !== 'drawing') return '当前不能抽牌';
       if (state.drawnThisTurn >= 2) return '本回合已抽满 2 张';
@@ -362,7 +323,6 @@ export function validateAction(state, playerIndex, action) {
     }
 
     case 'CLAIM_ROUTE': {
-      if (state.turnPhase === 'tunnel') return '请先处理隧道';
       if (state.turnPhase === 'tickets') return '请先选择要保留的任务牌';
       if (state.turnPhase !== 'idle') return '本回合已抽过牌，不能再占路线';
       const routeIdx = action.routeId;
@@ -384,20 +344,7 @@ export function validateAction(state, playerIndex, action) {
       return null;
     }
 
-    case 'PAY_TUNNEL': {
-      if (state.turnPhase !== 'tunnel' || !state.pendingTunnel) return '当前没有待处理的隧道';
-      const pt = state.pendingTunnel;
-      const have = (p.hand[pt.color] || 0) + (p.hand.loco || 0);
-      if (have < pt.extraNeeded) return `还需要 ${pt.extraNeeded - have} 张同色车票才能支付隧道额外费用`;
-      return null;
-    }
-
-    case 'DECLINE_TUNNEL':
-      if (state.turnPhase !== 'tunnel' || !state.pendingTunnel) return '当前没有待处理的隧道';
-      return null;
-
     case 'DRAW_TICKETS': {
-      if (state.turnPhase === 'tunnel') return '请先处理隧道';
       if (state.turnPhase === 'tickets') return '请先选择要保留的任务牌';
       if (state.turnPhase !== 'idle') return '本回合已抽过牌，不能再抽任务牌';
       if (state.ticketDeck.length === 0) return '任务牌堆已空';
@@ -413,19 +360,6 @@ export function validateAction(state, playerIndex, action) {
       return null;
     }
 
-    case 'BUILD_STATION': {
-      if (state.turnPhase === 'tunnel') return '请先处理隧道';
-      if (state.turnPhase === 'tickets') return '请先选择要保留的任务牌';
-      if (state.turnPhase !== 'idle') return '本回合已抽过牌，不能建车站';
-      if (p.stations <= 0) return '火车站已用完';
-      const city = action.cityId;
-      if (!CITY_MAP[city]) return '城市无效';
-      if (state.cityStations[city] !== undefined) return '该城市已有火车站';
-      const cost = STATION_COSTS[STATIONS_PER_PLAYER - p.stations];
-      if (!bestStationColor(p.hand, cost)) return `需要 ${cost} 张同色车票才能建站`;
-      return null;
-    }
-
     default:
       return `未知动作类型: ${action.type}`;
   }
@@ -437,27 +371,6 @@ function validateInitialTickets(state, playerIndex, action) {
   if (!Array.isArray(ids) || ids.length < MIN_INITIAL_TICKETS) return `开局至少要保留 ${MIN_INITIAL_TICKETS} 张任务牌`;
   if (ids.some(id => !pool.includes(id))) return '只能保留发给你的任务牌';
   if (new Set(ids).size !== ids.length) return '任务牌重复选择';
-  return null;
-}
-
-function canPayTunnel(hand, pt) {
-  return (hand[pt.color] || 0) + (hand.loco || 0) >= pt.extraNeeded;
-}
-
-// 车站花费：找出可用同色（含车头兜底）的颜色
-function bestStationColor(hand, cost) {
-  let best = null;
-  for (const c of TRAIN_COLORS) {
-    if ((hand[c] || 0) >= cost) {
-      if (!best || hand[c] > hand[best]) best = c;
-    }
-  }
-  if (!best && (hand.loco || 0) >= cost) return 'loco';
-  if (best) return best;
-  // 颜色不够时可混合车头
-  for (const c of TRAIN_COLORS) {
-    if ((hand[c] || 0) + (hand.loco || 0) >= cost && (hand[c] || 0) > 0) return c;
-  }
   return null;
 }
 
@@ -499,70 +412,9 @@ export function applyAction(state, playerIndex, action) {
       const r = ROUTES[routeIdx];
       const pay = claimPayment(p.hand, routeIdx, normalizeColor(action.color));
       payCardsFromHand(p, pay);
-
-      if (r.tunnel) {
-        const revealed = [];
-        for (let i = 0; i < 3; i++) {
-          const c = drawFromDeck(s);
-          if (c) revealed.push(c);
-        }
-        // 全车头支付时，以路线颜色作为“打出的颜色”；灰线则视为车头
-        const declared = pay.colorCards === 0 ? (r.color || 'loco') : pay.color;
-        const matched = revealed.filter(c => c === declared || c === 'loco').length;
-        if (matched > 0) {
-          s.pendingTunnel = {
-            routeId: routeIdx,
-            pay,
-            color: declared,
-            extraNeeded: matched,
-            revealed
-          };
-          s.turnPhase = 'tunnel';
-          s.log.push(`${p.name} 尝试通过隧道，需要额外支付 ${matched} 张${COLOR_NAMES[declared] || ''}车票`);
-          break;
-        }
-        // 没有额外费用：直接占领，翻开的牌弃掉
-        s.discard.push(...paymentToCards(pay));
-        s.discard.push(...revealed);
-        claimRoute(s, playerIndex, routeIdx, r);
-        s.log.push(`${p.name} 占领 ${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh}（隧道）`);
-        finishTurn(s);
-      } else {
-        s.discard.push(...paymentToCards(pay));
-        claimRoute(s, playerIndex, routeIdx, r);
-        s.log.push(`${p.name} 占领 ${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh}`);
-        finishTurn(s);
-      }
-      break;
-    }
-
-    case 'PAY_TUNNEL': {
-      const pt = s.pendingTunnel;
-      const useColor = Math.min(p.hand[pt.color] || 0, pt.extraNeeded);
-      const useLoco = pt.extraNeeded - useColor;
-      if (useColor > 0) takeCard(p, pt.color, useColor);
-      if (useLoco > 0) takeCard(p, 'loco', useLoco);
-
-      s.discard.push(...pt.revealed);
-      s.discard.push(...paymentToCards(pt.pay));
-      for (let i = 0; i < useColor; i++) s.discard.push(pt.color);
-      for (let i = 0; i < useLoco; i++) s.discard.push('loco');
-
-      const r = ROUTES[pt.routeId];
-      claimRoute(s, playerIndex, pt.routeId, r);
-      s.log.push(`${p.name} 支付额外车票，通过隧道 ${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh}`);
-      s.pendingTunnel = null;
-      finishTurn(s);
-      break;
-    }
-
-    case 'DECLINE_TUNNEL': {
-      const pt = s.pendingTunnel;
-      // 收回已打出的基础车票
-      for (const c of paymentToCards(pt.pay)) giveCard(p, c);
-      s.discard.push(...pt.revealed);
-      s.pendingTunnel = null;
-      s.log.push(`${p.name} 放弃通过隧道`);
+      s.discard.push(...paymentToCards(pay));
+      claimRoute(s, playerIndex, routeIdx, r);
+      s.log.push(`${p.name} 占领 ${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh}`);
       finishTurn(s);
       break;
     }
@@ -587,23 +439,6 @@ export function applyAction(state, playerIndex, action) {
       s.ticketDeck = shuffleInPlace(s, s.ticketDeck);
       s.pendingTickets = null;
       s.log.push(`${p.name} 保留 ${keep.length} 张任务牌`);
-      finishTurn(s);
-      break;
-    }
-
-    case 'BUILD_STATION': {
-      const cost = STATION_COSTS[STATIONS_PER_PLAYER - p.stations];
-      const color = bestStationColor(p.hand, cost);
-      let remain = cost;
-      const useColor = Math.min(p.hand[color] || 0, remain);
-      if (useColor > 0) { takeCard(p, color, useColor); remain -= useColor; }
-      if (remain > 0) takeCard(p, 'loco', remain);
-      for (let i = 0; i < cost; i++) s.discard.push(color);
-
-      p.stations--;
-      p.stationCities.push(action.cityId);
-      s.cityStations[action.cityId] = playerIndex;
-      s.log.push(`${p.name} 在 ${CITY_MAP[action.cityId].zh} 建造火车站`);
       finishTurn(s);
       break;
     }
@@ -671,7 +506,6 @@ function finishTurn(s) {
   const p = s.players[s.currentPlayer];
   s.turnPhase = 'idle';
   s.drawnThisTurn = 0;
-  s.pendingTunnel = null;
   s.pendingTickets = null;
 
   if (s.phase === 'playing' && p.trains <= 2) {
@@ -702,16 +536,13 @@ function scoreGame(s) {
       return { id, ok, points: ok ? t.points : -t.points };
     });
     const ticketScore = ticketResults.reduce((sum, r) => sum + r.points, 0);
-    const stationScore = p.stations * UNUSED_STATION_POINTS;
     const routeScore = p.score;
     const longest = longestPathLength(s, p.id);
     p.longestPath = longest;
-    p.score = routeScore + ticketScore + stationScore;
+    p.score = routeScore + ticketScore;
     p.breakdown = {
       routeScore,
       ticketScore,
-      stationScore,
-      unusedStations: p.stations,
       tickets: ticketResults
     };
   }
@@ -759,12 +590,6 @@ export function listValidActions(state, playerIndex) {
     return actions;
   }
 
-  if (state.turnPhase === 'tunnel') {
-    if (canPayTunnel(p.hand, state.pendingTunnel)) actions.push({ type: 'PAY_TUNNEL' });
-    actions.push({ type: 'DECLINE_TUNNEL' });
-    return actions;
-  }
-
   if (state.turnPhase === 'tickets') {
     const drawn = state.pendingTickets.drawn;
     actions.push({ type: 'KEEP_TICKETS', ids: drawn.slice() });
@@ -793,11 +618,6 @@ export function listValidActions(state, playerIndex) {
       }
     }
     if (state.ticketDeck.length > 0) actions.push({ type: 'DRAW_TICKETS' });
-    for (const city of Object.keys(CITY_MAP)) {
-      if (validateAction(state, playerIndex, { type: 'BUILD_STATION', cityId: city }) === null) {
-        actions.push({ type: 'BUILD_STATION', cityId: city });
-      }
-    }
   }
 
   return actions;
@@ -821,7 +641,7 @@ export function distanceForPlayer(state, playerIndex, from, to, opts = {}) {
     const owner = state.routeOwner[i];
     let w;
     if (owner === playerIndex) w = 0;
-    else if (owner === null) w = r.len + (r.ferries || 0) * 0.5;
+    else if (owner === null) w = r.len;
     else if (ignoreOpponent) w = Infinity;
     else w = r.len + 2;
     if (i === extra) { w = 0; }

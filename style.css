@@ -1139,7 +1139,7 @@ body {
 .loading { text-align:center; padding:40px; color:var(--text-dim); }
 @media (max-width: 800px) { .balance-grid { grid-template-columns:1fr; } }
 
-/* ===== 铁路环游：欧洲版 ===== */
+/* ===== 铁路环游：美国版 ===== */
 #ticket-game { width:100%; align-self:stretch; min-height:0; }
 .ttr-shell { position:relative; display:flex; flex-direction:column; gap:8px; height:100%; min-height:0; }
 

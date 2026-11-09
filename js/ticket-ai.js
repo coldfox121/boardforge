@@ -1,8 +1,8 @@
-// 铁路环游：欧洲版 · AI（启发式策略 + 最短路规划）
-// 目标：能完整打完一局，行为合理（优先完成目的地票、按需补牌、必要时建站/抽票）
+// 铁路环游：美国版 · AI（启发式策略 + 最短路规划）
+// 目标：能完整打完一局，行为合理（优先完成目的地票、按需补牌、必要时抽票）
 
-import { ROUTES, TICKET_MAP, TRAIN_COLORS, ROUTE_SCORES } from './ticket-data.js?v=34';
-import { listValidActions, canConnect } from './ticket-engine.js?v=34';
+import { ROUTES, TICKET_MAP, TRAIN_COLORS, ROUTE_SCORES } from './ticket-data.js?v=35';
+import { listValidActions, canConnect } from './ticket-engine.js?v=35';
 
 const COLOR_LIST = TRAIN_COLORS;
 

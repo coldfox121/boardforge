@@ -73,9 +73,9 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./config-sync.js?v=34')
+    import('./config-sync.js?v=35')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=34'))
+      .then(() => import('./admin-ui.js?v=35'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -267,15 +267,15 @@ const GAME_RULES = {
     ]
   },
   ticket: {
-    name: '铁路环游：欧洲版 · 规则',
+    name: '铁路环游：美国版 · 规则',
     sections: [
       {
         title: '🎯 游戏目标',
-        body: '用自己颜色的车厢连接城市。游戏结束时，完成的任务票加分、未完成扣分，加上路线分、剩余火车站分，总分最高者获胜。'
+        body: '用自己颜色的车厢连接城市。游戏结束时，完成的任务票加分、未完成扣分，加上路线分与最长路线奖励，总分最高者获胜。'
       },
       {
-        title: '🎮 每回合四选一',
-        body: '① 抽 2 张车票（若抽面朝上的彩虹票则本回合只能抽这一张）<br>② 占领一条路线<br>③ 抽 3 张任务票，至少保留 1 张<br>④ 建造一座火车站'
+        title: '🎮 每回合三选一',
+        body: '① 抽 2 张车票（若抽面朝上的彩虹票则本回合只能抽这一张）<br>② 占领一条路线<br>③ 抽 3 张任务票，至少保留 1 张'
       },
       {
         title: '🎫 车票',
@@ -283,19 +283,7 @@ const GAME_RULES = {
       },
       {
         title: '🚃 占领路线',
-        body: '打出与路线格数和颜色相同的车票。灰色路线可用任意单一颜色。2-3 人局中双线铁轨只能使用其中一条。'
-      },
-      {
-        title: '🕳️ 隧道',
-        body: '先打出基础车票，再从牌堆翻 3 张：每翻到一张同色（彩虹票也算）就需额外支付一张同色车票。你可以支付后继续占领；也可以选择不支付，此时已打出的车票全部收回，本回合结束。'
-      },
-      {
-        title: '⛴️ 渡轮',
-        body: '路线上的彩虹图标数量 = 必须支付的彩虹票数量，其余格子用同色车票补齐。'
-      },
-      {
-        title: '🚉 火车站',
-        body: '欧洲版规则：每人 3 座。第 1/2/3 座分别需支付 1/2/3 张同色车票。车站建在城市里，可借用对手的 1 条连接到该城市的铁轨来连通任务票上的城市（不计入最长路线）。游戏结束时每座未使用的车站 +4 分。'
+        body: '打出与路线格数和颜色相同的车票。灰色路线可用任意单一颜色。2-3 人局中平行双线只能使用其中一条。'
       },
       {
         title: '🏁 终局',
@@ -303,7 +291,11 @@ const GAME_RULES = {
       },
       {
         title: '⚙️ 开局',
-        body: '每人随机 1 张长途票 + 2 张普通票（共 3 张），至少保留 2 张，其余移出游戏。'
+        body: '每人随机 3 张任务票，至少保留 2 张，其余移出游戏。'
+      },
+      {
+        title: 'ℹ️ 美国版说明',
+        body: '美国版没有隧道、渡轮和火车站；任务票只按自己的铁轨是否连通来判定。'
       }
     ]
   }
@@ -474,7 +466,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=34').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=35').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -674,7 +666,7 @@ async function showRoomByCode(code, gameId) {
       fresh.innerHTML = '';
       root.replaceWith(fresh);
 
-      const { TicketGame } = await import('./ticket-ui.js?v=34');
+      const { TicketGame } = await import('./ticket-ui.js?v=35');
       fresh.classList.remove('hidden');
       document.getElementById('room-waiting').classList.add('hidden');
       document.getElementById('splendor-game').classList.add('hidden');
@@ -686,9 +678,9 @@ async function showRoomByCode(code, gameId) {
     }
 
     // 璀璨宝石：进入游戏时才加载游戏模块；先同步云端牌库配置（含卡图）
-    const { syncGameConfig } = await import('./config-sync.js?v=34');
+    const { syncGameConfig } = await import('./config-sync.js?v=35');
     await syncGameConfig('splendor');
-    const { SplendorGame } = await import('./splendor-ui.js?v=34');
+    const { SplendorGame } = await import('./splendor-ui.js?v=35');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0

@@ -1,287 +1,221 @@
-// 铁路环游：欧洲版 · 静态数据（官方地图）
-// 47 座城市 / 101 条线路（含平行双线）/ 40 张普通目的地票 + 6 张长途票
-// 数据依据：官方 Europe 版规则书与地图坐标
+// 铁路环游：美国版 · 静态数据（官方地图）
+// 36 座城市 / 100 条线路选项（78 组连接，其中 22 组为平行双线）/ 29 张目的地票
+// 美国版规则：无隧道、无渡轮、无火车站；开局 3 张任务票，至少保留 2 张
 
 // ===== 常量 =====
 export const TRAIN_COLORS = ['purple', 'white', 'blue', 'yellow', 'orange', 'black', 'red', 'green'];
 
 export const COLOR_NAMES = {
-  purple: '紫色',
-  white: '白色',
-  blue: '蓝色',
-  yellow: '黄色',
-  orange: '橙色',
-  black: '黑色',
-  red: '红色',
-  green: '绿色',
-  gray: '灰色',
-  loco: '车头'
+  "purple": "紫色",
+  "white": "白色",
+  "blue": "蓝色",
+  "yellow": "黄色",
+  "orange": "橙色",
+  "black": "黑色",
+  "red": "红色",
+  "green": "绿色",
+  "gray": "灰色",
+  "loco": "车头"
 };
 
 export const TRAIN_CARS_PER_PLAYER = 45;
-export const STATIONS_PER_PLAYER = 3;
 export const CARDS_PER_COLOR = 12;
 export const LOCOMOTIVES = 14;
 export const STARTING_HAND = 4;
 export const FACE_UP_COUNT = 5;
 export const TICKETS_DRAWN_PER_ACTION = 3;
 export const MIN_INITIAL_TICKETS = 2;
-export const UNUSED_STATION_POINTS = 4;
 export const LONGEST_PATH_BONUS = 10;
 
 // 线路长度 → 得分
-export const ROUTE_SCORES = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 10, 6: 15, 7: 18, 8: 21 };
+export const ROUTE_SCORES = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 10, 6: 15 };
 
-// 建第 1/2/3 个车站的花费（同色卡张数）
-export const STATION_COSTS = [1, 2, 3];
-
-// ===== 城市 =====
-// x / y 为地图坐标（供后续 UI 渲染，引擎不使用）
+// ===== 城市（坐标为经纬度线性映射的地图坐标） =====
 export const CITIES = [
-  { id: 'edinburgh', en: 'Edinburgh', zh: '爱丁堡', x: 276, y: 127 },
-  { id: 'london', en: 'London', zh: '伦敦', x: 311, y: 239 },
-  { id: 'dieppe', en: 'Dieppe', zh: '迪耶普', x: 319, y: 354 },
-  { id: 'brest', en: 'Brest', zh: '布雷斯特', x: 218, y: 367 },
-  { id: 'paris', en: 'Paris', zh: '巴黎', x: 361, y: 444 },
-  { id: 'pamplona', en: 'Pamplona', zh: '潘普洛纳', x: 251, y: 556 },
-  { id: 'madrid', en: 'Madrid', zh: '马德里', x: 159, y: 640 },
-  { id: 'lisboa', en: 'Lisboa', zh: '里斯本', x: 50, y: 662 },
-  { id: 'cadiz', en: 'Cadiz', zh: '加的斯', x: 106, y: 731 },
-  { id: 'barcelona', en: 'Barcelona', zh: '巴塞罗那', x: 258, y: 670 },
-  { id: 'marseille', en: 'Marseille', zh: '马赛', x: 435, y: 566 },
-  { id: 'amsterdam', en: 'Amsterdam', zh: '阿姆斯特丹', x: 433, y: 253 },
-  { id: 'bruxelles', en: 'Bruxelles', zh: '布鲁塞尔', x: 391, y: 330 },
-  { id: 'essen', en: 'Essen', zh: '埃森', x: 500, y: 270 },
-  { id: 'frankfurt', en: 'Frankfurt', zh: '法兰克福', x: 475, y: 340 },
-  { id: 'zurich', en: 'Zurich', zh: '苏黎世', x: 470, y: 463 },
-  { id: 'roma', en: 'Roma', zh: '罗马', x: 587, y: 600 },
-  { id: 'venezia', en: 'Venezia', zh: '威尼斯', x: 560, y: 496 },
-  { id: 'munchen', en: 'Munchen', zh: '慕尼黑', x: 543, y: 391 },
-  { id: 'berlin', en: 'Berlin', zh: '柏林', x: 611, y: 277 },
-  { id: 'kobenhavn', en: 'Kobenhavn', zh: '哥本哈根', x: 566, y: 168 },
-  { id: 'stockholm', en: 'Stockholm', zh: '斯德哥尔摩', x: 635, y: 82 },
-  { id: 'danzig', en: 'Danzig', zh: '但泽', x: 685, y: 205 },
-  { id: 'wien', en: 'Wien', zh: '维也纳', x: 654, y: 404 },
-  { id: 'zagrab', en: 'Zagrab', zh: '萨格勒布', x: 672, y: 502 },
-  { id: 'brindisi', en: 'Brindisi', zh: '布林迪西', x: 688, y: 631 },
-  { id: 'palermo', en: 'Palermo', zh: '巴勒莫', x: 653, y: 752 },
-  { id: 'sarajevo', en: 'Sarajevo', zh: '萨拉热窝', x: 785, y: 563 },
-  { id: 'budapest', en: 'Budapest', zh: '布达佩斯', x: 742, y: 428 },
-  { id: 'riga', en: 'Riga', zh: '里加', x: 756, y: 100 },
-  { id: 'warszawa', en: 'Warszawa', zh: '华沙', x: 753, y: 252 },
-  { id: 'wilno', en: 'Wilno', zh: '维尔纽斯', x: 884, y: 214 },
-  { id: 'sofia', en: 'Sofia', zh: '索菲亚', x: 869, y: 529 },
-  { id: 'athina', en: 'Athina', zh: '雅典', x: 855, y: 678 },
-  { id: 'bucuresti', en: 'Bucuresti', zh: '布加勒斯特', x: 910, y: 452 },
-  { id: 'petrograd', en: 'Petrograd', zh: '圣彼得堡', x: 959, y: 36 },
-  { id: 'smolensk', en: 'Smolensk', zh: '斯摩棱斯克', x: 954, y: 166 },
-  { id: 'moskva', en: 'Moskva', zh: '莫斯科', x: 1070, y: 130 },
-  { id: 'kyiv', en: 'Kyiv', zh: '基辅', x: 964, y: 261 },
-  { id: 'kharkov', en: 'Kharkov', zh: '哈尔科夫', x: 1083, y: 276 },
-  { id: 'rostov', en: 'Rostov', zh: '罗斯托夫', x: 1150, y: 289 },
-  { id: 'sochi', en: 'Sochi', zh: '索契', x: 1203, y: 396 },
-  { id: 'sevastopol', en: 'Sevastopol', zh: '塞瓦斯托波尔', x: 1067, y: 416 },
-  { id: 'constantinople', en: 'Constantinople', zh: '君士坦丁堡', x: 1006, y: 579 },
-  { id: 'smyrna', en: 'Smyrna', zh: '士麦那', x: 991, y: 689 },
-  { id: 'angora', en: 'Angora', zh: '安卡拉', x: 1093, y: 621 },
-  { id: 'erzurum', en: 'Erzurum', zh: '埃尔祖鲁姆', x: 1217, y: 563 }
+  { id: 'van', en: 'Vancouver', zh: '温哥华', x: 70, y: 77 },
+  { id: 'sea', en: 'Seattle', zh: '西雅图', x: 87, y: 122 },
+  { id: 'por', en: 'Portland', zh: '波特兰', x: 80, y: 179 },
+  { id: 'cgy', en: 'Calgary', zh: '卡尔加里', x: 264, y: 29 },
+  { id: 'hel', en: 'Helena', zh: '海伦娜', x: 308, y: 150 },
+  { id: 'slc', en: 'Salt Lake City', zh: '盐湖城', x: 311, y: 307 },
+  { id: 'sfo', en: 'San Francisco', zh: '旧金山', x: 85, y: 388 },
+  { id: 'las', en: 'Las Vegas', zh: '拉斯维加斯', x: 242, y: 431 },
+  { id: 'los', en: 'Los Angeles', zh: '洛杉矶', x: 175, y: 489 },
+  { id: 'pho', en: 'Phoenix', zh: '菲尼克斯', x: 307, y: 505 },
+  { id: 'elp', en: 'El Paso', zh: '埃尔帕索', x: 427, y: 551 },
+  { id: 'sfe', en: 'Santa Fe', zh: '圣菲', x: 439, y: 444 },
+  { id: 'den', en: 'Denver', zh: '丹佛', x: 459, y: 335 },
+  { id: 'win', en: 'Winnipeg', zh: '温尼伯', x: 628, y: 60 },
+  { id: 'dul', en: 'Duluth', zh: '杜鲁斯', x: 736, y: 144 },
+  { id: 'oma', en: 'Omaha', zh: '奥马哈', x: 654, y: 294 },
+  { id: 'kan', en: 'Kansas City', zh: '堪萨斯城', x: 683, y: 352 },
+  { id: 'okl', en: 'Oklahoma City', zh: '俄克拉何马城', x: 620, y: 450 },
+  { id: 'dal', en: 'Dallas', zh: '达拉斯', x: 635, y: 523 },
+  { id: 'hou', en: 'Houston', zh: '休斯顿', x: 666, y: 605 },
+  { id: 'lrk', en: 'Little Rock', zh: '小石城', x: 732, y: 470 },
+  { id: 'nol', en: 'New Orleans', zh: '新奥尔良', x: 779, y: 600 },
+  { id: 'nas', en: 'Nashville', zh: '纳什维尔', x: 850, y: 432 },
+  { id: 'atl', en: 'Atlanta', zh: '亚特兰大', x: 901, y: 497 },
+  { id: 'mia', en: 'Miami', zh: '迈阿密', x: 991, y: 713 },
+  { id: 'cha', en: 'Charleston', zh: '查尔斯顿', x: 997, y: 523 },
+  { id: 'ral', en: 'Raleigh', zh: '罗利', x: 1025, y: 442 },
+  { id: 'was', en: 'Washington', zh: '华盛顿', x: 1059, y: 357 },
+  { id: 'pit', en: 'Pittsburgh', zh: '匹兹堡', x: 995, y: 316 },
+  { id: 'nyc', en: 'New York', zh: '纽约', x: 1124, y: 309 },
+  { id: 'bos', en: 'Boston', zh: '波士顿', x: 1187, y: 264 },
+  { id: 'mon', en: 'Montreal', zh: '蒙特利尔', x: 1133, y: 179 },
+  { id: 'tor', en: 'Toronto', zh: '多伦多', x: 1009, y: 229 },
+  { id: 'sau', en: 'Sault St Marie', zh: '苏圣玛丽', x: 902, y: 152 },
+  { id: 'stl', en: 'Saint Louis', zh: '圣路易斯', x: 777, y: 365 },
+  { id: 'ccg', en: 'Chicago', zh: '芝加哥', x: 832, y: 277 }
 ];
-
-export const CITY_MAP = Object.fromEntries(CITIES.map(c => [c.id, c]));
 
 // ===== 线路 =====
-// color: null 表示灰色（可用任意单一颜色）
-// ferries: 车头符号数量（必须支付等量车头卡）
-// tunnel: 是否为隧道（占领时翻 3 张牌，同色需额外加付）
-// parallel: null | 0 | 1 —— 同一对城市的平行双线分组
+// parallel: 0/1 表示同一对城市的平行双线；null 表示单线
+// color: null 表示灰色（任意颜色）
 export const ROUTES = [
-  { a: 'edinburgh', b: 'london', len: 4, color: 'black', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'edinburgh', b: 'london', len: 4, color: 'orange', ferries: 0, tunnel: false, parallel: 1 },
-  { a: 'london', b: 'dieppe', len: 2, color: null, ferries: 1, tunnel: false, parallel: 0 },
-  { a: 'london', b: 'dieppe', len: 2, color: null, ferries: 1, tunnel: false, parallel: 1 },
-  { a: 'london', b: 'amsterdam', len: 2, color: null, ferries: 2, tunnel: false, parallel: null },
-
-  { a: 'amsterdam', b: 'essen', len: 3, color: 'yellow', ferries: 0, tunnel: false, parallel: null },
-  { a: 'essen', b: 'kobenhavn', len: 3, color: null, ferries: 1, tunnel: false, parallel: 0 },
-  { a: 'essen', b: 'kobenhavn', len: 3, color: null, ferries: 1, tunnel: false, parallel: 1 },
-  { a: 'kobenhavn', b: 'stockholm', len: 3, color: 'yellow', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'kobenhavn', b: 'stockholm', len: 3, color: 'white', ferries: 0, tunnel: false, parallel: 1 },
-  { a: 'stockholm', b: 'petrograd', len: 8, color: null, ferries: 0, tunnel: true, parallel: null },
-
-  { a: 'petrograd', b: 'moskva', len: 4, color: 'white', ferries: 0, tunnel: false, parallel: null },
-  { a: 'riga', b: 'petrograd', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'danzig', b: 'riga', len: 3, color: 'black', ferries: 0, tunnel: false, parallel: null },
-  { a: 'berlin', b: 'danzig', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'essen', b: 'berlin', len: 2, color: 'blue', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'essen', b: 'frankfurt', len: 2, color: 'green', ferries: 0, tunnel: false, parallel: null },
-  { a: 'amsterdam', b: 'frankfurt', len: 2, color: 'white', ferries: 0, tunnel: false, parallel: null },
-  { a: 'amsterdam', b: 'bruxelles', len: 1, color: 'black', ferries: 0, tunnel: false, parallel: null },
-  { a: 'dieppe', b: 'bruxelles', len: 2, color: 'green', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'dieppe', b: 'brest', len: 2, color: 'orange', ferries: 0, tunnel: false, parallel: null },
-  { a: 'brest', b: 'paris', len: 3, color: 'black', ferries: 0, tunnel: false, parallel: null },
-  { a: 'dieppe', b: 'paris', len: 1, color: 'purple', ferries: 0, tunnel: false, parallel: null },
-  { a: 'paris', b: 'bruxelles', len: 2, color: 'yellow', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'paris', b: 'bruxelles', len: 2, color: 'red', ferries: 0, tunnel: false, parallel: 1 },
-
-  { a: 'bruxelles', b: 'frankfurt', len: 2, color: 'blue', ferries: 0, tunnel: false, parallel: null },
-  { a: 'frankfurt', b: 'berlin', len: 3, color: 'black', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'frankfurt', b: 'berlin', len: 3, color: 'red', ferries: 0, tunnel: false, parallel: 1 },
-  { a: 'paris', b: 'frankfurt', len: 3, color: 'white', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'paris', b: 'frankfurt', len: 3, color: 'orange', ferries: 0, tunnel: false, parallel: 1 },
-
-  { a: 'berlin', b: 'warszawa', len: 4, color: 'purple', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'berlin', b: 'warszawa', len: 4, color: 'yellow', ferries: 0, tunnel: false, parallel: 1 },
-  { a: 'danzig', b: 'warszawa', len: 2, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'warszawa', b: 'wilno', len: 3, color: 'red', ferries: 0, tunnel: false, parallel: null },
-  { a: 'riga', b: 'wilno', len: 4, color: 'green', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'wilno', b: 'petrograd', len: 4, color: 'blue', ferries: 0, tunnel: false, parallel: null },
-  { a: 'wilno', b: 'smolensk', len: 3, color: 'yellow', ferries: 0, tunnel: false, parallel: null },
-  { a: 'smolensk', b: 'moskva', len: 2, color: 'orange', ferries: 0, tunnel: false, parallel: null },
-  { a: 'moskva', b: 'kharkov', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'smolensk', b: 'kyiv', len: 3, color: 'red', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'wilno', b: 'kyiv', len: 2, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'warszawa', b: 'kyiv', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'kyiv', b: 'kharkov', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'kharkov', b: 'rostov', len: 2, color: 'green', ferries: 0, tunnel: false, parallel: null },
-  { a: 'wien', b: 'warszawa', len: 4, color: 'blue', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'berlin', b: 'wien', len: 3, color: 'green', ferries: 0, tunnel: false, parallel: null },
-  { a: 'frankfurt', b: 'munchen', len: 2, color: 'purple', ferries: 0, tunnel: false, parallel: null },
-  { a: 'budapest', b: 'kyiv', len: 6, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'bucuresti', b: 'kyiv', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'munchen', b: 'wien', len: 3, color: 'orange', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'wien', b: 'budapest', len: 1, color: 'red', ferries: 0, tunnel: false, parallel: 0 },
-  { a: 'wien', b: 'budapest', len: 1, color: 'white', ferries: 0, tunnel: false, parallel: 1 },
-  { a: 'budapest', b: 'bucuresti', len: 4, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'bucuresti', b: 'sevastopol', len: 4, color: 'white', ferries: 0, tunnel: false, parallel: null },
-  { a: 'rostov', b: 'sevastopol', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'rostov', b: 'sochi', len: 2, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'sochi', b: 'sevastopol', len: 2, color: null, ferries: 1, tunnel: false, parallel: null },
-  { a: 'sochi', b: 'erzurum', len: 3, color: 'red', ferries: 0, tunnel: true, parallel: null },
-  { a: 'sevastopol', b: 'erzurum', len: 4, color: null, ferries: 2, tunnel: false, parallel: null },
-  { a: 'sevastopol', b: 'constantinople', len: 4, color: null, ferries: 2, tunnel: false, parallel: null },
-
-  { a: 'angora', b: 'erzurum', len: 3, color: 'black', ferries: 0, tunnel: false, parallel: null },
-  { a: 'constantinople', b: 'angora', len: 2, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'smyrna', b: 'angora', len: 3, color: 'orange', ferries: 0, tunnel: true, parallel: null },
-  { a: 'constantinople', b: 'smyrna', len: 2, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'bucuresti', b: 'constantinople', len: 3, color: 'yellow', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'sofia', b: 'bucuresti', len: 2, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'sofia', b: 'constantinople', len: 3, color: 'blue', ferries: 0, tunnel: false, parallel: null },
-  { a: 'athina', b: 'smyrna', len: 2, color: null, ferries: 1, tunnel: false, parallel: null },
-  { a: 'sofia', b: 'athina', len: 3, color: 'purple', ferries: 0, tunnel: false, parallel: null },
-  { a: 'sarajevo', b: 'sofia', len: 2, color: null, ferries: 0, tunnel: true, parallel: null },
-
-  { a: 'sarajevo', b: 'budapest', len: 3, color: 'purple', ferries: 0, tunnel: false, parallel: null },
-  { a: 'zagrab', b: 'budapest', len: 2, color: 'orange', ferries: 0, tunnel: false, parallel: null },
-  { a: 'zagrab', b: 'sarajevo', len: 3, color: 'red', ferries: 0, tunnel: false, parallel: null },
-  { a: 'wien', b: 'zagrab', len: 2, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'sarajevo', b: 'athina', len: 4, color: 'green', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'brindisi', b: 'athina', len: 4, color: null, ferries: 1, tunnel: false, parallel: null },
-  { a: 'venezia', b: 'zagrab', len: 2, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'venezia', b: 'munchen', len: 2, color: 'blue', ferries: 0, tunnel: true, parallel: null },
-  { a: 'zurich', b: 'munchen', len: 2, color: 'yellow', ferries: 0, tunnel: true, parallel: null },
-  { a: 'zurich', b: 'venezia', len: 2, color: 'green', ferries: 0, tunnel: true, parallel: null },
-
-  { a: 'paris', b: 'zurich', len: 3, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'marseille', b: 'zurich', len: 2, color: 'purple', ferries: 0, tunnel: true, parallel: null },
-  { a: 'roma', b: 'venezia', len: 2, color: 'black', ferries: 0, tunnel: false, parallel: null },
-  { a: 'roma', b: 'brindisi', len: 2, color: 'white', ferries: 0, tunnel: false, parallel: null },
-  { a: 'palermo', b: 'smyrna', len: 6, color: null, ferries: 2, tunnel: false, parallel: null },
-
-  { a: 'brindisi', b: 'palermo', len: 3, color: null, ferries: 1, tunnel: false, parallel: null },
-  { a: 'roma', b: 'palermo', len: 4, color: null, ferries: 1, tunnel: false, parallel: null },
-  { a: 'marseille', b: 'roma', len: 4, color: null, ferries: 0, tunnel: true, parallel: null },
-  { a: 'paris', b: 'marseille', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'paris', b: 'pamplona', len: 4, color: 'blue', ferries: 0, tunnel: false, parallel: 0 },
-
-  { a: 'paris', b: 'pamplona', len: 4, color: 'green', ferries: 0, tunnel: false, parallel: 1 },
-  { a: 'brest', b: 'pamplona', len: 4, color: 'purple', ferries: 0, tunnel: false, parallel: null },
-  { a: 'pamplona', b: 'marseille', len: 4, color: 'red', ferries: 0, tunnel: false, parallel: null },
-  { a: 'barcelona', b: 'marseille', len: 4, color: null, ferries: 0, tunnel: false, parallel: null },
-  { a: 'pamplona', b: 'barcelona', len: 2, color: null, ferries: 0, tunnel: true, parallel: null },
-
-  { a: 'madrid', b: 'barcelona', len: 2, color: 'yellow', ferries: 0, tunnel: false, parallel: null },
-  { a: 'pamplona', b: 'madrid', len: 3, color: 'white', ferries: 0, tunnel: true, parallel: 0 },
-  { a: 'pamplona', b: 'madrid', len: 3, color: 'black', ferries: 0, tunnel: true, parallel: 1 },
-  { a: 'madrid', b: 'lisboa', len: 3, color: 'purple', ferries: 0, tunnel: false, parallel: null },
-  { a: 'lisboa', b: 'cadiz', len: 2, color: 'blue', ferries: 0, tunnel: false, parallel: null },
-
-  { a: 'madrid', b: 'cadiz', len: 3, color: 'orange', ferries: 0, tunnel: false, parallel: null }
+  { a: 'atl', b: 'cha', len: 2, color: null, parallel: null },
+  { a: 'atl', b: 'mia', len: 5, color: 'blue', parallel: null },
+  { a: 'atl', b: 'nas', len: 1, color: null, parallel: null },
+  { a: 'atl', b: 'nol', len: 4, color: 'yellow', parallel: 0 },
+  { a: 'atl', b: 'nol', len: 4, color: 'orange', parallel: 1 },
+  { a: 'atl', b: 'ral', len: 2, color: null, parallel: 0 },
+  { a: 'atl', b: 'ral', len: 2, color: null, parallel: 1 },
+  { a: 'bos', b: 'mon', len: 2, color: null, parallel: 0 },
+  { a: 'bos', b: 'mon', len: 2, color: null, parallel: 1 },
+  { a: 'bos', b: 'nyc', len: 2, color: 'yellow', parallel: 0 },
+  { a: 'bos', b: 'nyc', len: 2, color: 'red', parallel: 1 },
+  { a: 'ccg', b: 'dul', len: 3, color: 'red', parallel: null },
+  { a: 'ccg', b: 'oma', len: 4, color: 'blue', parallel: null },
+  { a: 'ccg', b: 'pit', len: 3, color: 'orange', parallel: 0 },
+  { a: 'ccg', b: 'pit', len: 3, color: 'black', parallel: 1 },
+  { a: 'ccg', b: 'stl', len: 2, color: 'green', parallel: 0 },
+  { a: 'ccg', b: 'stl', len: 2, color: 'white', parallel: 1 },
+  { a: 'ccg', b: 'tor', len: 4, color: 'white', parallel: null },
+  { a: 'cgy', b: 'hel', len: 4, color: null, parallel: null },
+  { a: 'cgy', b: 'sea', len: 4, color: null, parallel: null },
+  { a: 'cgy', b: 'van', len: 3, color: null, parallel: null },
+  { a: 'cgy', b: 'win', len: 6, color: 'white', parallel: null },
+  { a: 'cha', b: 'mia', len: 4, color: 'purple', parallel: null },
+  { a: 'cha', b: 'ral', len: 2, color: null, parallel: null },
+  { a: 'dal', b: 'elp', len: 4, color: 'red', parallel: null },
+  { a: 'dal', b: 'hou', len: 1, color: null, parallel: 0 },
+  { a: 'dal', b: 'hou', len: 1, color: null, parallel: 1 },
+  { a: 'dal', b: 'lrk', len: 2, color: null, parallel: null },
+  { a: 'dal', b: 'okl', len: 2, color: null, parallel: 0 },
+  { a: 'dal', b: 'okl', len: 2, color: null, parallel: 1 },
+  { a: 'den', b: 'hel', len: 4, color: 'green', parallel: null },
+  { a: 'den', b: 'kan', len: 4, color: 'black', parallel: 0 },
+  { a: 'den', b: 'kan', len: 4, color: 'orange', parallel: 1 },
+  { a: 'den', b: 'okl', len: 4, color: 'red', parallel: null },
+  { a: 'den', b: 'oma', len: 4, color: 'purple', parallel: null },
+  { a: 'den', b: 'pho', len: 5, color: 'white', parallel: null },
+  { a: 'den', b: 'sfe', len: 2, color: null, parallel: null },
+  { a: 'den', b: 'slc', len: 3, color: 'red', parallel: 0 },
+  { a: 'den', b: 'slc', len: 3, color: 'yellow', parallel: 1 },
+  { a: 'dul', b: 'hel', len: 6, color: 'orange', parallel: null },
+  { a: 'dul', b: 'oma', len: 2, color: null, parallel: 0 },
+  { a: 'dul', b: 'oma', len: 2, color: null, parallel: 1 },
+  { a: 'dul', b: 'sau', len: 3, color: null, parallel: null },
+  { a: 'dul', b: 'tor', len: 6, color: 'purple', parallel: null },
+  { a: 'dul', b: 'win', len: 4, color: 'black', parallel: null },
+  { a: 'elp', b: 'hou', len: 6, color: 'green', parallel: null },
+  { a: 'elp', b: 'los', len: 6, color: 'black', parallel: null },
+  { a: 'elp', b: 'okl', len: 5, color: 'yellow', parallel: null },
+  { a: 'elp', b: 'pho', len: 3, color: null, parallel: null },
+  { a: 'elp', b: 'sfe', len: 2, color: null, parallel: null },
+  { a: 'hel', b: 'oma', len: 5, color: 'red', parallel: null },
+  { a: 'hel', b: 'sea', len: 6, color: 'yellow', parallel: null },
+  { a: 'hel', b: 'slc', len: 3, color: 'purple', parallel: null },
+  { a: 'hel', b: 'win', len: 4, color: 'blue', parallel: null },
+  { a: 'hou', b: 'nol', len: 2, color: null, parallel: null },
+  { a: 'kan', b: 'okl', len: 2, color: null, parallel: 0 },
+  { a: 'kan', b: 'okl', len: 2, color: null, parallel: 1 },
+  { a: 'kan', b: 'oma', len: 2, color: null, parallel: 0 },
+  { a: 'kan', b: 'oma', len: 2, color: null, parallel: 1 },
+  { a: 'kan', b: 'stl', len: 2, color: 'blue', parallel: 0 },
+  { a: 'kan', b: 'stl', len: 2, color: 'purple', parallel: 1 },
+  { a: 'las', b: 'los', len: 2, color: null, parallel: null },
+  { a: 'las', b: 'slc', len: 3, color: 'orange', parallel: null },
+  { a: 'los', b: 'pho', len: 3, color: null, parallel: null },
+  { a: 'los', b: 'sfo', len: 3, color: 'purple', parallel: 0 },
+  { a: 'los', b: 'sfo', len: 3, color: 'yellow', parallel: 1 },
+  { a: 'lrk', b: 'nas', len: 3, color: 'white', parallel: null },
+  { a: 'lrk', b: 'nol', len: 3, color: 'green', parallel: null },
+  { a: 'lrk', b: 'okl', len: 2, color: null, parallel: null },
+  { a: 'lrk', b: 'stl', len: 2, color: null, parallel: null },
+  { a: 'mia', b: 'nol', len: 6, color: 'red', parallel: null },
+  { a: 'mon', b: 'nyc', len: 3, color: 'blue', parallel: null },
+  { a: 'mon', b: 'sau', len: 5, color: 'black', parallel: null },
+  { a: 'mon', b: 'tor', len: 3, color: null, parallel: null },
+  { a: 'nas', b: 'pit', len: 4, color: 'yellow', parallel: null },
+  { a: 'nas', b: 'ral', len: 3, color: 'black', parallel: null },
+  { a: 'nas', b: 'stl', len: 2, color: null, parallel: null },
+  { a: 'nyc', b: 'pit', len: 2, color: 'green', parallel: 0 },
+  { a: 'nyc', b: 'pit', len: 2, color: 'white', parallel: 1 },
+  { a: 'nyc', b: 'was', len: 2, color: 'black', parallel: 0 },
+  { a: 'nyc', b: 'was', len: 2, color: 'orange', parallel: 1 },
+  { a: 'okl', b: 'sfe', len: 3, color: 'blue', parallel: null },
+  { a: 'pho', b: 'sfe', len: 3, color: null, parallel: null },
+  { a: 'pit', b: 'ral', len: 2, color: null, parallel: null },
+  { a: 'pit', b: 'stl', len: 5, color: 'green', parallel: null },
+  { a: 'pit', b: 'tor', len: 2, color: null, parallel: null },
+  { a: 'pit', b: 'was', len: 2, color: null, parallel: null },
+  { a: 'por', b: 'sea', len: 1, color: null, parallel: 0 },
+  { a: 'por', b: 'sea', len: 1, color: null, parallel: 1 },
+  { a: 'por', b: 'sfo', len: 5, color: 'purple', parallel: 0 },
+  { a: 'por', b: 'sfo', len: 5, color: 'green', parallel: 1 },
+  { a: 'por', b: 'slc', len: 6, color: 'blue', parallel: null },
+  { a: 'ral', b: 'was', len: 2, color: null, parallel: 0 },
+  { a: 'ral', b: 'was', len: 2, color: null, parallel: 1 },
+  { a: 'sau', b: 'tor', len: 2, color: null, parallel: null },
+  { a: 'sau', b: 'win', len: 6, color: null, parallel: null },
+  { a: 'sea', b: 'van', len: 1, color: null, parallel: 0 },
+  { a: 'sea', b: 'van', len: 1, color: null, parallel: 1 },
+  { a: 'sfo', b: 'slc', len: 5, color: 'white', parallel: 0 },
+  { a: 'sfo', b: 'slc', len: 5, color: 'orange', parallel: 1 }
 ];
-
-// 兼容两种颜色写法（历史数据中可能用 pink 表示紫色）
-export function normalizeColor(c) {
-  if (!c || c === 'gray' || c === 'grey') return null;
-  if (c === 'pink') return 'purple';
-  return c;
-}
 
 // ===== 目的地票 =====
-// long: 是否为长途票（蓝底）
 export const TICKETS = [
-  // 40 张普通票
-  { id: 't01', a: 'frankfurt', b: 'kobenhavn', points: 5, long: false },
-  { id: 't02', a: 'marseille', b: 'essen', points: 8, long: false },
-  { id: 't03', a: 'smolensk', b: 'rostov', points: 8, long: false },
-  { id: 't04', a: 'kyiv', b: 'sochi', points: 8, long: false },
-  { id: 't05', a: 'paris', b: 'zagrab', points: 7, long: false },
-  { id: 't06', a: 'london', b: 'wien', points: 10, long: false },
-  { id: 't07', a: 'riga', b: 'bucuresti', points: 10, long: false },
-  { id: 't08', a: 'berlin', b: 'bucuresti', points: 8, long: false },
-  { id: 't09', a: 'berlin', b: 'moskva', points: 12, long: false },
-  { id: 't10', a: 'erzurum', b: 'rostov', points: 5, long: false },
-  { id: 't11', a: 'brest', b: 'marseille', points: 7, long: false },
-  { id: 't12', a: 'venezia', b: 'constantinople', points: 10, long: false },
-  { id: 't13', a: 'stockholm', b: 'wien', points: 11, long: false },
-  { id: 't14', a: 'sarajevo', b: 'sevastopol', points: 8, long: false },
-  { id: 't15', a: 'kyiv', b: 'petrograd', points: 6, long: false },
-  { id: 't16', a: 'paris', b: 'wien', points: 8, long: false },
-  { id: 't17', a: 'berlin', b: 'roma', points: 9, long: false },
-  { id: 't18', a: 'madrid', b: 'dieppe', points: 8, long: false },
-  { id: 't19', a: 'zagrab', b: 'brindisi', points: 6, long: false },
-  { id: 't20', a: 'bruxelles', b: 'danzig', points: 9, long: false },
-  { id: 't21', a: 'athina', b: 'wilno', points: 11, long: false },
-  { id: 't22', a: 'zurich', b: 'brindisi', points: 6, long: false },
-  { id: 't23', a: 'essen', b: 'kyiv', points: 10, long: false },
-  { id: 't24', a: 'zurich', b: 'budapest', points: 6, long: false },
-  { id: 't25', a: 'barcelona', b: 'munchen', points: 8, long: false },
-  { id: 't26', a: 'palermo', b: 'constantinople', points: 8, long: false },
-  { id: 't27', a: 'athina', b: 'angora', points: 5, long: false },
-  { id: 't28', a: 'warszawa', b: 'smolensk', points: 6, long: false },
-  { id: 't29', a: 'edinburgh', b: 'paris', points: 7, long: false },
-  { id: 't30', a: 'budapest', b: 'sofia', points: 5, long: false },
-  { id: 't31', a: 'barcelona', b: 'bruxelles', points: 8, long: false },
-  { id: 't32', a: 'sofia', b: 'smyrna', points: 5, long: false },
-  { id: 't33', a: 'madrid', b: 'zurich', points: 8, long: false },
-  { id: 't34', a: 'amsterdam', b: 'wilno', points: 12, long: false },
-  { id: 't35', a: 'brest', b: 'venezia', points: 8, long: false },
-  { id: 't36', a: 'roma', b: 'smyrna', points: 8, long: false },
-  { id: 't37', a: 'angora', b: 'kharkov', points: 10, long: false },
-  { id: 't38', a: 'frankfurt', b: 'smolensk', points: 13, long: false },
-  { id: 't39', a: 'london', b: 'berlin', points: 7, long: false },
-  { id: 't40', a: 'amsterdam', b: 'pamplona', points: 7, long: false },
-
-  // 6 张长途票
-  { id: 'L1', a: 'edinburgh', b: 'athina', points: 21, long: true },
-  { id: 'L2', a: 'brest', b: 'petrograd', points: 20, long: true },
-  { id: 'L3', a: 'cadiz', b: 'stockholm', points: 21, long: true },
-  { id: 'L4', a: 'lisboa', b: 'danzig', points: 20, long: true },
-  { id: 'L5', a: 'kobenhavn', b: 'erzurum', points: 21, long: true },
-  { id: 'L6', a: 'palermo', b: 'moskva', points: 20, long: true }
+  { id: 't1', a: 'den', b: 'elp', points: 4 },
+  { id: 't2', a: 'hou', b: 'kan', points: 5 },
+  { id: 't3', a: 'atl', b: 'nyc', points: 6 },
+  { id: 't4', a: 'cgy', b: 'slc', points: 7 },
+  { id: 't5', a: 'ccg', b: 'nol', points: 7 },
+  { id: 't6', a: 'dul', b: 'hou', points: 8 },
+  { id: 't7', a: 'hel', b: 'los', points: 8 },
+  { id: 't8', a: 'nas', b: 'sau', points: 8 },
+  { id: 't9', a: 'atl', b: 'mon', points: 9 },
+  { id: 't10', a: 'ccg', b: 'sfe', points: 9 },
+  { id: 't11', a: 'los', b: 'sea', points: 9 },
+  { id: 't12', a: 'okl', b: 'sau', points: 9 },
+  { id: 't13', a: 'dul', b: 'elp', points: 10 },
+  { id: 't14', a: 'mia', b: 'tor', points: 10 },
+  { id: 't15', a: 'dal', b: 'nyc', points: 11 },
+  { id: 't16', a: 'den', b: 'pit', points: 11 },
+  { id: 't17', a: 'lrk', b: 'win', points: 11 },
+  { id: 't18', a: 'pho', b: 'por', points: 11 },
+  { id: 't19', a: 'bos', b: 'mia', points: 12 },
+  { id: 't20', a: 'hou', b: 'win', points: 12 },
+  { id: 't21', a: 'mon', b: 'nol', points: 13 },
+  { id: 't22', a: 'sfe', b: 'van', points: 13 },
+  { id: 't23', a: 'ccg', b: 'los', points: 16 },
+  { id: 't24', a: 'atl', b: 'sfo', points: 17 },
+  { id: 't25', a: 'nas', b: 'por', points: 17 },
+  { id: 't26', a: 'los', b: 'mia', points: 20 },
+  { id: 't27', a: 'mon', b: 'van', points: 20 },
+  { id: 't28', a: 'los', b: 'nyc', points: 21 },
+  { id: 't29', a: 'nyc', b: 'sea', points: 22 }
 ];
 
-export const TICKET_MAP = Object.fromEntries(TICKETS.map(t => [t.id, t]));
+// ===== 派生索引 =====
+export const CITY_MAP = {};
+for (const c of CITIES) CITY_MAP[c.id] = c;
 
-// 城市名（中文）快捷查询
-export function cityName(id) {
-  return CITY_MAP[id]?.zh || id;
+export const TICKET_MAP = {};
+for (const t of TICKETS) TICKET_MAP[t.id] = t;
+
+export function normalizeColor(c) {
+  return TRAIN_COLORS.includes(c) ? c : null;
 }
