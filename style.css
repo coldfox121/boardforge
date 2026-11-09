@@ -993,6 +993,7 @@ body {
   font-size: 12px;
 }
 .room-player-chip.me { background: #4fc3f7; color: #000; }
+.room-player-chip.offline { opacity: .45; }
 .waiting-actions { margin-bottom: 18px; font-size: 12px; color: var(--text-dim); display: flex; flex-direction: column; gap: 6px; }
 .waiting-actions select { padding: 4px 8px; border-radius: 4px; background: #2a2a2a; color: #fff; border: 1px solid #444; }
 

@@ -11,7 +11,11 @@ const state = {
   currentRoomCode: null,
   currentGame: null,
   splendorGame: null,  // 当前游戏实例
-  ticketGame: null
+  ticketGame: null,
+  roomCode: null,      // 当前联机房间号
+  roomGame: null,
+  roomInfo: null,      // 最近一次房间同步数据
+  roomTimer: null
 };
 
 // === 路由：#/path 解析 ===
@@ -213,7 +217,9 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   navigate('/login');
 });
 
-document.getElementById('btn-room-back').addEventListener('click', () => {
+document.getElementById('btn-room-back').addEventListener('click', async () => {
+  // 离开房间：停止轮询并退出座位，避免占位
+  leaveRoomSession();
   // 受限模式返回受限入口，完整模式返回大厅
   if (state.guestGame) navigate('/g/' + state.guestGame);
   else navigate('/lobby');
@@ -544,8 +550,12 @@ function openRoomModal(gameId, presetCode) {
         <div class="join-info">
           <p><strong>${data.name}</strong> · ${data.game_name}</p>
           <p>状态：${data.status === 'waiting' ? '等待中' : '进行中'} · ${data.current_players}/${data.max_players} 人</p>
-          <p class="hint">⚠️ 联机房间开发中，暂不能真正进入游戏</p>
+          <button class="btn-primary" id="rm-enter" style="margin-top:8px">进入房间</button>
         </div>`;
+      document.getElementById('rm-enter').addEventListener('click', () => {
+        closeRoomModal();
+        navigate('/room/' + code, { game: data.game });
+      });
     } catch (err) {
       infoEl.innerHTML = `<p class="msg error">${err.message}</p>`;
     }
@@ -566,11 +576,16 @@ function closeRoomModal() {
 
 // 展示房间页（创建后或直接通过链接访问）
 async function showRoomByCode(code, gameId, hintGame) {
+  const upper = code.toUpperCase();
+
+  // 切换到另一个房间时，先释放旧房间座位
+  if (state.roomCode && state.roomCode !== upper) leaveRoomSession();
+  state.ticketGame = null;
+  state.splendorGame = null;
+
   const title = document.getElementById('room-title');
   showView('room');
   closeRoomModal();
-
-  const upper = code.toUpperCase();
 
   // 游戏类型解析顺序：URL 显式 > URL 提示 > 本会话 > 房间接口 > 本机记忆
   let gid = gameId || hintGame || state.currentGame || null;
@@ -607,44 +622,18 @@ async function showRoomByCode(code, gameId, hintGame) {
   ticketRoot.classList.add('hidden');
   ticketRoot.innerHTML = '';
 
-  // 玩家列表（目前本地，联机后从服务器同步）
-  const playersEl = document.getElementById('room-players-list');
-  playersEl.innerHTML = '';
-  const myName = state.username || '你';
-  const myChip = document.createElement('div');
-  myChip.className = 'room-player-chip me';
-  myChip.textContent = `👤 ${myName}`;
-  playersEl.appendChild(myChip);
+  // ===== 联机会话：入座 + 2 秒轮询同步 =====
+  state.roomCode = upper;
+  state.roomGame = gid;
 
-  // AI 复选框联动 AI 数量选择器（铁路环游支持 5 人，即最多 4 个 AI）
-  const maxAI = gid === 'ticket' ? 4 : 3;
-  const aiToggle = document.getElementById('toggle-ai');
-  const aiCount = document.getElementById('ai-count');
-  [...aiCount.options].forEach(o => { o.disabled = Number(o.value) > maxAI; });
-  if (Number(aiCount.value) > maxAI) aiCount.value = String(maxAI);
-
-  aiToggle.addEventListener('change', () => {
-    aiCount.disabled = !aiToggle.checked;
-    document.getElementById('room-online-count').textContent =
-      1 + (aiToggle.checked ? Number(aiCount.value) : 0);
-  });
-  aiCount.addEventListener('change', () => {
-    if (aiToggle.checked) {
-      document.getElementById('room-online-count').textContent = 1 + Number(aiCount.value);
-    }
-  });
-
-  document.getElementById('room-online-count').textContent = 1;
-  aiCount.disabled = !aiToggle.checked;
-
-  // 分享框
+  // 分享框（邀请链接）
   const shareBox = document.getElementById('room-share-box');
   shareBox.innerHTML = `
     <div class="share-box">
       <input id="share-input" readonly value="${shareUrl}">
       <button id="share-copy" class="btn-primary">复制</button>
     </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:8px">朋友打开此链接 → 登录后自动回到房间</p>
+    <p style="font-size:11px;color:var(--text-dim);margin-top:8px">朋友打开此链接 → 登录后自动入座</p>
   `;
   document.getElementById('share-copy').addEventListener('click', () => {
     const input = document.getElementById('share-input');
@@ -656,59 +645,201 @@ async function showRoomByCode(code, gameId, hintGame) {
     });
   });
 
-  // 开始游戏
-  document.getElementById('btn-start-game').onclick = async () => {
-    if (!gid) {
-      alert('无法获取该房间的游戏类型，请刷新页面重试');
-      return;
-    }
-    let aiCountVal = 0;
-    if (aiToggle.checked) aiCountVal = Math.min(Number(aiCount.value), maxAI);
+  // AI 补位控件（只有房主可调）
+  const aiToggle = document.getElementById('toggle-ai');
+  const aiCount = document.getElementById('ai-count');
+  const maxAI = gid === 'ticket' ? 4 : 3;
+  [...aiCount.options].forEach(o => { o.disabled = Number(o.value) > maxAI; });
+  if (Number(aiCount.value) > maxAI) aiCount.value = String(maxAI);
+  aiToggle.addEventListener('change', () => { aiCount.disabled = !aiToggle.checked; });
+  aiCount.disabled = !aiToggle.checked;
 
-    const names = [myName];
-    for (let i = 1; i <= aiCountVal; i++) names.push(`AI-${i}`);
+  document.getElementById('btn-start-game').onclick = startRoomGame;
 
-    // 保底：至少 2 人
-    while (names.length < 2) names.push(`AI-${names.length}`);
+  // 入座（房主进入房间也占 1 号座位）
+  try {
+    await api('/api/room?code=' + upper, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'join', code: upper })
+    });
+  } catch (e) {
+    document.getElementById('room-players-list').innerHTML =
+      `<p class="msg error">${escHtml(e.message)}</p>`;
+    document.getElementById('btn-start-game').disabled = true;
+    return;
+  }
 
-    if (gid === 'ticket') {
-      const root = document.getElementById('ticket-game');
-      // 重建容器，清掉上一局遗留的事件监听与 AI 定时器
-      const fresh = root.cloneNode(false);
-      fresh.innerHTML = '';
-      root.replaceWith(fresh);
+  startRoomPoll(upper);
+}
 
-      // 先同步云端数据（管理员可能改过城市/线路/任务票），再加载游戏模块
-      const { syncGameConfig } = await import('./config-sync.js?v=35');
-      await syncGameConfig('ticket');
-      const { TicketGame } = await import('./ticket-ui.js?v=38');
-      fresh.classList.remove('hidden');
-      document.getElementById('room-waiting').classList.add('hidden');
-      document.getElementById('splendor-game').classList.add('hidden');
-      document.getElementById('splendor-end').classList.add('hidden');
+// ===== 房间联机辅助 =====
+function escHtml(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
-      state.ticketGame = new TicketGame(fresh, { playerNames: names, humanIndex: 0 });
-      state.ticketGame.start();
-      return;
-    }
+function stopRoomPoll() {
+  if (state.roomTimer) { clearInterval(state.roomTimer); state.roomTimer = null; }
+}
 
-    // 璀璨宝石：进入游戏时才加载游戏模块；先同步云端牌库配置（含卡图）
+// 退出当前房间：停轮询 + 释放座位 + 清理本地游戏实例
+function leaveRoomSession() {
+  stopRoomPoll();
+  const code = state.roomCode;
+  state.roomCode = null;
+  state.roomInfo = null;
+  state.ticketGame = null;
+  state.splendorGame = null;
+  if (code) {
+    api('/api/room?code=' + code, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'leave', code })
+    }).catch(() => {});
+  }
+}
+
+function startRoomPoll(code) {
+  stopRoomPoll();
+  const tick = () => syncRoom(code).catch(() => {});
+  state.roomTimer = setInterval(tick, 2000);
+  tick();
+}
+
+async function syncRoom(code) {
+  const data = await api('/api/room?code=' + code);
+  if (code !== state.roomCode) return;
+  state.roomInfo = data;
+  renderRoomWaiting(data);
+  if (data.room.status === 'playing' && data.state) {
+    if (state.ticketGame) state.ticketGame.syncState(data.state, data.version);
+    else if (data.room.game === 'ticket') launchTicketOnline(data, !!data.me.is_owner);
+  }
+}
+
+function renderRoomWaiting(data) {
+  const list = document.getElementById('room-players-list');
+  if (!list) return;
+
+  const mySeat = data.me.seat;
+  list.innerHTML = data.members.length
+    ? data.members.map(m => {
+        const ownerTag = m.username === data.room.owner ? ' · 房主' : '';
+        const onlineTag = m.online ? '' : ' · 离线';
+        return `<div class="room-player-chip ${m.seat === mySeat ? 'me' : ''} ${m.online ? '' : 'offline'}">` +
+          `👤 ${escHtml(m.username)}${ownerTag}${onlineTag}</div>`;
+      }).join('')
+    : '<p class="hint">还没有人入座</p>';
+
+  document.getElementById('room-online-count').textContent =
+    String(data.members.filter(m => m.online).length);
+
+  const startBtn = document.getElementById('btn-start-game');
+  const aiBox = document.getElementById('room-ai-controls');
+  const owner = !!data.me.is_owner;
+  aiBox.style.display = owner ? '' : 'none';
+
+  if (!owner) {
+    startBtn.disabled = true;
+    startBtn.textContent = '⏳ 等待房主开始';
+    return;
+  }
+  if (data.room.game !== 'ticket' && data.members.length > 1) {
+    startBtn.disabled = true;
+    startBtn.textContent = '⚠️ 该游戏暂不支持联机';
+    return;
+  }
+  startBtn.disabled = false;
+  startBtn.textContent = '🚀 开始游戏';
+}
+
+async function startRoomGame() {
+  const data = state.roomInfo;
+  if (!data || !data.me.is_owner) return;
+
+  // 璀璨宝石：暂未接入联机，保持房主单机 + AI
+  if (data.room.game !== 'ticket') {
+    const aiToggle = document.getElementById('toggle-ai');
+    const aiCount = document.getElementById('ai-count');
+    let aiN = 0;
+    if (aiToggle.checked) aiN = Math.min(Number(aiCount.value) || 0, 3);
+    const names = [data.me.username];
+    for (let i = 1; i <= aiN; i++) names.push('AI-' + i);
+    while (names.length < 2) names.push('AI-' + names.length);
+
     const { syncGameConfig } = await import('./config-sync.js?v=35');
     await syncGameConfig('splendor');
     const { SplendorGame } = await import('./splendor-ui.js?v=35');
-    state.splendorGame = new SplendorGame(null, {
-      playerNames: names,
-      humanIndex: 0
-    });
-
-    // 切换 UI
+    state.splendorGame = new SplendorGame(null, { playerNames: names, humanIndex: 0 });
     document.getElementById('room-waiting').classList.add('hidden');
     document.getElementById('splendor-game').classList.remove('hidden');
     document.getElementById('splendor-end').classList.add('hidden');
-    ticketRoot.classList.add('hidden');
-
+    document.getElementById('ticket-game').classList.add('hidden');
     state.splendorGame.start();
-  };
+    return;
+  }
+
+  // 铁路环游联机：座位顺序 = 成员入座顺序，剩余座位给 AI
+  const members = data.members.slice().sort((a, b) => a.seat - b.seat);
+  const names = members.map(m => m.username);
+  const maxAI = Math.max(0, data.room.max_players - names.length);
+  const aiToggle = document.getElementById('toggle-ai');
+  const aiCount = document.getElementById('ai-count');
+  const aiN = aiToggle.checked ? Math.min(Number(aiCount.value) || 0, maxAI) : 0;
+  for (let i = 1; i <= aiN; i++) names.push('AI-' + i);
+  while (names.length < 2) names.push('AI-' + names.length);
+
+  // 先同步云端数据，再生成初始对局，保证各端一致
+  const { syncGameConfig } = await import('./config-sync.js?v=35');
+  await syncGameConfig('ticket');
+  const { initGame } = await import('./ticket-engine.js?v=38');
+  const st = initGame(names);
+  st.players.forEach((p, i) => { p.isAI = i >= members.length; });
+
+  const btn = document.getElementById('btn-start-game');
+  btn.disabled = true;
+  try {
+    await api('/api/room?code=' + state.roomCode, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'start', code: state.roomCode, state: st })
+    });
+    await launchTicketOnline({ state: st, version: 1, me: data.me, room: data.room }, true);
+  } catch (e) {
+    btn.disabled = false;
+    alert(e.message || '开始游戏失败');
+  }
+}
+
+// 进入联机对局：宿主机房端负责跑 AI，客人端只读轮询
+async function launchTicketOnline(data, isHost) {
+  if (state.ticketGame) return;
+  const root = document.getElementById('ticket-game');
+  const fresh = root.cloneNode(false);
+  fresh.innerHTML = '';
+  root.replaceWith(fresh);
+
+  const { syncGameConfig } = await import('./config-sync.js?v=35');
+  await syncGameConfig('ticket');
+  const { TicketGame } = await import('./ticket-ui.js?v=39');
+
+  document.getElementById('room-waiting').classList.add('hidden');
+  document.getElementById('splendor-game').classList.add('hidden');
+  document.getElementById('splendor-end').classList.add('hidden');
+  fresh.classList.remove('hidden');
+
+  state.ticketGame = new TicketGame(fresh, {
+    humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
+    initialState: data.state,
+    online: {
+      isHost,
+      version: data.version,
+      push: (st, baseVersion) => api('/api/room?code=' + state.roomCode, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'push', code: state.roomCode, baseVersion, state: st })
+      }).then(r => r.version)
+    }
+  });
+  state.ticketGame.start();
 }
 
 // 进入房间占位页（创建房间后）

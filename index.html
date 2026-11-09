@@ -91,9 +91,9 @@
         <div id="room-waiting" class="room-waiting hidden">
           <div class="waiting-card">
             <h2>⚙️ 房间准备</h2>
-            <p class="waiting-sub">当前在线 <span id="room-online-count">1</span> 人</p>
+            <p class="waiting-sub">当前在线 <span id="room-online-count">1</span> 人 · 把邀请链接发给朋友，对方登录后自动入座</p>
             <div id="room-players-list" class="room-players-list"></div>
-            <div class="waiting-actions">
+            <div class="waiting-actions" id="room-ai-controls">
               <label class="ai-toggle">
                 <input type="checkbox" id="toggle-ai" checked> 开启 AI 补位（剩余座位 AI 占）
               </label>
@@ -164,6 +164,6 @@
     </section>
   </div>
 
-  <script type="module" src="js/app.js?v=39"></script>
+  <script type="module" src="js/app.js?v=40"></script>
 </body>
 </html>

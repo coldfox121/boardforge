@@ -74,8 +74,13 @@ export class TicketGame {
   constructor(container, options = {}) {
     this.root = typeof container === 'string' ? document.getElementById(container) : container;
     this.playerNames = options.playerNames || ['你', 'AI-1', 'AI-2'];
-    this.humanIndex = options.humanIndex || 0;
+    this.humanIndex = options.humanIndex ?? 0;
     this.state = null;
+    this.online = options.online || null;
+    this.initialState = options.initialState || null;
+    this.version = this.online ? (this.online.version || 0) : 0;
+    this._pushing = false;
+    this._pending = null;
     this.focusTicket = null;   // 高亮某张票的起终点城市
     this.claimDraft = null;    // 待确认占领的路线 index
     this.claimPay = null;      // 玩家选中的支付组合 { color, locos }
@@ -87,8 +92,13 @@ export class TicketGame {
   }
 
   start() {
-    this.state = initGame(this.playerNames);
-    this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
+    // 联机模式使用云端下发的权威对局数据；单机模式本地开局
+    this.state = this.initialState
+      ? JSON.parse(JSON.stringify(this.initialState))
+      : initGame(this.playerNames);
+    if (!this.initialState) {
+      this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
+    }
     this.focusTicket = null;
     this.claimDraft = null;
     this.claimPay = null;
@@ -227,6 +237,11 @@ export class TicketGame {
       }
 
       case 'restart':
+        if (this.online) {
+          this.msg = '联机对局请返回大厅后重新创建房间';
+          this.render();
+          break;
+        }
         this.start();
         break;
     }
@@ -245,17 +260,66 @@ export class TicketGame {
       return;
     }
     this.render();
+    this.afterChange();
+  }
+
+  // 本地状态发生变化：安排 AI（仅房主/单机）+ 同步到房间
+  afterChange() {
     this.scheduleAI();
+    this.queuePush();
+  }
+
+  // 串联推送：同一时间只有一个请求，期间的多次变更合并为最后一次
+  queuePush() {
+    if (!this.online) return;
+    this._pending = this.state;
+    if (this._pushing) return;
+    this._flushPush();
+  }
+
+  async _flushPush() {
+    this._pushing = true;
+    while (this._pending) {
+      const st = this._pending;
+      this._pending = null;
+      try {
+        const v = await this.online.push(st, this.version);
+        if (typeof v === 'number') this.version = v;
+      } catch (e) {
+        this.msg = '同步冲突，正在重新拉取最新对局…';
+        this.render();
+        break;
+      }
+    }
+    this._pushing = false;
+  }
+
+  // 轮询拉到更新的云端状态时调用
+  syncState(state, version) {
+    if (!state || typeof version !== 'number') return;
+    if (this._pushing) return;      // 本地还有未落库的动作，先不覆盖
+    if (version <= this.version) return;
+    this.version = version;
+    this.state = state;
+    this.claimDraft = null;
+    this.claimPay = null;
+    this.render();
   }
 
   scheduleAI() {
     clearTimeout(this._aiTimer);
     const s = this.state;
     if (!s || s.phase === 'ended' || s.currentPlayer === this.humanIndex) return;
+    // 联机模式只由房主端代跑 AI，且只代跑 AI 座位
+    if (this.online) {
+      if (!this.online.isHost) return;
+      if (!s.players[s.currentPlayer]?.isAI) return;
+    }
     this._aiTimer = setTimeout(() => {
       if (!this.root || !this.root.isConnected || this.root.classList.contains('hidden') || this.root.offsetParent === null) return;
       const st = this.state;
       if (!st || st.phase === 'ended' || st.currentPlayer === this.humanIndex) return;
+      if (this.online && !st.players[st.currentPlayer]?.isAI) return;
       const idx = st.currentPlayer;
       const action = pickAction(st, idx);
       if (!action) { this.msg = 'AI 没有可执行的动作'; this.render(); return; }
@@ -267,7 +331,7 @@ export class TicketGame {
         return;
       }
       this.render();
-      this.scheduleAI();
+      this.afterChange();
     }, 420);
   }
 
