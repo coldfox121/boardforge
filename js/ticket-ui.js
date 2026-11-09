@@ -3,6 +3,7 @@
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
 import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=38';
 import { pickAction } from './ticket-ai.js?v=38';
+import { OnlineGameBase } from './online-game.js?v=1';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   ROUTE_SCORES
@@ -70,17 +71,15 @@ function ticketHTML(id, opts = {}) {
     </div>`;
 }
 
-export class TicketGame {
+export class TicketGame extends OnlineGameBase {
   constructor(container, options = {}) {
+    super(options);
     this.root = typeof container === 'string' ? document.getElementById(container) : container;
     this.playerNames = options.playerNames || ['你', 'AI-1', 'AI-2'];
     this.humanIndex = options.humanIndex ?? 0;
     this.state = null;
     this.online = options.online || null;
     this.initialState = options.initialState || null;
-    this.version = this.online ? (this.online.version || 0) : 0;
-    this._pushing = false;
-    this._pending = null;
     this.memberOnline = null;   // 联机模式：座位 → 是否在线
     this.focusTicket = null;   // 高亮某张票的起终点城市
     this.claimDraft = null;    // 待确认占领的路线 index
@@ -264,73 +263,24 @@ export class TicketGame {
     this.afterChange();
   }
 
-  // 本地状态发生变化：安排 AI（仅房主/单机）+ 同步到房间
+  // 本地状态发生变化：安排 AI（仅房主/单机）+ 推送房间
   afterChange() {
     this.scheduleAI();
-    this.queuePush();
-  }
-
-  // 串联推送：同一时间只有一个请求，期间的多次变更合并为最后一次
-  queuePush() {
-    if (!this.online) return;
-    this._pending = this.state;
-    if (this._pushing) return;
-    this._flushPush();
-  }
-
-  async _flushPush() {
-    this._pushing = true;
-    while (this._pending) {
-      const st = this._pending;
-      this._pending = null;
-      try {
-        const v = await this.online.push(st, this.version);
-        if (typeof v === 'number') this.version = v;
-      } catch (e) {
-        this.msg = '同步冲突，正在重新拉取最新对局…';
-        this.render();
-        break;
-      }
-    }
-    this._pushing = false;
-  }
-
-  // 轮询拉到更新的云端状态时调用
-  syncState(state, version) {
-    if (!state || typeof version !== 'number') return;
-    if (this._pushing) return;      // 本地还有未落库的动作，先不覆盖
-    if (version <= this.version) return;
-    this.version = version;
-    this.state = state;
-    this.claimDraft = null;
-    this.claimPay = null;
-    this.render();
-  }
-
-  // 联机模式：同步各座位在线状态（掉线标记），有变化才重绘
-  syncMembers(members) {
-    if (!this.online) return;
-    const map = {};
-    (members || []).forEach(m => { map[m.seat] = !!m.online; });
-    if (JSON.stringify(map) === JSON.stringify(this.memberOnline || {})) return;
-    this.memberOnline = map;
-    this.render();
+    this.pushLocal();
   }
 
   scheduleAI() {
+    // 联机：交给通用联机会话处理（仅房主端代跑 AI 座位）
+    if (this.session) return this.session.scheduleAI();
+
+    // 单机：本地依次执行 AI 回合
     clearTimeout(this._aiTimer);
     const s = this.state;
     if (!s || s.phase === 'ended' || s.currentPlayer === this.humanIndex) return;
-    // 联机模式只由房主端代跑 AI，且只代跑 AI 座位
-    if (this.online) {
-      if (!this.online.isHost) return;
-      if (!s.players[s.currentPlayer]?.isAI) return;
-    }
     this._aiTimer = setTimeout(() => {
-      if (!this.root || !this.root.isConnected || this.root.classList.contains('hidden') || this.root.offsetParent === null) return;
+      if (!this.aiRootReady()) return;
       const st = this.state;
       if (!st || st.phase === 'ended' || st.currentPlayer === this.humanIndex) return;
-      if (this.online && !st.players[st.currentPlayer]?.isAI) return;
       const idx = st.currentPlayer;
       const action = pickAction(st, idx);
       if (!action) { this.msg = 'AI 没有可执行的动作'; this.render(); return; }
@@ -344,6 +294,27 @@ export class TicketGame {
       this.render();
       this.afterChange();
     }, 420);
+  }
+
+  // ===== 通用联机基类所需的游戏钩子 =====
+  aiAction(state, seat) { return pickAction(state, seat); }
+  applyAIAction(seat, action) { this.state = applyAction(this.state, seat, action); }
+  aiRootReady() {
+    return !!this.root && this.root.isConnected && !this.root.classList.contains('hidden') && this.root.offsetParent !== null;
+  }
+  canRunAI() { return this.aiRootReady(); }
+  setMemberOnline(map) { this.memberOnline = map; }
+  onSyncConflict() {
+    this.msg = '同步冲突，正在重新拉取最新对局…';
+    this.render();
+  }
+  onAIFailed(err) {
+    this.msg = 'AI 动作失败: ' + (err && err.message ? err.message : err);
+    this.render();
+  }
+  onRemoteState() {
+    this.claimDraft = null;
+    this.claimPay = null;
   }
 
   // ===== 渲染 =====
