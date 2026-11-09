@@ -22,12 +22,12 @@ npx serve .
 |---|---|
 | **线上** | https://boardforge.pages.dev |
 | **GitHub** | https://github.com/coldfox121/boardforge |
-| **D1** | `boardforge-db`（绑定为 `DB`）：users / sessions / rooms / game_config / card_images |
+| **D1** | `boardforge-db`（绑定为 `DB`）：users / sessions / rooms / room_members / room_states / game_config / card_images |
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js` 等 JS 模块 `?v=27`，`style.css?v=31` |
-| **当前功能完整度** | Splendor 单机 + AI 完整可玩，Admin 牌库编辑器 + 卡图上传 |
+| **当前 cache bust** | `app.js?v=43`、`style.css?v=42`（改文件必须同步升级引用处的版本号） |
+| **当前功能完整度** | 璀璨宝石 + 铁路环游（美国版）均支持联机对局；两者都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md` |
 
 ## 🏗 文件结构
 
@@ -357,15 +357,19 @@ UI 层之前拦住黄金池空的情况不让进预留模式。但"点黄金 = �
 
 ## 📡 Room / 联机状态
 
-当前 Room API 只是个壳：
-- ✅ `POST /api/rooms` 创建
-- ✅ `GET /api/rooms` 列出（只查 waiting, LIMIT 20）
-- ❌ 没有 DELETE / leave / close
-- ❌ 没有 join / update current_players
-- ❌ 没有 Workers Cron 自动清理僵尸房
-- ❌ 没有 Durable Objects 联机
+房间与联机已上线（D1 轮询方案，未使用 Durable Objects）：
 
-计划：DO 联机时一起补（join / leave / start / end + Cron 清 24h 前的僵尸房）。
+- ✅ `POST /api/rooms` 创建、`GET /api/rooms` 列出
+- ✅ `GET /api/room?code=` 同步房间 / 成员 / 在线状态 / 对局版本
+- ✅ `POST /api/room`：join / leave / start / push / reset
+- ✅ 座位按入座顺序分配；15 秒无心跳判离线，60 秒移出房间
+- ✅ 对局状态推送带版本号乐观锁（冲突 409），房主端代跑 AI 座位
+- ✅ 按座位裁剪隐藏信息（铁路环游任务票），推送落库前自动补回
+- ✅ 前端通用联机外壳：`js/online-game.js`（`OnlineGameBase`）+ `app.js` 的 `ONLINE_GAMES` 注册表
+- ✅ 已接入联机：璀璨宝石、铁路环游（美国版）
+- ❌ 没有 Workers Cron 自动清理僵尸房
+
+新增游戏接入方式、联机契约、裁剪规则见 `GAME-GUIDE.md`。
 
 ## 📊 平衡数据
 
@@ -376,9 +380,9 @@ Splendor 原版平衡数据（admin 页面"平衡性分析"tab 展示的基线�
 
 ## 🎯 下一步
 
-1. **Durable Objects 联机**：每个房间一个 DO 实例，WebSocket 广播状态
-2. **魔改框架**：自定义规则覆盖引擎，作为平台特性
-3. **卡坦岛 / 铁路环游 / 奥地利大饭店**：按顺序实现
-4. **卡图增强**：手动上传已完成（KV）；后续可做批量导入 BGG 图包 / AI 生成卡图
+1. **卡坦岛**：按 `GAME-GUIDE.md` 五步接入（数据 / 引擎 / AI / UI / 注册 + 可视化编辑器）
+2. **奥地利大饭店**：同上
+3. **魔改框架**：自定义规则覆盖引擎，作为平台特性
+4. **卡图增强**：批量导入 BGG 图包 / AI 生成卡图
 5. **观战 / 好友邀请推送**
-6. **房间生命周期**：join / leave API + D1 迁移 + 自动清理
+6. **房间生命周期**：Cron 自动清理僵尸房
