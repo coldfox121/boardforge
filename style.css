@@ -1101,6 +1101,13 @@ body {
 .splendor-card > .card-art.card-art-full { opacity:1; }
 .splendor-card { position:relative; overflow:hidden; }
 .splendor-card > .card-vp, .splendor-card > .card-color-bar, .splendor-card > .card-cost-inline { position:relative; z-index:1; }
+/* 牌堆抽空后的空位：占住网格位置，不可交互 */
+.splendor-card.empty-slot {
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed rgba(255,255,255,0.12);
+  box-shadow: none;
+  pointer-events: none;
+}
 .btn.small { padding:4px 10px; font-size:12px; }
 .btn.danger { background:rgba(224,102,102,0.15); border-color:#e06666; color:#e06666; }
 

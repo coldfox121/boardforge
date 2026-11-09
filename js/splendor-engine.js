@@ -211,13 +211,11 @@ export function applyAction(state, playerIndex, action) {
     case 'RESERVE': {
       let card;
       if (action.source === 'board') {
-        card = s.board[`tier${action.tier}`][action.cardIndex];
-        s.board[`tier${action.tier}`].splice(action.cardIndex, 1);
-        // 补一张（如果牌堆还有）
         const deckKey = `tier${action.tier}`;
-        if (s.decks[deckKey].length > 0) {
-          s.board[deckKey].push(s.decks[deckKey].shift());
-        }
+        const slots = s.board[deckKey];
+        card = slots[action.cardIndex];
+        // 只补空位，不移动其他卡的位置
+        slots[action.cardIndex] = s.decks[deckKey].length > 0 ? s.decks[deckKey].shift() : null;
       } else {
         card = s.decks[`tier${action.tier}`].shift();
       }
@@ -231,13 +229,11 @@ export function applyAction(state, playerIndex, action) {
     case 'BUY': {
       let card;
       if (action.source === 'board') {
-        card = s.board[`tier${action.tier}`][action.cardIndex];
-        s.board[`tier${action.tier}`].splice(action.cardIndex, 1);
-        // 补一张
         const deckKey = `tier${action.tier}`;
-        if (s.decks[deckKey].length > 0) {
-          s.board[deckKey].push(s.decks[deckKey].shift());
-        }
+        const slots = s.board[deckKey];
+        card = slots[action.cardIndex];
+        // 只补空位，不移动其他卡的位置
+        slots[action.cardIndex] = s.decks[deckKey].length > 0 ? s.decks[deckKey].shift() : null;
       } else {
         // reserved → 从玩家预留区移除
         const idx = p.reserved.findIndex(c => c.id === action.cardId);

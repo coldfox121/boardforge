@@ -1,7 +1,7 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=27';
-import { pickAction } from './splendor-ai.js?v=27';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=27';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=28';
+import { pickAction } from './splendor-ai.js?v=28';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=28';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -336,6 +336,13 @@ export class SplendorGame {
       container.innerHTML = '';
       const cards = this.state.board[`tier${tier}`];
       cards.forEach((card, idx) => {
+        // 牌堆抽空后留下的空位：占住网格位置，不影响其他卡
+        if (!card) {
+          const empty = document.createElement('div');
+          empty.className = 'splendor-card empty-slot';
+          container.appendChild(empty);
+          return;
+        }
         const canBuy = isMyTurn && this._canBuyCard({ source: 'board', tier, cardIndex: idx });
         const isSelected = this.ops.card?.source === 'board' && this.ops.card.tier === tier && this.ops.card.cardIndex === idx;
         const div = document.createElement('div');

@@ -2,8 +2,8 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=27';
-import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=27';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=28';
+import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=28';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
