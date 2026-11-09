@@ -2,8 +2,8 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=29';
-import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=29';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=30';
+import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=30';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -46,10 +46,13 @@ const GAMES = {
 
 // === Admin 入口 ===
 export function mountAdminButton() {
+  // 先清掉上一次登录残留的入口（登出/换号后 DOM 不会自动刷新）
+  document.getElementById('admin-entry')?.remove();
+
   const isAdmin = localStorage.getItem('bf_is_admin') === 'true';
   // 大厅头部实际容器是 .user-info，兼容 .lobby-actions
   const host = document.querySelector('.lobby-actions') || document.querySelector('.lobby-header .user-info');
-  if (!isAdmin || !host || document.getElementById('admin-entry')) return;
+  if (!isAdmin || !host) return;
   const btn = document.createElement('button');
   btn.id = 'admin-entry';
   btn.className = 'btn ghost';

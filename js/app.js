@@ -72,9 +72,9 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./config-sync.js?v=29')
+    import('./config-sync.js?v=30')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=29'))
+      .then(() => import('./admin-ui.js?v=30'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -137,6 +137,8 @@ function clearAuth() {
   localStorage.removeItem('bf_token');
   localStorage.removeItem('bf_username');
   localStorage.removeItem('bf_is_admin');
+  // 移除 admin 入口，避免换号后普通账号仍看到“牌库编辑”
+  document.getElementById('admin-entry')?.remove();
 }
 
 // === 前端 PBKDF2：把计算压力从 Workers 移到浏览器，后端只做 sha256 比较 ===
@@ -430,7 +432,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=29').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=30').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -604,9 +606,9 @@ async function showRoomByCode(code, gameId) {
     while (names.length < 2) names.push(`AI-${names.length}`);
 
     // 进入游戏时才加载游戏模块；先同步云端牌库配置（含卡图）
-    const { syncGameConfig } = await import('./config-sync.js?v=29');
+    const { syncGameConfig } = await import('./config-sync.js?v=30');
     await syncGameConfig('splendor');
-    const { SplendorGame } = await import('./splendor-ui.js?v=29');
+    const { SplendorGame } = await import('./splendor-ui.js?v=30');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0

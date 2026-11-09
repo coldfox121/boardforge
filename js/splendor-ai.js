@@ -1,8 +1,8 @@
 ﻿// 璀璨宝石 AI（启发式贪心 + 拿取数量感知）
 // 关键改进：拿宝石的评分要随"实际拿到几颗"上升，否则会和只看有用颜色数量的旧版打平，
 // 导致平局时选到动作列表里靠前的单颗动作。
-import { listValidActions } from './splendor-engine.js?v=29';
-import { GEM_COLORS } from './splendor-data.js?v=29';
+import { listValidActions } from './splendor-engine.js?v=30';
+import { GEM_COLORS } from './splendor-data.js?v=30';
 
 const COLORS = GEM_COLORS;
 
