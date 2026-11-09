@@ -1,7 +1,7 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=28';
-import { pickAction } from './splendor-ai.js?v=28';
-import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=28';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=29';
+import { pickAction } from './splendor-ai.js?v=29';
+import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=29';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -20,6 +20,10 @@ export class SplendorGame {
     };
     this.lastError = null;
     this.aiTimer = null;
+
+    // 「再来一局」：重置状态，沿用同一批玩家
+    const newBtn = document.getElementById('btn-new-game');
+    if (newBtn) newBtn.onclick = () => this.restart();
   }
 
   start() {
@@ -29,6 +33,16 @@ export class SplendorGame {
     window.__splendor = this;
     this._renderAll();
     this._maybeAIMove();
+  }
+
+  restart() {
+    if (this.aiTimer) { clearTimeout(this.aiTimer); this.aiTimer = null; }
+    this.ops = { gems: [], card: null, goldTaken: false };
+    this.lastError = null;
+    this._discardNeeded = 0;
+    document.getElementById('splendor-end').classList.add('hidden');
+    document.getElementById('splendor-game').classList.remove('hidden');
+    this.start();
   }
 
   // ===== 渲染入口 =====

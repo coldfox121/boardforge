@@ -1,8 +1,8 @@
 ﻿// 璀璨宝石 AI（启发式贪心 + 拿取数量感知）
 // 关键改进：拿宝石的评分要随"实际拿到几颗"上升，否则会和只看有用颜色数量的旧版打平，
 // 导致平局时选到动作列表里靠前的单颗动作。
-import { listValidActions } from './splendor-engine.js?v=28';
-import { GEM_COLORS } from './splendor-data.js?v=28';
+import { listValidActions } from './splendor-engine.js?v=29';
+import { GEM_COLORS } from './splendor-data.js?v=29';
 
 const COLORS = GEM_COLORS;
 
@@ -78,16 +78,47 @@ function nobleValue(state, p, card) {
   return value;
 }
 
-// 对手是否已经买得起这张卡（用来决定要不要抢）
-function opponentThreat(state, playerIndex, card) {
+// 对手分数越高，越值得针对
+function opponentWeight(op) {
+  return 1 + Math.max(0, op.score || 0) / 12;
+}
+
+// 对手"就差一点能买"的卡，用于抢买 / 预留封锁
+function opponentHotCards(state, playerIndex) {
+  const hot = [];
   for (let i = 0; i < state.players.length; i++) {
     if (i === playerIndex) continue;
     const op = state.players[i];
-    let deficit = 0;
-    for (const c of COLORS) deficit += Math.max(0, (card.cost[c] || 0) - effective(op, c));
-    if (deficit <= (op.gems.gold || 0)) return true;
+    const weight = opponentWeight(op);
+    for (const card of targetCards(state, op)) {
+      const deficit = gemDeficit(op, card);
+      const payable = deficit <= (op.gems.gold || 0);   // 对手现在就能买
+      if (deficit > 3 && !payable) continue;
+      hot.push({ card, deficit, payable, weight, opponentIndex: i });
+    }
   }
-  return false;
+  return hot;
+}
+
+// 对手在各色上的"渴求值"，用于抢宝石卡位
+function opponentNeedColors(state, playerIndex) {
+  const need = {};
+  for (const c of COLORS) need[c] = 0;
+
+  for (let i = 0; i < state.players.length; i++) {
+    if (i === playerIndex) continue;
+    const op = state.players[i];
+    const weight = opponentWeight(op);
+    for (const card of targetCards(state, op)) {
+      const deficit = gemDeficit(op, card);
+      if (deficit > 3) continue;
+      const urgency = (4 - deficit) * Math.max(1, card.vp || 0) * weight;
+      for (const c of COLORS) {
+        if ((card.cost[c] || 0) > effective(op, c)) need[c] += urgency;
+      }
+    }
+  }
+  return need;
 }
 
 function scoreAction(state, action, playerIndex, ctx) {
@@ -101,11 +132,16 @@ function scoreAction(state, action, playerIndex, ctx) {
       if (!card) return -99999;
 
       const sameColor = p.ownedCards.reduce((s, c) => s + (c.color === card.color ? 1 : 0), 0);
+      // 抢走对手马上能买的牌 = 直接卡位
+      const hot = ctx.hot.find(h => h.card.id === card.id);
+      const deny = hot ? (hot.payable ? 160 : 40) * hot.weight : 0;
+
       // 买卡是唯一得分手段，远高于拿宝石
       return 1000
         + (card.vp || 0) * 80
         + sameColor * 6
-        + nobleValue(state, p, card) * 10;
+        + nobleValue(state, p, card) * 10
+        + deny;
     }
 
     case 'RESERVE': {
@@ -120,7 +156,11 @@ function scoreAction(state, action, playerIndex, ctx) {
 
       if (deficit <= 2) score += 16;                                  // 快买得起了，先锁
       else if (deficit <= 4) score += 6;
-      if (opponentThreat(state, playerIndex, card)) score += 16;      // 对手马上能买，抢
+
+      // 封锁：对手马上能买的牌，留给自己/断他财路
+      const hot = ctx.hot.find(h => h.card.id === card.id);
+      if (hot) score += (hot.payable ? 55 : 18) * hot.weight;
+
       if ((p.gems.gold || 0) < 3) score += 4;                         // 顺带拿黄金
 
       // 预留槽是稀缺资源（最多 3 个），已经锁了就别再乱锁
@@ -141,6 +181,8 @@ function scoreAction(state, action, playerIndex, ctx) {
       for (const c of take) {
         if (remaining[c] > 0) { score += 11; remaining[c]--; }
         else score += 1.5;   // 需求外的宝石仍有保值 / 卡位价值
+        // 卡位：抢走对手急需的颜色
+        score += Math.min(9, (ctx.opponentNeed[c] || 0) * 0.5);
       }
       // 数量奖励：能拿 3 颗就尽量拿 3 颗（10 颗上限由引擎保证）
       score += take.length * 5;
@@ -161,7 +203,11 @@ export function pickAction(state, playerIndex) {
   if (actions.length === 1) return actions[0];
 
   const p = state.players[playerIndex];
-  const ctx = { demand: demandVector(state, p) };
+  const ctx = {
+    demand: demandVector(state, p),
+    hot: opponentHotCards(state, playerIndex),
+    opponentNeed: opponentNeedColors(state, playerIndex),
+  };
 
   let bestA = actions[0];
   let bestScore = scoreAction(state, actions[0], playerIndex, ctx);
