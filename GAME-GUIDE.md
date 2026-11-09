@@ -1,0 +1,265 @@
+# BoardForge 新增桌游接入指南（通用模板）
+
+> 目标：新增一款桌游时，只写「这款游戏特有的东西」，其余（账号、房间、邀请、座位、联机同步、掉线、AI 托管、后台编辑器骨架、部署）全部复用。
+> 本文是接入约定的唯一依据。按本文执行，不需要再讨论架构问题。
+
+---
+
+## 1. 四层架构
+
+```
+┌───────────────────────────────┐
+│ UI 层        js/<game>-ui.js  │  渲染 + 交互 + 联机钩子（继承 OnlineGameBase）
+├───────────────────────────────┤
+│ AI 层        js/<game>-ai.js  │  pickAction(state, seat) → action
+├───────────────────────────────┤
+│ 引擎层       js/<game>-engine.js │ 纯函数：init / validate / apply / listValid
+├───────────────────────────────┤
+│ 数据层       js/<game>-data.js   │  静态数据 + 后台可覆盖（loadAdminData）
+└───────────────────────────────┘
+         ↑ 联机外壳（js/online-game.js）+ 房间后端（functions/api/room.js）
+```
+
+硬性规定：
+
+- **引擎层必须是纯函数**，不碰 DOM、不碰网络、不用 `Date.now()` 以外的随机源（洗牌用引擎内可控随机）。
+- **UI 层不写任何联机代码**（不写轮询、不写推送、不写版本号），只实现联机基类的钩子。
+- **数据层必须先读后台覆盖**，否则后台可视化编辑器的修改不会生效。
+- 所有游戏共用同一套联机外壳与后端，禁止在 `app.js` 里写 `if (game === 'xxx')` 的游戏分支。
+
+---
+
+## 2. 文件清单（以「卡坦岛」为例）
+
+| 文件 | 必须 | 说明 |
+|---|---|---|
+| `js/catan-data.js` | 是 | 基础数据 + `loadAdminData('catan')` 覆盖 |
+| `js/catan-engine.js` | 是 | 纯函数规则引擎 |
+| `js/catan-ai.js` | 是 | 电脑玩家决策 |
+| `js/catan-ui.js` | 是 | 界面，`class CatanGame extends OnlineGameBase` |
+| `js/admin-catan.js` | 是 | 后台可视化编辑器（禁止 JSON） |
+| `functions/api/_project.js` | 按需 | 有隐藏信息时增加裁剪规则 |
+| `js/app.js` | 是 | `ONLINE_GAMES` 注册一项 |
+| `index.html` | 是 | 大厅卡片 + 游戏容器 `#catan-game` |
+| `js/admin-ui.js` | 是 | `ADMIN_GAMES` 中把 `ready` 置 true |
+
+---
+
+## 3. 接入五步
+
+### 第一步：数据层
+
+```js
+import { loadAdminData } from './admin.js?v=35';
+
+const BASE_CITIES = [...];
+
+const override = loadAdminData('catan');
+export const CITIES = override && override.CITIES ? override.CITIES : BASE_CITIES;
+```
+
+### 第二步：引擎层（纯函数）
+
+必须导出：
+
+```js
+export function initGame(playerNames) { ... }          // 生成初始 state
+export function validateAction(state, seat, action) { } // 返回错误字符串或空
+export function applyAction(state, seat, action) { }    // 返回新 state，不修改入参
+export function listValidActions(state, seat) { }       // AI / 提示用
+```
+
+约定：
+
+- `state` 里必须有 `players[]`、`currentPlayer`、`phase`（`'ended'` 表示结束）。
+- 玩家对象必须有 `name`、`isAI`、`score`（UI 与结算都依赖）。
+- 引擎不能依赖 UI，必须能在 Node 里直接跑（这是自动化测试的前提）。
+
+### 第三步：AI 层
+
+```js
+export function pickAction(state, seat) { ... }  // 返回合法动作；找不到时返回兜底动作
+```
+
+- 永远不要返回非法动作，也不要抛异常。
+- 测试方式：Node 里跑 200 局全 AI 对局，确认能正常终局。
+
+### 第四步：UI 层（继承通用联机基类）
+
+```js
+import { OnlineGameBase } from './online-game.js?v=1';
+
+export class CatanGame extends OnlineGameBase {
+  constructor(container, options = {}) {
+    super(options);                 // 有 options.online 时自动创建联机会话
+    this.root = ...;
+    this.humanIndex = options.humanIndex ?? 0;
+    this.initialState = options.initialState || null;
+    this.state = null;
+    this.online = options.online || null;
+    this.memberOnline = null;
+  }
+
+  start() {
+    this.state = this.initialState
+      ? JSON.parse(JSON.stringify(this.initialState))   // 联机：用云端权威数据
+      : initGame(this.playerNames);
+    if (!this.initialState) {
+      this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
+    }
+    this.render();
+    if (this.session) this.scheduleAI(); else this.localAILoop();
+  }
+
+  // 玩家本地操作成功后必须调用
+  afterChange() { this.scheduleAI(); this.pushLocal(); }
+
+  render() { /* 重绘整个界面 */ }
+
+  // ---- 联机基类钩子 ----
+  aiAction(state, seat) { return pickAction(state, seat); }
+  applyAIAction(seat, action) { this.state = applyAction(this.state, seat, action); }
+  canRunAI() {
+    return !!this.root && this.root.isConnected &&
+      !this.root.classList.contains('hidden') && this.root.offsetParent !== null;
+  }
+  setMemberOnline(map) { this.memberOnline = map; }     // 座位 → 是否在线
+  onRemoteState() { /* 清空本地未提交的交互草稿 */ }
+  onSyncConflict() { this.msg = '同步冲突，正在重新拉取…'; this.render(); }
+  onAIFailed(err) { this.msg = 'AI 动作失败：' + err.message; this.render(); }
+}
+```
+
+联机基类自动处理：
+
+| 能力 | 说明 |
+|---|---|
+| 状态拉取 | 房间轮询拿到更高版本时替换本地 state 并重绘 |
+| 本地推送 | 串行合并，避免并发覆盖；版本号乐观锁，冲突自动提示 |
+| AI 托管 | **仅房主端**代跑 AI 座位；人类座位永远等本人操作 |
+| 掉线标记 | 成员 `online` 映射注入 `memberOnline`，UI 自行加「离线」徽标 |
+| 房间内多人 | 座位 = 入座顺序，人数上限取房间设置 |
+
+单机 / 联机同一套代码：`this.session` 为空即单机，AI 在本地跑。
+
+### 第五步：注册
+
+**大厅卡片**（`index.html`）：已开放的游戏排在前面，未开发的占位卡片放后面。
+
+**联机注册表**（`js/app.js`）：
+
+```js
+const ONLINE_GAMES = {
+  catan: {
+    name: '卡坦岛',
+    async prepare() {  // 可选：拉取后台覆盖数据（必须在 load 之前）
+      const { syncGameConfig } = await import('./config-sync.js?v=35');
+      await syncGameConfig('catan');
+    },
+    async load() {
+      const [{ CatanGame }, engine] = await Promise.all([
+        import('./catan-ui.js?v=1'),
+        import('./catan-engine.js?v=1')
+      ]);
+      return {
+        initState: (names) => engine.initGame(names),
+        create: ({ data, isHost, push }) => {
+          // 显示自己的容器、隐藏其他游戏容器
+          document.getElementById('catan-game').classList.remove('hidden');
+          const game = new CatanGame(document.getElementById('catan-game'), {
+            humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
+            initialState: data.state,
+            online: { isHost, version: data.version, push }
+          });
+          game.start();
+          return game;
+        }
+      };
+    }
+  }
+};
+```
+
+注册后，邀请链接 / 等待页 / 开局 / 轮流操作 / 掉线 / AI 全部自动可用。
+
+**后台编辑器**（`js/admin-ui.js`）：`ADMIN_GAMES` 里把对应项 `ready: true`，并在 `renderAdminPage` 中调用自己的可视化编辑器模块。
+
+---
+
+## 4. 隐藏信息裁剪（`functions/api/_project.js`）
+
+原理：GET 房间状态时按「请求者座位」裁剪；POST 推送落库前，用数据库里的真实值补回被裁字段。
+
+```js
+const GAMES = {
+  catan: {
+    project(state, seat) { /* 返回裁剪后的副本：别人的手牌 → 张数 */ },
+    merge(stored, incoming, seat) { /* 用 stored 恢复被裁字段 */ }
+  }
+};
+```
+
+规则：
+
+- **纯展示**的隐藏信息必须裁（任务票、对手手牌、牌堆顺序）。
+- **客户端执行规则必须读取**的数据不能裁（例如铁路环游的抽牌堆：客户端盲抽要拿真实牌），否则会拿到占位符。
+- AI 座位的信息不用裁（房主要代跑 AI）。
+- 不写 `project/merge` 的游戏 = 全公开，不做任何处理。
+
+当前状态：铁路环游裁「其他人类玩家的任务票」；璀璨宝石全部公开，不裁。
+
+---
+
+## 5. 后台可视化编辑器（硬性）
+
+- 禁止 JSON / 原始文本编辑入口；每个可配置项都必须有可视化控件。
+- 交互模式统一为「左侧画布 + 右侧列表」或「分 tab 表单」，参考 `js/admin-ticket.js`。
+- 地图类编辑器统一支持：拖动元素改坐标、点击选中并联动右侧列表、双击快捷编辑、右键删除、滚轮缩放 + 拖空白平移。
+- 保存走 `saveAdminData(id, data)` + `saveConfigToCloud(id, data)`，前端数据层通过 `loadAdminData` 读取。
+- 引用保护：删除被引用的实体（城市、卡牌类型等）必须拦截并提示。
+
+---
+
+## 6. 版本号与缓存
+
+- 所有 ES module 引用都带 `?v=N`；改文件后**必须**同步升级引用处的版本号。
+- 入口 `index.html` 里 `app.js?v=N`、`style.css?v=N` 是最外层缓存开关，改样式或入口必经此处升级。
+- 动态 import 的版本号写在 `app.js` 注册表里，改对应 UI 时升级。
+- 不做版本升级会导致用户看到旧代码，是最常见的「改了没生效」原因。
+
+---
+
+## 7. 测试清单
+
+新增或修改游戏后按顺序执行：
+
+1. `node --check` 所有改动文件。
+2. 引擎纯函数测试：初始状态合法、非法动作被拦截、AI 自对弈 100~200 局全部正常终局。
+3. 联机基类测试（Node + 假游戏）：推送合并、旧版本忽略、新版本应用、掉线映射、房主代跑 AI。
+4. 浏览器双账号实测：
+   - A 建房 → 分享链接 → B 打开并自动入座
+   - 等待页人数/在线状态正确，B 掉线 15 秒后显示离线
+   - 房主开局，两端座位一致，轮到自己才能操作
+   - 双方交替操作，刷新页面后进度不丢
+   - 房主端 AI 自动行动，客人端只读
+
+---
+
+## 8. 部署
+
+1. `git add` 具体文件 → commit → `git push origin main`。
+2. Cloudflare Pages Git 集成自动部署（约 30~60 秒），无需 wrangler、无需 Token。
+3. 部署后验证：抓取 `index.html` 确认版本号、抓取对应 JS/CSS 确认新代码已上线。
+4. 让用户 `Ctrl+Shift+R` 强刷。
+
+---
+
+## 9. 常见坑
+
+- **忘了 `loadAdminData`**：后台改了数据但游戏里没变。
+- **引擎用了 DOM / 网络**：没法跑自动化测试，也无法迁移到服务端。
+- **UI 自己写轮询或推送**：与通用联机外壳叠加会导致版本错乱。
+- **AI 在客人端也跑**：两个客户端同时推进，状态互相覆盖。
+- **裁剪了客户端必须读取的数据**：盲抽、随机事件会拿到占位符。
+- **改了文件没升版本号**：用户看到旧界面，误判为「没生效」。
+- **等待页用本地占位成员**：必须用 `/api/room` 返回的成员列表。
