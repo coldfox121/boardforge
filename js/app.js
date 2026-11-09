@@ -73,9 +73,9 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./config-sync.js?v=31')
+    import('./config-sync.js?v=32')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=31'))
+      .then(() => import('./admin-ui.js?v=32'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -474,7 +474,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=31').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=32').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -674,7 +674,7 @@ async function showRoomByCode(code, gameId) {
       fresh.innerHTML = '';
       root.replaceWith(fresh);
 
-      const { TicketGame } = await import('./ticket-ui.js?v=31');
+      const { TicketGame } = await import('./ticket-ui.js?v=32');
       fresh.classList.remove('hidden');
       document.getElementById('room-waiting').classList.add('hidden');
       document.getElementById('splendor-game').classList.add('hidden');
@@ -686,9 +686,9 @@ async function showRoomByCode(code, gameId) {
     }
 
     // 璀璨宝石：进入游戏时才加载游戏模块；先同步云端牌库配置（含卡图）
-    const { syncGameConfig } = await import('./config-sync.js?v=31');
+    const { syncGameConfig } = await import('./config-sync.js?v=32');
     await syncGameConfig('splendor');
-    const { SplendorGame } = await import('./splendor-ui.js?v=31');
+    const { SplendorGame } = await import('./splendor-ui.js?v=32');
     state.splendorGame = new SplendorGame(null, {
       playerNames: names,
       humanIndex: 0

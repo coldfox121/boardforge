@@ -1,12 +1,12 @@
 // 铁路环游：欧洲版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete } from './ticket-engine.js?v=31';
-import { pickAction } from './ticket-ai.js?v=31';
+import { initGame, applyAction, validateAction, isTicketComplete } from './ticket-engine.js?v=32';
+import { pickAction } from './ticket-ai.js?v=32';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   STATION_COSTS, STATIONS_PER_PLAYER
-} from './ticket-data.js?v=31';
+} from './ticket-data.js?v=32';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
@@ -489,6 +489,8 @@ export class TicketGame {
     }).join('');
     const myBreak = s.players[this.humanIndex].breakdown;
     const myTickets = (myBreak?.tickets || []).map(t => ticketHTML(t.id, { ok: t.ok })).join('');
+    const logRows = (s.log || []).map((t, i) =>
+      `<p><span class="ttr-log-no">${i + 1}</span>${esc(t)}</p>`).join('');
     return `<div class="ttr-overlay"><div class="ttr-prompt ttr-end">
       <h3>游戏结束</h3>
       <table class="ttr-score-table">
@@ -497,6 +499,10 @@ export class TicketGame {
       </table>
       <h4>我的任务牌结算</h4>
       <div class="ttr-ticket-list">${myTickets || '<p class="ttr-dim">无</p>'}</div>
+      <details class="ttr-end-log">
+        <summary>📜 查看本局操作记录（${(s.log || []).length} 条）</summary>
+        <div class="ttr-end-log-list">${logRows || '<p class="ttr-dim">无记录</p>'}</div>
+      </details>
       <button class="ttr-btn primary" data-act="restart">再来一局</button>
     </div></div>`;
   }
