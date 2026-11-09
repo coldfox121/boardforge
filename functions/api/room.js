@@ -156,6 +156,9 @@ export async function onRequestPost({ request, env }) {
       if (room.status !== 'waiting') return json({ error: '房间已经开始' }, 409);
       const state = body.state;
       if (!state || !Array.isArray(state.players)) return json({ error: '缺少初始对局数据' }, 400);
+      if (state.players.length < 2 || state.players.length > room.max_players) {
+        return json({ error: '人数不符合该房间限制' }, 400);
+      }
       await env.DB.prepare(
         'INSERT INTO room_states (room_id, version, state, updated_at) VALUES (?, 1, ?, ?) ' +
         'ON CONFLICT(room_id) DO UPDATE SET version = 1, state = excluded.state, updated_at = excluded.updated_at'
