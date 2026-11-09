@@ -1,12 +1,12 @@
 // 铁路环游：美国版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete, claimPayment } from './ticket-engine.js?v=35';
-import { pickAction } from './ticket-ai.js?v=35';
+import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=36';
+import { pickAction } from './ticket-ai.js?v=36';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   ROUTE_SCORES
-} from './ticket-data.js?v=35';
+} from './ticket-data.js?v=36';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
@@ -78,6 +78,7 @@ export class TicketGame {
     this.state = null;
     this.focusTicket = null;   // 高亮某张票的起终点城市
     this.claimDraft = null;    // 待确认占领的路线 index
+    this.claimPay = null;      // 玩家选中的支付组合 { color, locos }
     this.msg = '';
     this.sel = new Set();
     this.selKey = '';
@@ -90,6 +91,7 @@ export class TicketGame {
     this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
     this.focusTicket = null;
     this.claimDraft = null;
+    this.claimPay = null;
     this.msg = '';
     this.sel = new Set();
     this.selKey = '';
@@ -115,9 +117,11 @@ export class TicketGame {
     // 只允许在自己回合操作（游戏结束后除重开外都忽略）
     const myTurn = s.phase !== 'ended' && s.currentPlayer === this.humanIndex;
 
-    // 占领确认面板打开时，其他操作先关闭面板
-    if (this.claimDraft !== null && act !== 'confirm-claim' && act !== 'cancel-claim') {
+    // 占领确认面板打开时，其他操作先关闭面板（支付组合选择属于面板内操作）
+    const claimActs = ['confirm-claim', 'cancel-claim', 'pay-color', 'pay-locos'];
+    if (this.claimDraft !== null && !claimActs.includes(act)) {
       this.claimDraft = null;
+      this.claimPay = null;
     }
 
     // 选票期间，只允许处理提示面板内的操作（地图仍可见）
@@ -133,7 +137,29 @@ export class TicketGame {
         const err = validateAction(s, this.humanIndex, { type: 'CLAIM_ROUTE', routeId: rid });
         if (err) { this.msg = err; this.render(); return; }
         this.claimDraft = rid;
+        const opts = claimOptions(s.players[this.humanIndex].hand, rid);
+        this.claimPay = opts.length ? { color: opts[0].color, locos: opts[0].locos } : null;
         this.msg = '';
+        this.render();
+        return;
+      }
+
+      case 'pay-color': {
+        if (this.claimDraft === null) return;
+        const opts = claimOptions(s.players[this.humanIndex].hand, this.claimDraft)
+          .filter(o => o.color === el.dataset.color);
+        if (!opts.length) return;
+        this.claimPay = { color: opts[0].color, locos: opts[0].locos };
+        this.render();
+        return;
+      }
+
+      case 'pay-locos': {
+        if (this.claimDraft === null || !this.claimPay) return;
+        const opts = claimOptions(s.players[this.humanIndex].hand, this.claimDraft)
+          .filter(o => o.color === this.claimPay.color && o.locos === Number(el.dataset.locos));
+        if (!opts.length) return;
+        this.claimPay = { color: opts[0].color, locos: opts[0].locos };
         this.render();
         return;
       }
@@ -141,13 +167,18 @@ export class TicketGame {
       case 'confirm-claim': {
         if (!myTurn || this.claimDraft === null) return;
         const rid = this.claimDraft;
+        const pay = this.claimPay;
         this.claimDraft = null;
-        this.do({ type: 'CLAIM_ROUTE', routeId: rid });
+        this.claimPay = null;
+        this.do(pay
+          ? { type: 'CLAIM_ROUTE', routeId: rid, color: pay.color, locos: pay.locos }
+          : { type: 'CLAIM_ROUTE', routeId: rid });
         return;
       }
 
       case 'cancel-claim':
         this.claimDraft = null;
+        this.claimPay = null;
         this.render();
         return;
 
@@ -479,33 +510,72 @@ export class TicketGame {
     const r = ROUTES[rid];
     if (!r || s.turnPhase !== 'idle') return '';
     const my = s.players[this.humanIndex];
-    const pay = claimPayment(my.hand, rid);
+    const opts = claimOptions(my.hand, rid);
     const pts = ROUTE_SCORES[r.len] || 0;
 
-    let payHTML;
-    if (!pay) {
-      payHTML = '<p class="ttr-pay-missing">车票不足，无法占领</p>';
-    } else {
-      const chips = [];
-      if (pay.colorCards > 0) {
-        chips.push(`<span class="ttr-hand-chip" style="--cc:${HEX[pay.color] || '#888'}"><b>${pay.colorCards}</b>${SHORT_NAME[pay.color] || '?'}</span>`);
-      }
-      if (pay.locos > 0) {
-        chips.push(`<span class="ttr-hand-chip loco"><b>${pay.locos}</b>车头</span>`);
-      }
-      payHTML = `<div class="ttr-pay">${chips.join('')}</div>
-        <p class="ttr-dim">${r.color ? `颜色路线，只能用${esc(COLOR_NAMES[r.color] || '')}车票或车头` : '灰色路线，自动使用你手上数量最多的颜色'} · 占领后剩 ${my.trains - r.len} 节车厢</p>`;
+    const head = `<h3>占领路线</h3>
+      <p class="ttr-claim-title">${esc(cityName(r.a))} → ${esc(cityName(r.b))}</p>
+      <p class="ttr-dim">长度 ${r.len} 格 · 得分 +${pts}</p>`;
+
+    if (opts.length === 0) {
+      return `<div class="ttr-overlay dock"><div class="ttr-prompt">
+        ${head}
+        <h4>需要支付</h4>
+        <p class="ttr-pay-missing">车票不足，无法占领</p>
+        <div class="ttr-prompt-actions">
+          <button class="ttr-btn ttr-confirm" data-act="cancel-claim">取消</button>
+          <button class="ttr-btn primary ttr-confirm" data-act="confirm-claim" disabled>确认占领</button>
+        </div>
+      </div></div>`;
     }
 
+    // 颜色可选（灰线多色）→ 先选颜色，再选使用几张车头
+    const colorKeys = [...new Set(opts.map(o => o.color))]
+      .sort((a, b) => HAND_ORDER.indexOf(a) - HAND_ORDER.indexOf(b));
+    const selColor = this.claimPay && colorKeys.includes(this.claimPay.color)
+      ? this.claimPay.color : colorKeys[0];
+    const sameColor = opts.filter(o => o.color === selColor);
+    const selLocos = this.claimPay && sameColor.some(o => o.locos === this.claimPay.locos)
+      ? this.claimPay.locos : sameColor[0].locos;
+    const pay = sameColor.find(o => o.locos === selLocos) || sameColor[0];
+
+    const colorBtns = colorKeys.length > 1
+      ? `<div class="ttr-pay-pick">${colorKeys.map(c => {
+        const have = c === 'loco' ? (my.hand.loco || 0) : (my.hand[c] || 0);
+        const name = c === 'loco' ? '全车头' : (COLOR_NAMES[c] || SHORT_NAME[c] || c);
+        return `<button class="ttr-pay-color ${c === selColor ? 'on' : ''}"
+          data-act="pay-color" data-color="${c}" style="--cc:${HEX[c] || '#888'}">
+          <span class="ttr-pay-dot"></span>${esc(name)}<b>${have}</b>
+        </button>`;
+      }).join('')}</div>` : '';
+
+    const locoBtns = selColor === 'loco' ? ''
+      : `<div class="ttr-pay-pick">${sameColor.map(o => `
+        <button class="ttr-pay-locos ${o.locos === selLocos ? 'on' : ''}"
+          data-act="pay-locos" data-locos="${o.locos}">${o.locos === 0 ? '不用车头' : `${o.locos} 张车头`}</button>`).join('')}</div>`;
+
+    const chips = [];
+    if (pay.colorCards > 0) {
+      chips.push(`<span class="ttr-hand-chip" style="--cc:${HEX[pay.color] || '#888'}"><b>${pay.colorCards}</b>${SHORT_NAME[pay.color] || '?'}</span>`);
+    }
+    if (pay.locos > 0) {
+      chips.push(`<span class="ttr-hand-chip loco"><b>${pay.locos}</b>车头</span>`);
+    }
+
+    const tip = r.color
+      ? `颜色路线：只能用${esc(COLOR_NAMES[r.color] || '')}车票，车头可替代任意颜色`
+      : '灰色路线：可用任意单一颜色车票，车头可替代任意颜色';
+
     return `<div class="ttr-overlay dock"><div class="ttr-prompt">
-      <h3>占领路线</h3>
-      <p class="ttr-claim-title">${esc(cityName(r.a))} → ${esc(cityName(r.b))}</p>
-      <p class="ttr-dim">长度 ${r.len} 格 · 得分 +${pts}</p>
+      ${head}
       <h4>需要支付</h4>
-      ${payHTML}
+      <div class="ttr-pay">${chips.join('')}</div>
+      <p class="ttr-dim">${tip} · 占领后剩 ${my.trains - r.len} 节车厢</p>
+      ${colorBtns}
+      ${locoBtns}
       <div class="ttr-prompt-actions">
         <button class="ttr-btn ttr-confirm" data-act="cancel-claim">取消</button>
-        <button class="ttr-btn primary ttr-confirm" data-act="confirm-claim" ${pay ? '' : 'disabled'}>确认占领</button>
+        <button class="ttr-btn primary ttr-confirm" data-act="confirm-claim">确认占领</button>
       </div>
     </div></div>`;
   }

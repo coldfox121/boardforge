@@ -1322,6 +1322,24 @@ body {
 .ttr-claim-title { font-size:14px; font-weight:600; }
 .ttr-pay { display:flex; gap:6px; flex-wrap:wrap; }
 .ttr-pay-missing { color:#ff9f9f; }
+/* 支付组合选择（颜色 / 车头数量） */
+.ttr-pay-pick { display:flex; flex-wrap:wrap; gap:6px; }
+.ttr-pay-color, .ttr-pay-locos {
+  display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+  font-family:inherit; font-size:11px; padding:3px 8px; border-radius:7px;
+  background:var(--bg-3); color:var(--text); border:1px solid var(--border);
+}
+.ttr-pay-color .ttr-pay-dot {
+  width:9px; height:9px; border-radius:50%; background:var(--cc);
+  border:1px solid rgba(0,0,0,.4);
+}
+.ttr-pay-color b { font-size:10px; color:var(--text-dim); }
+.ttr-pay-locos { color:var(--text-dim); }
+.ttr-pay-color:hover, .ttr-pay-locos:hover { border-color:var(--accent); }
+.ttr-pay-color.on, .ttr-pay-locos.on {
+  border-color:var(--gold); color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset;
+}
+.ttr-pay-color.on b { color:var(--gold); }
 .ttr-note { margin-top:6px; line-height:1.5; }
 .ttr-ticket-state { flex-shrink:0; font-size:10px; border-radius:4px; padding:1px 5px; }
 .ttr-ticket-state.ok { color:#7fe0b0; background:rgba(67,181,129,.15); border:1px solid rgba(67,181,129,.5); }

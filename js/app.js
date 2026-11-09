@@ -666,7 +666,7 @@ async function showRoomByCode(code, gameId) {
       fresh.innerHTML = '';
       root.replaceWith(fresh);
 
-      const { TicketGame } = await import('./ticket-ui.js?v=35');
+      const { TicketGame } = await import('./ticket-ui.js?v=36');
       fresh.classList.remove('hidden');
       document.getElementById('room-waiting').classList.add('hidden');
       document.getElementById('splendor-game').classList.add('hidden');

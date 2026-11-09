@@ -8,7 +8,7 @@ import {
   STARTING_HAND, FACE_UP_COUNT, TICKETS_DRAWN_PER_ACTION, MIN_INITIAL_TICKETS,
   LONGEST_PATH_BONUS, ROUTE_SCORES,
   CITY_MAP, normalizeColor
-} from './ticket-data.js?v=35';
+} from './ticket-data.js?v=36';
 
 // ===== 基础工具 =====
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -215,6 +215,47 @@ export function claimPayment(hand, routeIdx, preferredColor = null) {
   return best;
 }
 
+// 列出所有合法支付组合（供玩家自选）；第一项为默认（最少车头、最多本色）
+export function claimOptions(hand, routeIdx) {
+  const r = ROUTES[routeIdx];
+  if (!r) return [];
+  const len = r.len;
+  const locoInHand = hand.loco || 0;
+  const colors = r.color ? [r.color] : TRAIN_COLORS;
+  const out = [];
+
+  for (const color of colors) {
+    const have = hand[color] || 0;
+    const maxLocos = Math.min(locoInHand, len - 1);
+    for (let locos = maxLocos; locos >= 0; locos--) {
+      const colorCards = len - locos;
+      if (colorCards > have) continue;
+      out.push({ color, colorCards, locos });
+    }
+  }
+  if (locoInHand >= len) out.push({ color: 'loco', colorCards: 0, locos: len });
+
+  out.sort((a, b) =>
+    a.locos - b.locos ||
+    b.colorCards - a.colorCards ||
+    TRAIN_COLORS.indexOf(a.color) - TRAIN_COLORS.indexOf(b.color));
+  return out;
+}
+
+// 解析玩家指定的支付方案；未指定时沿用自动择优（AI 兼容）
+export function resolveClaimPayment(hand, routeIdx, action = {}) {
+  if (!action || (action.color == null && action.locos == null)) {
+    return claimPayment(hand, routeIdx);
+  }
+  const wantColor = action.color == null ? null
+    : (action.color === 'loco' ? 'loco' : normalizeColor(action.color));
+  const wantLocos = action.locos == null ? null : Number(action.locos);
+  const hit = claimOptions(hand, routeIdx).find(o =>
+    (wantColor == null || o.color === wantColor) &&
+    (wantLocos == null || o.locos === wantLocos));
+  return hit || null;
+}
+
 // ===== 图算法：连通性 / 最长路线 =====
 function buildOwnAdj(state, playerIndex) {
   const adj = new Map();
@@ -339,8 +380,10 @@ export function validateAction(state, playerIndex, action) {
 
       const r = ROUTES[routeIdx];
       if (p.trains < r.len) return '车厢不足';
-      const pay = claimPayment(p.hand, routeIdx, normalizeColor(action.color));
-      if (!pay) return '车票不足，无法支付该路线';
+      const pay = resolveClaimPayment(p.hand, routeIdx, action);
+      if (!pay) {
+        return claimPayment(p.hand, routeIdx) ? '所选支付组合不可行' : '车票不足，无法支付该路线';
+      }
       return null;
     }
 
@@ -410,7 +453,7 @@ export function applyAction(state, playerIndex, action) {
     case 'CLAIM_ROUTE': {
       const routeIdx = action.routeId;
       const r = ROUTES[routeIdx];
-      const pay = claimPayment(p.hand, routeIdx, normalizeColor(action.color));
+      const pay = resolveClaimPayment(p.hand, routeIdx, action);
       payCardsFromHand(p, pay);
       s.discard.push(...paymentToCards(pay));
       claimRoute(s, playerIndex, routeIdx, r);
