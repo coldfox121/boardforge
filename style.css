@@ -1431,3 +1431,4 @@ body {
 .atk-unit { font-size:11px; color:#5b6478; }
 .atk-del { width:22px; height:22px; flex-shrink:0; border:none; border-radius:5px; background:rgba(224,92,92,.15); color:#e05c5c; cursor:pointer; font-size:11px; }
 .atk-del:hover { background:rgba(224,92,92,.3); }
+.ps-offline { margin-left:4px; font-size:10px; color:#e05c5c; border:1px solid rgba(224,92,92,.4); border-radius:4px; padding:0 3px; }

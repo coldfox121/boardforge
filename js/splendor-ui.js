@@ -2,16 +2,21 @@
 import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=35';
 import { pickAction } from './splendor-ai.js?v=35';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
+import { OnlineGameBase } from './online-game.js?v=1';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
-export class SplendorGame {
+export class SplendorGame extends OnlineGameBase {
   constructor(container, options = {}) {
+    super(options);
     this.container = container;
     this.playerNames = options.playerNames || ['你', 'AI-1', 'AI-2', 'AI-3'];
     this.humanIndex = options.humanIndex ?? 0;
     this.onGameOver = options.onGameOver || (() => {});
     this.state = null;
+    this.online = options.online || null;
+    this.initialState = options.initialState || null;
+    this.memberOnline = null;   // 联机：座位 → 是否在线
     // === 自由操作状态 ===
     this.ops = {
       gems: [],              // 已点的宝石颜色数组（可重复）
@@ -27,15 +32,26 @@ export class SplendorGame {
   }
 
   start() {
-    this.state = initGame(this.playerNames);
-    this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
+    this.state = this.initialState
+      ? JSON.parse(JSON.stringify(this.initialState))
+      : initGame(this.playerNames);
+    if (!this.initialState) {
+      this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
+    }
     this.actionLog = [];
     window.__splendor = this;
     this._renderAll();
-    this._maybeAIMove();
+    // 联机：AI 交给通用联机会话（仅房主端代跑）；单机：本地跑
+    if (this.session) this.scheduleAI();
+    else this._maybeAIMove();
   }
 
   restart() {
+    if (this.session) {
+      this.lastError = '联机对局请返回大厅后重新创建房间';
+      this._renderAll();
+      return;
+    }
     if (this.aiTimer) { clearTimeout(this.aiTimer); this.aiTimer = null; }
     this.ops = { gems: [], card: null, goldTaken: false };
     this.lastError = null;
@@ -103,9 +119,11 @@ export class SplendorGame {
           return `<span class="ps-noble" title="贵族 +3 VP">👑${reqs}</span>`;
         }).join('')}</div>`
       : '';
+    const seat = this.state.players.indexOf(p);
+    const offline = !p.isAI && this.memberOnline && this.memberOnline[seat] === false;
     return `
       <div class="ps-name">
-        <span>${p.isAI ? '🤖 ' : ''}${p.name}${isCurrent ? ' ← 回合' : ''}</span>
+        <span>${p.isAI ? '🤖 ' : ''}${p.name}${isCurrent ? ' ← 回合' : ''}${offline ? '<span class="ps-offline">离线</span>' : ''}</span>
         <span class="ps-score">${p.score}</span>
       </div>
       <div class="ps-resource-row">${gemDots}</div>
@@ -717,7 +735,7 @@ export class SplendorGame {
 
     this._clearOps();
     this._checkGameOver();
-    this._maybeAIMove();
+    this._afterChange();
   }
 
   // ===== 弃宝石（调用引擎 discardGems，弃完引擎自动推进回合）=====
@@ -735,7 +753,7 @@ export class SplendorGame {
       // 弃完了，回合已由引擎推进
       this._renderAll();
       this._checkGameOver();
-      this._maybeAIMove();
+      this._afterChange();
     } else {
       this._renderAll();
     }
@@ -811,6 +829,69 @@ export class SplendorGame {
   // ===== 终局 =====
   _checkGameOver() {
     if (this.state.gameOver) { this._renderEnd(); this.onGameOver(this.state); }
+  }
+
+  // ===== 本地状态变化后的统一出口 =====
+  // 联机：安排 AI（仅房主）+ 推送；单机：本地继续跑 AI
+  _afterChange() {
+    if (this.session) { this.scheduleAI(); this.pushLocal(); }
+    else this._maybeAIMove();
+  }
+
+  scheduleAI() {
+    if (this.session) return this.session.scheduleAI();
+    this._maybeAIMove();
+  }
+
+  // ===== 通用联机基类所需的游戏钩子 =====
+  aiAction(state, seat) {
+    // 弃宝石阶段：优先弃数量最多的普通宝石
+    if (state.pendingDiscard) {
+      let bestColor = null, bestCount = 0;
+      for (const c of GEM_COLORS) {
+        const n = state.players[seat].gems[c] || 0;
+        if (n > bestCount) { bestCount = n; bestColor = c; }
+      }
+      return bestColor ? { type: '_DISCARD', color: bestColor } : { type: 'PASS' };
+    }
+    if (!listValidActions(state, seat).length) return { type: 'PASS' };
+    return pickAction(state, seat) || { type: 'PASS' };
+  }
+
+  applyAIAction(seat, action) {
+    if (action.type === '_DISCARD') {
+      this.state = discardGems(this.state, seat, action.color);
+      return;
+    }
+    this._logAction(seat, action);
+    this.state = applyAction(this.state, seat, action);
+  }
+
+  render() {
+    this._renderAll();
+    this._checkGameOver();
+  }
+
+  canRunAI() {
+    const el = document.getElementById('splendor-game');
+    return !!(el && el.isConnected && !el.classList.contains('hidden') && el.offsetParent !== null);
+  }
+
+  setMemberOnline(map) { this.memberOnline = map; }
+
+  onRemoteState() {
+    this.ops = { gems: [], card: null, goldTaken: false };
+    this._discardNeeded = this.state.pendingDiscard ? this.state.pendingDiscard.count : 0;
+  }
+
+  onSyncConflict() {
+    this.lastError = '同步冲突，正在重新拉取最新对局…';
+    this._renderAll();
+  }
+
+  onAIFailed(err) {
+    this.lastError = 'AI 动作失败: ' + (err && err.message ? err.message : err);
+    this._renderAll();
   }
 
   // ===== 行动记录 =====

@@ -2,6 +2,7 @@
 // GET  /api/room?code=XXXXXX  → 同步房间信息、成员、对局状态
 // POST /api/room              → { action: 'join' | 'leave' | 'start' | 'push' | 'reset', code, ... }
 import { json, getAuthUser } from '../_shared.js';
+import { projectState, mergeState } from './_project.js';
 
 const ONLINE_MS = 15000;   // 15 秒内有心跳算在线
 const DROP_MS = 60000;     // 60 秒无心跳视为掉线，移出房间
@@ -100,7 +101,8 @@ export async function onRequestGet({ request, env }) {
       username: user.username
     },
     version: st ? st.version : 0,
-    state
+    // 按座位裁剪隐藏信息（任务票等），客户端只拿到自己该看的
+    state: projectState(room.game, state, member ? member.seat : null)
   });
 }
 
@@ -178,15 +180,19 @@ export async function onRequestPost({ request, env }) {
       const state = body.state;
       if (!Number.isFinite(baseVersion) || !state) return json({ error: '参数错误' }, 400);
 
-      const cur = await env.DB.prepare('SELECT version FROM room_states WHERE room_id = ?').bind(room.id).first();
+      const cur = await env.DB.prepare('SELECT version, state FROM room_states WHERE room_id = ?').bind(room.id).first();
       if (!cur) return json({ error: '对局数据不存在' }, 409);
       if (cur.version !== baseVersion) {
         return json({ error: '版本冲突', conflict: true, version: cur.version }, 409);
       }
+      // 客户端那份可能是裁剪过的（看不到别人的隐藏信息），落库前用库里真实值补回
+      let stored = null;
+      try { stored = cur.state ? JSON.parse(cur.state) : null; } catch { stored = null; }
+      const merged = mergeState(room.game, stored, state, member.seat);
       const next = baseVersion + 1;
       const res = await env.DB.prepare(
         'UPDATE room_states SET version = ?, state = ?, updated_at = ? WHERE room_id = ? AND version = ?'
-      ).bind(next, JSON.stringify(state), now, room.id, baseVersion).run();
+      ).bind(next, JSON.stringify(merged), now, room.id, baseVersion).run();
       if (!res.meta || res.meta.changes === 0) {
         return json({ error: '版本冲突', conflict: true, version: cur.version }, 409);
       }

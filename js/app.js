@@ -338,6 +338,34 @@ const GAME_NAMES = { splendor: '璀璨宝石', ticket: '铁路环游' };
 // 实例继承 js/online-game.js 的 OnlineGameBase 后，自动获得：
 // 座位同步、2 秒状态拉取、推送合并、版本冲突处理、房主代跑 AI、成员掉线标记。
 const ONLINE_GAMES = {
+  splendor: {
+    name: '璀璨宝石',
+    async prepare() {
+      const { syncGameConfig } = await import('./config-sync.js?v=35');
+      await syncGameConfig('splendor');
+    },
+    async load() {
+      const [{ SplendorGame }, engine] = await Promise.all([
+        import('./splendor-ui.js?v=36'),
+        import('./splendor-engine.js?v=35')
+      ]);
+      return {
+        initState: (names) => engine.initGame(names),
+        create: ({ data, isHost, push }) => {
+          document.getElementById('ticket-game').classList.add('hidden');
+          document.getElementById('splendor-end').classList.add('hidden');
+          document.getElementById('splendor-game').classList.remove('hidden');
+          const game = new SplendorGame(null, {
+            humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
+            initialState: data.state,
+            online: { isHost, version: data.version, push }
+          });
+          game.start();
+          return game;
+        }
+      };
+    }
+  },
   ticket: {
     name: '铁路环游',
     async prepare() {
@@ -810,8 +838,8 @@ async function startRoomGame() {
 
   const adapter = await getOnlineAdapter(data.room.game);
 
-  // 未接入联机的游戏（璀璨宝石）：房主单机 + AI
-  if (!adapter) return startLocalGame(data);
+  // 尚未接入联机的游戏
+  if (!adapter) { alert('该游戏尚未接入联机'); return; }
 
   // 座位顺序 = 成员入座顺序，剩余座位给 AI
   const members = data.members.slice().sort((a, b) => a.seat - b.seat);
@@ -838,27 +866,6 @@ async function startRoomGame() {
     btn.disabled = false;
     alert(e.message || '开始游戏失败');
   }
-}
-
-// 单机模式：未接入联机的游戏，房主本地开局 + AI
-async function startLocalGame(data) {
-  const aiToggle = document.getElementById('toggle-ai');
-  const aiCount = document.getElementById('ai-count');
-  let aiN = 0;
-  if (aiToggle.checked) aiN = Math.min(Number(aiCount.value) || 0, 3);
-  const names = [data.me.username];
-  for (let i = 1; i <= aiN; i++) names.push('AI-' + i);
-  while (names.length < 2) names.push('AI-' + names.length);
-
-  const { syncGameConfig } = await import('./config-sync.js?v=35');
-  await syncGameConfig(data.room.game);
-  const { SplendorGame } = await import('./splendor-ui.js?v=35');
-  state.splendorGame = new SplendorGame(null, { playerNames: names, humanIndex: 0 });
-  document.getElementById('room-waiting').classList.add('hidden');
-  document.getElementById('splendor-game').classList.remove('hidden');
-  document.getElementById('splendor-end').classList.add('hidden');
-  document.getElementById('ticket-game').classList.add('hidden');
-  state.splendorGame.start();
 }
 
 // 进入联机对局：所有游戏共用同一套加载 / 推送 / 成员同步逻辑
