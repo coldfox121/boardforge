@@ -85,8 +85,8 @@ function handleRoute() {
       enterRestrictedGame(segments[1]);
     }
   } else if (first === 'room' && segments[1]) {
-    // #/room/ABCD → 分享链接直达房间
-    showRoomByCode(segments[1]);
+    // #/room/ABCD → 分享链接直达房间；?game=ticket 为创建者留在 URL 里的游戏提示（刷新后不丢）
+    showRoomByCode(segments[1], undefined, query.game);
   } else {
     if (state.token) navigate('/lobby');
     else navigate('/login');
@@ -409,6 +409,7 @@ function openRestrictedModal(gameId, defaultTab) {
     msgEl.className = 'msg'; msgEl.textContent = '';
     try {
       const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId }) });
+      localStorage.setItem('bf_room_game_' + data.room_code.toUpperCase(), gameId);
       modal.remove();
       // 受限模式：房间链接也带游戏路径
       navigate('/g/' + gameId + '/room/' + data.room_code);
@@ -433,7 +434,10 @@ function openRestrictedModal(gameId, defaultTab) {
         </div>`;
       document.getElementById('rm-confirm-join').addEventListener('click', () => {
         modal.remove();
-        navigate('/g/' + gameId + '/room/' + code);
+        // 以房间真实游戏类型为准，避免从别的游戏卡片加入时进错棋盘
+        const roomGame = data.game || gameId;
+        localStorage.setItem('bf_room_game_' + code, roomGame);
+        navigate('/g/' + roomGame + '/room/' + code);
       });
     } catch (err) {
       infoEl.innerHTML = `<p class="msg error">${err.message}</p>`;
@@ -520,8 +524,9 @@ function openRoomModal(gameId, presetCode) {
       const data = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name, game: gameId }) });
       state.currentRoomCode = data.room_code;
       state.currentGame = gameId;
+      localStorage.setItem('bf_room_game_' + data.room_code.toUpperCase(), gameId);
       closeRoomModal();
-      enterGameLobby(data);
+      enterGameLobby(data, gameId);
     } catch (err) {
       msgEl.className = 'msg error'; msgEl.textContent = err.message;
     }
@@ -560,24 +565,27 @@ function closeRoomModal() {
 }
 
 // 展示房间页（创建后或直接通过链接访问）
-async function showRoomByCode(code, gameId) {
+async function showRoomByCode(code, gameId, hintGame) {
   const title = document.getElementById('room-title');
   showView('room');
   closeRoomModal();
 
   const upper = code.toUpperCase();
 
-  // 完整模式从分享链接进入时 URL 里没有游戏信息，先查房间拿 game
-  let gid = gameId || state.currentGame || null;
+  // 游戏类型解析顺序：URL 显式 > URL 提示 > 本会话 > 房间接口 > 本机记忆
+  let gid = gameId || hintGame || state.currentGame || null;
   if (!gid) {
     try {
       const info = await api('/api/rooms?code=' + upper);
-      gid = info.game || 'splendor';
+      gid = info.game || null;
     } catch {
-      gid = 'splendor';
+      gid = localStorage.getItem('bf_room_game_' + upper) || null;
     }
   }
-  state.currentGame = gid;
+  if (gid) {
+    localStorage.setItem('bf_room_game_' + upper, gid);
+  }
+  state.currentGame = gid || null;
 
   let shareUrl;
   if (gameId) {
@@ -587,7 +595,7 @@ async function showRoomByCode(code, gameId) {
     state.guestGame = null;
     shareUrl = location.origin + location.pathname + '#/room/' + upper;
   }
-  const gameName = GAME_NAMES[gid] || gid;
+  const gameName = gid ? (GAME_NAMES[gid] || gid) : '房间';
 
   title.textContent = `${gameName} · ${upper}`;
 
@@ -650,6 +658,10 @@ async function showRoomByCode(code, gameId) {
 
   // 开始游戏
   document.getElementById('btn-start-game').onclick = async () => {
+    if (!gid) {
+      alert('无法获取该房间的游戏类型，请刷新页面重试');
+      return;
+    }
     let aiCountVal = 0;
     if (aiToggle.checked) aiCountVal = Math.min(Number(aiCount.value), maxAI);
 
@@ -697,9 +709,9 @@ async function showRoomByCode(code, gameId) {
 }
 
 // 进入房间占位页（创建房间后）
-function enterGameLobby(room) {
-  // 直接调路由，让 hashchange 触发 showRoomByCode
-  navigate('/room/' + room.room_code);
+function enterGameLobby(room, gameId) {
+  // 直接调路由，让 hashchange 触发 showRoomByCode；URL 带上游戏类型，刷新后不会丢
+  navigate('/room/' + room.room_code, gameId ? { game: gameId } : null);
 }
 
 // === 启动 ===
