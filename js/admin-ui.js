@@ -150,7 +150,7 @@ export async function renderAdminPage(gameId = 'splendor') {
 
   // 铁路环游使用专用可视化编辑器（城市 / 线路 / 任务票），不暴露 JSON
   if (gameId === 'ticket') {
-    const { renderTicketEditor } = await import('./admin-ticket.js?v=2');
+    const { renderTicketEditor } = await import('./admin-ticket.js?v=3');
     renderTicketEditor(editor, baseData, adminData);
     return;
   }

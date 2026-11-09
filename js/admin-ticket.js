@@ -119,7 +119,7 @@ export function buildCitiesHTML(data) {
 
 export function buildRoutesHTML(data, selectedRoute) {
   const rows = (data.ROUTES || []).map((r, i) => `
-    <div class="atk-row${selectedRoute === i ? ' sel' : ''}">
+    <div class="atk-row${selectedRoute === i ? ' sel' : ''}" data-row="${i}">
       <span class="atk-index">${i + 1}</span>
       <select class="atk-input" data-act="route-a" data-idx="${i}">${cityOptions(data, r.a)}</select>
       <span class="atk-arrow">→</span>
@@ -241,6 +241,20 @@ export function renderTicketEditor(container, baseData, adminData) {
       b.classList.toggle('active', b.dataset.tab === tab);
     });
     refreshStatus();
+    scrollToSelectedRow();
+  }
+
+  // 从地图点选线路后，把右侧面板滚到对应那一行（已可见时不动）
+  function scrollToSelectedRow() {
+    if (tab !== 'routes' || selectedRoute === null || selectedRoute === undefined) return;
+    const row = sideEl.querySelector(`[data-row="${selectedRoute}"]`);
+    if (!row) return;
+    const box = sideEl.closest('.atk-side') || sideEl;   // 真正滚动的是外层侧栏
+    const r = row.getBoundingClientRect();
+    const c = box.getBoundingClientRect();
+    if (r.top < c.top || r.bottom > c.bottom) {
+      box.scrollTop += r.top - c.top - (c.height - r.height) / 2;
+    }
   }
 
   function redraw() { drawMap(); drawSide(); }
