@@ -1148,6 +1148,8 @@ body {
 .ttr-players { display:flex; gap:6px; flex-wrap:wrap; }
 .ttr-chip { display:flex; flex-direction:column; gap:1px; padding:4px 9px; border-radius:8px; background:var(--bg-2); border:1px solid var(--border); border-left:3px solid var(--pc); font-size:12px; min-width:140px; }
 .ttr-chip.active { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; background:rgba(245,197,66,0.06); }
+.ttr-chip.offline { opacity:.5; }
+.ttr-offline { margin-left:4px; font-size:10px; font-weight:500; color:#e05c5c; border:1px solid rgba(224,92,92,.45); border-radius:4px; padding:0 3px; }
 .ttr-chip-name { font-weight:600; color:var(--text); }
 .ttr-chip-stat { color:var(--text-dim); font-size:11px; }
 

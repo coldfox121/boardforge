@@ -711,6 +711,8 @@ async function syncRoom(code) {
   if (code !== state.roomCode) return;
   state.roomInfo = data;
   renderRoomWaiting(data);
+  // 对局中：把成员在线状态同步给游戏层，用于显示掉线标记
+  if (state.ticketGame) state.ticketGame.syncMembers(data.members);
   if (data.room.status === 'playing' && data.state) {
     if (state.ticketGame) state.ticketGame.syncState(data.state, data.version);
     else if (data.room.game === 'ticket') launchTicketOnline(data, !!data.me.is_owner);
@@ -820,7 +822,7 @@ async function launchTicketOnline(data, isHost) {
 
   const { syncGameConfig } = await import('./config-sync.js?v=35');
   await syncGameConfig('ticket');
-  const { TicketGame } = await import('./ticket-ui.js?v=39');
+  const { TicketGame } = await import('./ticket-ui.js?v=40');
 
   document.getElementById('room-waiting').classList.add('hidden');
   document.getElementById('splendor-game').classList.add('hidden');
@@ -840,6 +842,7 @@ async function launchTicketOnline(data, isHost) {
     }
   });
   state.ticketGame.start();
+  if (data.members) state.ticketGame.syncMembers(data.members);
 }
 
 // 进入房间占位页（创建房间后）

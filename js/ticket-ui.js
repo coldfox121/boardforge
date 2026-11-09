@@ -81,6 +81,7 @@ export class TicketGame {
     this.version = this.online ? (this.online.version || 0) : 0;
     this._pushing = false;
     this._pending = null;
+    this.memberOnline = null;   // 联机模式：座位 → 是否在线
     this.focusTicket = null;   // 高亮某张票的起终点城市
     this.claimDraft = null;    // 待确认占领的路线 index
     this.claimPay = null;      // 玩家选中的支付组合 { color, locos }
@@ -306,6 +307,16 @@ export class TicketGame {
     this.render();
   }
 
+  // 联机模式：同步各座位在线状态（掉线标记），有变化才重绘
+  syncMembers(members) {
+    if (!this.online) return;
+    const map = {};
+    (members || []).forEach(m => { map[m.seat] = !!m.online; });
+    if (JSON.stringify(map) === JSON.stringify(this.memberOnline || {})) return;
+    this.memberOnline = map;
+    this.render();
+  }
+
   scheduleAI() {
     clearTimeout(this._aiTimer);
     const s = this.state;
@@ -368,11 +379,14 @@ export class TicketGame {
   }
 
   playersHTML(s) {
-    return s.players.map((p, i) => `
-      <div class="ttr-chip ${i === s.currentPlayer && s.phase !== 'ended' ? 'active' : ''}" style="--pc:${PCOLORS[i]}">
-        <span class="ttr-chip-name">${esc(p.name)}${i === this.humanIndex ? '（我）' : ''}</span>
+    return s.players.map((p, i) => {
+      const offline = !p.isAI && !!this.memberOnline && this.memberOnline[i] !== true;
+      return `
+      <div class="ttr-chip ${i === s.currentPlayer && s.phase !== 'ended' ? 'active' : ''} ${offline ? 'offline' : ''}" style="--pc:${PCOLORS[i]}">
+        <span class="ttr-chip-name">${esc(p.name)}${i === this.humanIndex ? '（我）' : ''}${offline ? '<span class="ttr-offline">离线</span>' : ''}</span>
         <span class="ttr-chip-stat">🏆${p.score} · 🚃${p.trains} · 🎫${p.tickets.length}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   boardHTML(s, claimable) {
