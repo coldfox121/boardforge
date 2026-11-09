@@ -79,7 +79,7 @@ function handleRoute() {
     showView('admin');
     import('./config-sync.js?v=35')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=36'))
+      .then(() => import('./admin-ui.js?v=37'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间

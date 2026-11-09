@@ -148,10 +148,10 @@ export async function renderAdminPage(gameId = 'splendor') {
   }
   const adminData = loadAdminData(gameId);
 
-  // 铁路环游暂无卡牌可视化，直接开放 JSON 数据编辑
+  // 铁路环游使用专用可视化编辑器（城市 / 线路 / 任务票），不暴露 JSON
   if (gameId === 'ticket') {
-    editor.innerHTML = buildTicketAdminHTML(adminData);
-    bindTicketAdminEvents(gameId, baseData, adminData);
+    const { renderTicketEditor } = await import('./admin-ticket.js?v=1');
+    renderTicketEditor(editor, baseData, adminData);
     return;
   }
 
@@ -160,45 +160,6 @@ export async function renderAdminPage(gameId = 'splendor') {
 
   editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
   bindAdminEvents(gameId, baseData, activeData);
-}
-
-// ===== 铁路环游数据编辑（城市 / 线路 / 任务票） =====
-function buildTicketAdminHTML(adminData) {
-  const savedAt = getAdminSavedAt('ticket');
-  return `
-    <div class="admin-header">
-      <h2>🛠 铁路环游 · 数据编辑</h2>
-      <div class="admin-head-right">
-        <div class="admin-status">${adminData ? `⚠️ 当前有 admin 覆盖数据（保存于 ${new Date(savedAt).toLocaleString()}）` : 'ℹ️ 当前使用官方基线数据'}</div>
-        <button class="btn" id="admin-back">← 返回大厅</button>
-      </div>
-    </div>
-    <div class="admin-panel" id="panel-json" style="display:block">
-      <div class="json-toolbar">
-        <button class="btn primary" id="json-save">💾 保存并同步云端</button>
-        <button class="btn" id="json-reset">↺ 恢复基线</button>
-        <span class="json-status" id="json-status"></span>
-      </div>
-      <p class="viz-hint" style="margin:0 0 8px">
-        CITIES = 城市（id / 中文名 / 地图坐标 x,y）；ROUTES = 线路（a,b 城市 id、len 1-6、color 为颜色或 null 表示灰色、parallel 0/1 表示平行双线）；TICKETS = 任务票（a,b、points 分值）。
-        保存后同步到云端，玩家下一局生效。
-      </p>
-      <textarea id="json-editor" spellcheck="false"></textarea>
-      <div class="json-validate" id="json-validate"></div>
-    </div>`;
-}
-
-function bindTicketAdminEvents(gameId, baseData, adminData) {
-  document.getElementById('admin-back')?.addEventListener('click', () => { location.hash = '#/lobby'; });
-  document.getElementById('json-save')?.addEventListener('click', () => saveJSONEditor(gameId, baseData));
-  document.getElementById('json-reset')?.addEventListener('click', () => {
-    if (confirm('确定恢复基线？当前 admin 覆盖数据会被清空')) {
-      clearAdminData(gameId);
-      saveConfigToCloud(gameId, baseData).catch(() => {});
-      document.getElementById('json-status').textContent = '✅ 已恢复基线（云端同步中）';
-    }
-  });
-  loadEditorJSON(gameId, baseData, adminData);
 }
 
 function buildAdminHTML(gameId, baseData, activeData, adminData) {
