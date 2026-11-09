@@ -1,17 +1,17 @@
 // 铁路环游：美国版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=36';
-import { pickAction } from './ticket-ai.js?v=36';
+import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=37';
+import { pickAction } from './ticket-ai.js?v=37';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   ROUTE_SCORES
-} from './ticket-data.js?v=36';
+} from './ticket-data.js?v=37';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
-  purple: '#8e5bd0', white: '#dfe6ee', blue: '#3f7fd0', yellow: '#e6c246',
-  orange: '#dd8438', black: '#4a5568', red: '#cf4a4a', green: '#3f9c5a', loco: '#c77dff'
+  purple: '#a273ff', white: '#f5f9ff', blue: '#4f8cff', yellow: '#f3cf4a',
+  orange: '#f59a45', black: '#7d8ba0', red: '#ec5f5f', green: '#3fc97a', loco: '#d08bff'
 };
 const HAND_ORDER = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'black', 'white', 'loco'];
 const SHORT_NAME = {
@@ -316,7 +316,7 @@ export class TicketGame {
       const g = routeGeom(i);
       const owner = s.routeOwner[i];
       const claimed = owner !== null;
-      const color = claimed ? PCOLORS[owner] : (HEX[r.color] || '#8b95a3');
+      const color = claimed ? PCOLORS[owner] : (HEX[r.color] || '#9fb0c2');
       const t0 = 9 / g.L;
       const t1 = 1 - 9 / g.L;
       const span = (t1 - t0) / r.len;
@@ -328,15 +328,15 @@ export class TicketGame {
         const x1 = g.x1 + (g.x2 - g.x1) * a, y1 = g.y1 + (g.y2 - g.y1) * a;
         const x2 = g.x1 + (g.x2 - g.x1) * b, y2 = g.y1 + (g.y2 - g.y1) * b;
         // 已占领：粗线 + 白色虚线轨枕；未占领：细线、低对比
-        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${claimed ? 10 : 4.5}" stroke-linecap="round"/>`);
+        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${claimed ? 11 : 6}" stroke-linecap="round"/>`);
         if (claimed) {
-          segs.push(`<line class="ttr-rail" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round" opacity=".85"/>`);
+          segs.push(`<line class="ttr-rail" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="2.2" stroke-dasharray="3 6" stroke-linecap="round" opacity=".9"/>`);
         }
       }
 
       // 已占领的路线加一层深色外壳，进一步和“未占领细线”区分
       const casing = claimed
-        ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" stroke="#05090e" stroke-width="14" stroke-linecap="round"/>`
+        ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" stroke="#05090e" stroke-width="15" stroke-linecap="round"/>`
         : '';
 
       const cls = [
@@ -360,9 +360,9 @@ export class TicketGame {
       const role = focusT ? (focusT.a === c.id ? 'focused-start' : focusT.b === c.id ? 'focused-end' : '') : '';
       const cls = ['ttr-city', role].filter(Boolean).join(' ');
       return `<g class="${cls}">
-        <circle class="ttr-city-halo" cx="${c.x}" cy="${c.y}" r="10"/>
-        <circle class="ttr-city-dot" cx="${c.x}" cy="${c.y}" r="5"/>
-        <text x="${c.x}" y="${c.y + 18}" text-anchor="middle">${esc(c.zh)}</text>
+        <circle class="ttr-city-halo" cx="${c.x}" cy="${c.y}" r="11"/>
+        <circle class="ttr-city-dot" cx="${c.x}" cy="${c.y}" r="5.5"/>
+        <text x="${c.x}" y="${c.y + 19}" text-anchor="middle">${esc(c.zh)}</text>
       </g>`;
     }).join('');
 

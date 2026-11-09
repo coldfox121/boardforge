@@ -201,7 +201,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 10px 14px;
 }
 .placeholder {
   color: var(--text-dim);
@@ -1141,17 +1141,17 @@ body {
 
 /* ===== 铁路环游：美国版 ===== */
 #ticket-game { width:100%; align-self:stretch; min-height:0; }
-.ttr-shell { position:relative; display:flex; flex-direction:column; gap:8px; height:100%; min-height:0; }
+.ttr-shell { position:relative; display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; }
 
 /* 玩家条 */
-.ttr-players { display:flex; gap:8px; flex-wrap:wrap; }
-.ttr-chip { display:flex; flex-direction:column; gap:2px; padding:5px 10px; border-radius:8px; background:var(--bg-2); border:1px solid var(--border); border-left:3px solid var(--pc); font-size:12px; min-width:150px; }
+.ttr-players { display:flex; gap:6px; flex-wrap:wrap; }
+.ttr-chip { display:flex; flex-direction:column; gap:1px; padding:4px 9px; border-radius:8px; background:var(--bg-2); border:1px solid var(--border); border-left:3px solid var(--pc); font-size:12px; min-width:140px; }
 .ttr-chip.active { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; background:rgba(245,197,66,0.06); }
 .ttr-chip-name { font-weight:600; color:var(--text); }
 .ttr-chip-stat { color:var(--text-dim); font-size:11px; }
 
 /* 主体：地图 + 侧栏 */
-.ttr-body { display:flex; gap:8px; flex:1; min-height:0; }
+.ttr-body { display:flex; gap:6px; flex:1; min-height:0; }
 .ttr-board-wrap {
   position:relative; flex:1; min-width:0; min-height:0;
   background:radial-gradient(120% 90% at 40% 30%, #1b2a3a 0%, #101a24 60%, #0a1118 100%);
@@ -1162,9 +1162,9 @@ body {
 .ttr-route line { transition:opacity .12s, filter .12s; }
 .ttr-route .ttr-hit { stroke:transparent; stroke-width:18; fill:none; pointer-events:stroke; }
 .ttr-route.claimable .ttr-hit { cursor:pointer; }
-.ttr-route.claimable:hover .ttr-seg { filter:brightness(1.7); }
-/* 未占领：细线低对比；已占领：粗线 + 深色外壳 + 白色轨枕（见 JS 渲染） */
-.ttr-route.free .ttr-seg { opacity:.55; }
+.ttr-route.claimable:hover .ttr-seg { filter:brightness(1.9); }
+/* 未占领：细线中对比；已占领：粗线 + 深色外壳 + 白色轨枕（见 JS 渲染） */
+.ttr-route.free .ttr-seg { opacity:.85; }
 .ttr-route.mine .ttr-seg { filter:drop-shadow(0 0 5px rgba(255,255,255,.45)); }
 .ttr-route.foe .ttr-seg { opacity:.95; }
 .ttr-route .ttr-rail { pointer-events:none; }
@@ -1176,15 +1176,15 @@ body {
 }
 .ttr-legend span { display:inline-flex; align-items:center; gap:5px; }
 .ttr-legend i { width:18px; height:5px; border-radius:3px; display:inline-block; }
-.ttr-legend i.free { background:rgba(180,196,212,.45); }
+.ttr-legend i.free { background:rgba(190,205,220,.8); }
 .ttr-legend i.mine { background:#43b581; box-shadow:0 0 0 1px #fff inset; }
 .ttr-legend i.foe { background:#4a90d9; box-shadow:0 0 0 1px #fff inset; }
 
 .ttr-city text {
-  font-size:13px; fill:#c9d6e4; pointer-events:none;
-  paint-order:stroke; stroke:#081018; stroke-width:3px; stroke-linejoin:round;
+  font-size:15px; fill:#eef5fc; pointer-events:none;
+  paint-order:stroke; stroke:#060d14; stroke-width:3.5px; stroke-linejoin:round;
 }
-.ttr-city .ttr-city-dot { fill:#0b1119; stroke:#b9c7d6; stroke-width:1.6; }
+.ttr-city .ttr-city-dot { fill:#0b1119; stroke:#d5e2ef; stroke-width:1.8; }
 .ttr-city .ttr-city-halo { fill:none; stroke:transparent; stroke-width:2; }
 .ttr-city .ttr-station { fill:none; stroke-width:3; }
 .ttr-city.focused-start .ttr-city-dot { fill:#43b581; stroke:#c9ffe6; }
@@ -1202,7 +1202,7 @@ body {
 @keyframes ttr-pulse { 0%,100% { opacity:.35; } 50% { opacity:1; } }
 
 /* 侧栏 */
-.ttr-panel { width:296px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding-right:2px; }
+.ttr-panel { width:272px; flex-shrink:0; display:flex; flex-direction:column; gap:6px; overflow-y:auto; padding-right:2px; }
 .ttr-block { background:var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:10px; }
 .ttr-block h4 { font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:8px; display:flex; justify-content:space-between; gap:8px; }
 .ttr-dim { color:var(--text-dim); font-size:11px; }

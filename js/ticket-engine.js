@@ -8,7 +8,7 @@ import {
   STARTING_HAND, FACE_UP_COUNT, TICKETS_DRAWN_PER_ACTION, MIN_INITIAL_TICKETS,
   LONGEST_PATH_BONUS, ROUTE_SCORES,
   CITY_MAP, normalizeColor
-} from './ticket-data.js?v=36';
+} from './ticket-data.js?v=37';
 
 // ===== 基础工具 =====
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
