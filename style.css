@@ -1383,9 +1383,15 @@ body {
 .atk-mapbox svg { display:block; width:100%; height:auto; touch-action:none; }
 .atk-city { cursor:grab; }
 .atk-city:active { cursor:grabbing; }
-.atk-city-name { fill:#dfe6ee; font-size:13px; text-anchor:middle; pointer-events:none; user-select:none; }
-.atk-city.sel .atk-city-name { fill:#ffd166; font-weight:700; }
-.atk-len { fill:#aab3c5; font-size:11px; text-anchor:middle; pointer-events:none; }
+.atk-city-name { fill:#eef5fc; font-size:15px; font-weight:600; text-anchor:middle; pointer-events:none; user-select:none;
+  paint-order:stroke; stroke:#060d14; stroke-width:4px; stroke-linejoin:round; }
+.atk-city.sel .atk-city-name { fill:#ffd166; }
+.atk-len { fill:#f2f7ff; font-size:12px; font-weight:700; text-anchor:middle; pointer-events:none;
+  paint-order:stroke; stroke:#060d14; stroke-width:3.5px; stroke-linejoin:round; opacity:0; transition:opacity .12s; }
+.atk-route:hover .atk-len, .atk-route.sel .atk-len { opacity:1; }
+.atk-route.sel > line:first-child { filter:drop-shadow(0 0 6px rgba(255,255,255,.55)); }
+.atk-maphead { display:flex; align-items:baseline; gap:8px; }
+.atk-maphead .atk-tip-inline { font-size:11px; color:#5b6478; }
 .atk-hit { cursor:pointer; }
 .atk-side { width:440px; flex-shrink:0; background:var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:12px; max-height:74vh; overflow-y:auto; }
 .atk-tabs { display:flex; gap:6px; margin-bottom:10px; }

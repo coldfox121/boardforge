@@ -189,7 +189,7 @@ export function buildEditorShell(hasOverride) {
       </div>
       <div class="atk-main">
         <div class="atk-mapwrap">
-          <div class="atk-maphead">地图预览</div>
+          <div class="atk-maphead">地图预览<span class="atk-tip-inline">悬停线路显示长度 · 拖动城市改坐标 · 依次点两座城市新增线路</span></div>
           <div class="atk-mapbox" id="atk-map-slot"></div>
         </div>
         <div class="atk-side">
