@@ -1,4 +1,4 @@
-# BoardForge · 项目 Checkpoint · 2026-11-06
+# BoardForge · 项目 Checkpoint · 2026-11-09
 
 ## 🚀 快速开始
 
@@ -22,36 +22,43 @@ npx serve .
 |---|---|
 | **线上** | https://boardforge.pages.dev |
 | **GitHub** | https://github.com/coldfox121/boardforge |
-| **D1** | `boardforge-db`（绑定为 `DB`） |
+| **D1** | `boardforge-db`（绑定为 `DB`）：users / sessions / rooms / game_config / card_images |
+| **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | style.css?v=21 |
-| **当前功能完整度** | Splendor 单机 + AI 完整可玩 |
+| **当前 cache bust** | `app.js` 等 JS 模块 `?v=27`，`style.css?v=31` |
+| **当前功能完整度** | Splendor 单机 + AI 完整可玩，Admin 牌库编辑器 + 卡图上传 |
 
 ## 🏗 文件结构
 
 ```
 boardforge/
-├── index.html              ← SPA 入口，hash 路由
-├── style.css               ← 全局样式 + 组件样式（当前 v=21）
+├── index.html              ← SPA 入口，hash 路由（引用 JS 时带 ?v=N）
+├── style.css               ← 全局样式 + 组件样式（当前 v=31）
+├── CHECKPOINT.md           ← 本文档
+├── DEVELOPMENT_TIMELINE.md ← 开发时间线（按天记录做了什么）
 ├── js/
-│   ├── app.js              ← 入口：路由 / 登录 / 大厅 / Room API
-│   ├── splendor-data.js    ← 90 张卡 + 10 贵族静态数据（可被 admin 覆盖）
+│   ├── app.js              ← 入口：路由 / 登录 / 大厅 / 房间流程（按需动态 import 游戏模块）
+│   ├── splendor-data.js    ← 90 张卡 + 10 贵族静态基线数据
 │   ├── splendor-engine.js  ← 纯函数引擎（initGame / validateAction / applyAction / listValidActions）
-│   ├── splendor-ai.js      ← 贪心策略 AI（pickAction）
+│   ├── splendor-ai.js      ← 启发式 AI（pickAction）
 │   ├── splendor-ui.js      ← UI 控制器（单类，renderAll + 事件绑定）
-│   ├── admin.js            ← Admin 数据层（localStorage 覆盖 + mergeAdmin + BalanceStats）
-│   └── admin-ui.js         ← Admin 编辑器（平衡性分析 + JSON 编辑 + 基线对比）
-├── functions/api/
-│   ├── register.js         ← POST /api/register
-│   ├── login.js            ← POST /api/login（返回 is_admin）
-│   ├── logout.js
-│   ├── health.js
-│   ├── load.js / save.js
-│   ├── rooms.js            ← POST 创建 / GET 列表（只查 waiting）
-│   └── games.js
-├── functions/_shared.js    ← json() / hashPassword() / getAuthUser() / isAdmin()
-└── d1/schema.sql           ← users / sessions / rooms
+│   ├── admin.js            ← Admin 数据层（localStorage 缓存 + mergeAdmin + BalanceStats）
+│   ├── admin-ui.js         ← Admin 编辑器（平衡性分析 + JSON 编辑 + 卡图上传）
+│   └── config-sync.js      ← 云端牌库同步 + 图片压缩上传 + 卡图 URL
+├── functions/
+│   ├── _shared.js          ← json() / 密码哈希 / getAuthUser() / isAdmin() / 房间清理
+│   └── api/
+│       ├── register.js / login.js / logout.js / health.js
+│       ├── load.js / save.js
+│       ├── rooms.js        ← POST 创建 / GET 列表（只查 waiting）
+│       ├── games.js
+│       ├── config.js       ← GET/PUT 云端牌库配置（D1 game_config）
+│       ├── upload.js       ← POST/DELETE 卡图（优先 KV，回落 D1）
+│       └── image/[[path]].js ← GET 卡图（KV → D1 回落，带边缘缓存）
+├── scripts/
+│   └── seed-cards.mjs      ← 批量生成卡图并写入云端
+└── d1/schema.sql           ← users / sessions / rooms / game_config / card_images
 ```
 
 ## 🎮 Splendor 引擎核心（已全部确认正确）
@@ -139,6 +146,41 @@ goldNeed = 3 - 3 = 0
 // 正确！扣 3 颗蓝宝石，不用黄金
 ```
 
+## 🤖 AI 策略（当前版本）
+
+文件：`js/splendor-ai.js`，导出 `pickAction(state, playerIndex)`，纯贪心 + 启发式打分。
+
+### 打分权重
+
+| 动作 | 分值构成 |
+|---|---|
+| **BUY** | `1000 + vp*80 + 同色已有卡数*6 + 贵族进度*10` |
+| **RESERVE** | `6 + vp*4`；差 ≤2 颗 +16、差 ≤4 颗 +6、对手买得起 +16、黄金未满 +4；已预留 ≥2 张 -15、≥3 张 -40 |
+| **TAKE_DIFF / TAKE_SAME** | 逐颗结算：需求内 `11/颗`、需求外 `1.5/颗`，再 `+5/颗` 数量奖励；超过 9 颗 -6 |
+
+### 关键：拿取数量必须参与计分
+
+旧版是 `需要的颜色数 × 0.5`，**和实际拿几颗无关**。只有 1 个颜色有需求时，"拿 1 颗"和"拿 3 颗"打平，而比较用 `>`，平局保留列表里靠前的单项动作 → 表现为"明明能拿 3 颗只拿 1-2 颗"。
+
+现在按颗结算并叠加数量奖励，模拟结果（各人数 40 场）：
+
+| 局 | 完成率 | 平均步数 | 平均每次拿 | 1颗 / 2颗 / 3颗 |
+|---|---|---|---|---|
+| 2 人 | 40/40 | 55.8 | 2.99 | 0 / 7 / 535 |
+| 3 人 | 40/40 | 79.6 | 2.98 | 0 / 17 / 809 |
+| 4 人 | 40/40 | 104.2 | 2.98 | 0 / 23 / 1277 |
+
+### 需求向量怎么算
+
+1. 收集场上 + 自己预留的所有卡，按"还差几颗宝石"升序
+2. 只看最接近买得起的 **3 张**，把每色缺口累加
+3. 单色需求封顶 3（一回合最多拿 2 同色，囤更多没意义）
+
+### 调参注意
+
+- RESERVE 的 VP 权重不能太高（`vp*10` 会让 AI 开局连锁 3 张大牌、完全不拿宝石）
+- 预留槽惩罚必留（最多 3 个，锁满后必须能靠买预留卡腾位）
+
 ## 🎨 UI 层关键设计
 
 ### 四面环绕布局（CSS Grid）
@@ -197,14 +239,16 @@ gold pile click 绑了 _onGemPlus → goldTaken 永远 false → 点完黄金点
 | Tab | 功能 |
 |---|---|
 | **平衡性分析** | 三级卡分别显示：数量/平均费用/性价比/VP分布条形图/费用颜色分布% |
-| **JSON 编辑器** | 完整 JSON 编辑，实时校验（语法+业务规则），保存到 localStorage |
+| **JSON 编辑器** | 完整 JSON 编辑，实时校验（语法+业务规则），保存到云端 D1（`game_config`）+ 本地缓存 |
 | **对比基线** | 跟官方基线 diff：新增/删除/修改卡 + 贵族变更 |
+| **卡图管理** | 每张卡上传/替换/删除图片（前端压到 1024px WebP，存 KV） |
 
 ### 引擎自动应用覆盖
 
 ```js
+// app.js 进游戏前：await syncGameConfig('splendor') 从 /api/config 拉云端配置写入 localStorage
 // splendor-engine.js 模块加载时：
-const _admin = loadAdminData('splendor');  // 读 localStorage
+const _admin = loadAdminData('splendor');  // 读本地缓存
 const E_CARDS = _admin?.CARDS || CARDS;
 const E_NOBLES = _admin?.NOBLES || NOBLES;
 // initGame 用 E_ 前缀版本
@@ -223,24 +267,61 @@ admin.GAMES 注册表 → 每个游戏只需 push 一个：
 
 ### 安全诚实说明
 
-- admin 权限 = 登录时 username === 'admin' → localStorage bf_is_admin=true
-- 数据只存 localStorage，**不碰服务端**
-- DevTools 改 localStorage 能绕过 admin 检查（但只影响自己浏览器）
-- 以后 DO 联机时升级：服务端 users.role='admin' + 牌库版本管理
+- admin 权限 = 登录时 username === 'admin'（服务端 `isAdmin()` 与前端一致）
+- 牌库配置存 D1（`game_config`），卡图存 KV，localStorage 只是本地缓存
+- 上传/删除/写配置接口都会校验登录 + admin
+- 以后 DO 联机时升级：users.role 字段 + 牌库版本号，避免编辑中途影响进行中的对局
+
+## 🖼 卡图存储（KV）
+
+### 为什么不用 R2
+
+R2 免额度也要绑信用卡，直接排除。卡图这体量（单张压缩后 30–80KB）**完全用不上对象存储**。
+
+### 当前链路
+
+```
+前端选图 → canvas 压到最长边 1024px / WebP → ≤600KB（逐步降质，最低 0.5）
+        → POST /api/upload（multipart）
+        → 优先 KV：cardimg:<game>:<cardId>（二进制，不 base64）
+        → 未绑定 KV 时回落 D1 card_images（base64，单张约 675KB 上限）
+        → 返回 /api/image/<game>/<cardId>?v=<时间戳>
+```
+
+读取：`GET /api/image/<game>/<cardId>` → **先 KV，读不到回落 D1**（历史图不用重传）→ 响应带 `Cache-Control: immutable` 并写入 `caches.default`，避免反复消耗 KV 读次数。
+
+### KV 规格
+
+| 项 | 值 |
+|---|---|
+| 绑定名 | `CARDS_KV` |
+| 命名空间 | `boardforge-images` |
+| 单值上限 | 25 MB |
+| 免费额度 | 1 GB 存储 / 10 万读/天 / 1000 写/天 |
+| 本项目用量 | 100 张卡约 8 MB |
+
+### 注意
+
+- 上传/删除接口都要求登录 + admin
+- 换图必须更新 URL 的 `?v=`（`upload.js` 自动带时间戳），否则边缘缓存会返回旧图
+- 删除时会同时清 KV 和 D1，避免回落路径读到旧数据
+- 绑定在 Pages 后台：Settings → Functions → KV namespace bindings（不需要 wrangler.toml）
 
 ## 🔑 部署笔记
 
 ### Cloudflare Pages 集成
 
 - Git 集成，push 到 main 自动部署
-- D1 绑定为 `DB`
+- D1 绑定为 `DB`，KV 绑定为 `CARDS_KV`
 - **wrangler.toml 不能在仓库里**（Pages 不需要）
 - `build_config` 三字段必须是空字符串 `""`（不是 "/" 或 null）
+- 可通过 API 改部署配置：`PATCH /accounts/{acc}/pages/projects/{name}`，`deployment_configs.{production,preview}.kv_namespaces`（PATCH 是合并，不会清掉 D1 绑定）
 
 ### 缓存地狱（必须记住）
 
-- **style.css?v=N** 每次必须递增（v=21 当前）
-- JS 文件不需要 cache bust（用 type=module，浏览器会 ETag）
+- **style.css?v=N** 每次必须递增（当前 v=31）
+- **JS 模块引用**也要带版本：`import ... from './x.js?v=27'`；所有文件必须用**同一个版本号**，否则同一模块被加载两份
+- `index.html` 里 `app.js?v=N` 同步递增
 - Ctrl+Shift+R 偶尔不够 → DevTools 打开 → 右键刷新 → 清空缓存硬性重载
 - 浏览器 computed styles vs 代码：之前浏览器还在用 v=11 旧 CSS，cache bust v=12 才生效
 
@@ -298,6 +379,6 @@ Splendor 原版平衡数据（admin 页面"平衡性分析"tab 展示的基线�
 1. **Durable Objects 联机**：每个房间一个 DO 实例，WebSocket 广播状态
 2. **魔改框架**：自定义规则覆盖引擎，作为平台特性
 3. **卡坦岛 / 铁路环游 / 奥地利大饭店**：按顺序实现
-4. **卡牌美术替换接口**：BGG 图上传 / AI 生成接口预留
+4. **卡图增强**：手动上传已完成（KV）；后续可做批量导入 BGG 图包 / AI 生成卡图
 5. **观战 / 好友邀请推送**
 6. **房间生命周期**：join / leave API + D1 迁移 + 自动清理
