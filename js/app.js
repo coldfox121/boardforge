@@ -75,7 +75,7 @@ function handleRoute() {
     showView('admin');
     import('./config-sync.js?v=35')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=35'))
+      .then(() => import('./admin-ui.js?v=36'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -678,7 +678,10 @@ async function showRoomByCode(code, gameId, hintGame) {
       fresh.innerHTML = '';
       root.replaceWith(fresh);
 
-      const { TicketGame } = await import('./ticket-ui.js?v=37');
+      // 先同步云端数据（管理员可能改过城市/线路/任务票），再加载游戏模块
+      const { syncGameConfig } = await import('./config-sync.js?v=35');
+      await syncGameConfig('ticket');
+      const { TicketGame } = await import('./ticket-ui.js?v=38');
       fresh.classList.remove('hidden');
       document.getElementById('room-waiting').classList.add('hidden');
       document.getElementById('splendor-game').classList.add('hidden');

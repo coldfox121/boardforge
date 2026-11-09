@@ -41,6 +41,37 @@ const GAMES = {
     analyze(data) {
       return BalanceStats.analyzeSplendor(data.CARDS || {}, data.NOBLES || []);
     }
+  },
+  ticket: {
+    id: 'ticket',
+    name: '铁路环游 · Ticket to Ride USA',
+    version: 1,
+    validate(data) {
+      const errors = [];
+      const COLORS = ['purple', 'white', 'blue', 'yellow', 'orange', 'black', 'red', 'green'];
+      if (!Array.isArray(data.CITIES)) errors.push('CITIES 不是数组');
+      else {
+        if (data.CITIES.length < 2) errors.push('CITIES 至少需要 2 座城市');
+        data.CITIES.forEach((c, i) => {
+          if (!c.id) errors.push(`CITIES[${i}] 缺少 id`);
+          if (!c.zh) errors.push(`CITIES[${i}] 缺少中文名 zh`);
+          if (typeof c.x !== 'number' || typeof c.y !== 'number') errors.push(`CITIES[${i}] 缺少坐标 x/y`);
+        });
+      }
+      const ids = new Set((Array.isArray(data.CITIES) ? data.CITIES : []).map(c => c.id));
+      if (!Array.isArray(data.ROUTES)) errors.push('ROUTES 不是数组');
+      else data.ROUTES.forEach((r, i) => {
+        if (!ids.has(r.a) || !ids.has(r.b)) errors.push(`ROUTES[${i}] 城市不存在：${r.a} / ${r.b}`);
+        if (!(typeof r.len === 'number' && r.len >= 1 && r.len <= 6)) errors.push(`ROUTES[${i}] len 必须是 1-6`);
+        if (r.color !== null && r.color !== undefined && !COLORS.includes(r.color)) errors.push(`ROUTES[${i}] color 非法：${r.color}`);
+      });
+      if (!Array.isArray(data.TICKETS)) errors.push('TICKETS 不是数组');
+      else data.TICKETS.forEach((t, i) => {
+        if (!ids.has(t.a) || !ids.has(t.b)) errors.push(`TICKETS[${i}] 城市不存在：${t.a} / ${t.b}`);
+        if (typeof t.points !== 'number') errors.push(`TICKETS[${i}] 缺少 points`);
+      });
+      return errors;
+    }
   }
 };
 
@@ -71,7 +102,7 @@ export function navigateToAdmin() {
 const ADMIN_GAMES = [
   { id: 'splendor', name: '💎 璀璨宝石', ready: true },
   { id: 'catan', name: '🗺️ 卡坦岛', ready: false },
-  { id: 'ticket', name: '🚂 铁路环游', ready: false },
+  { id: 'ticket', name: '🚂 铁路环游', ready: true },
   { id: 'hotel', name: '🏨 奥地利大饭店', ready: false }
 ];
 
@@ -98,23 +129,76 @@ export async function renderAdminPage(gameId = 'splendor') {
     return;
   }
 
-  editor.innerHTML = '<div class="loading">加载默认牌库...</div>';
+  editor.innerHTML = '<div class="loading">加载默认数据...</div>';
 
-  // 动态加载 splendor-data 拿默认基线
-  const mod = await import('./splendor-data.js').catch(() => null);
-  if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
-
-  const baseData = {
-    CARDS: mod.CARDS,
-    NOBLES: mod.NOBLES,
-    GEM_COLORS: mod.GEM_COLORS
-  };
+  let baseData;
+  if (gameId === 'ticket') {
+    const mod = await import('./ticket-data.js').catch(() => null);
+    if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
+    baseData = { CITIES: mod.CITIES, ROUTES: mod.ROUTES, TICKETS: mod.TICKETS };
+  } else {
+    // 动态加载 splendor-data 拿默认基线
+    const mod = await import('./splendor-data.js').catch(() => null);
+    if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
+    baseData = {
+      CARDS: mod.CARDS,
+      NOBLES: mod.NOBLES,
+      GEM_COLORS: mod.GEM_COLORS
+    };
+  }
   const adminData = loadAdminData(gameId);
+
+  // 铁路环游暂无卡牌可视化，直接开放 JSON 数据编辑
+  if (gameId === 'ticket') {
+    editor.innerHTML = buildTicketAdminHTML(adminData);
+    bindTicketAdminEvents(gameId, baseData, adminData);
+    return;
+  }
+
   // 深拷贝，避免直接修改原始基线数据
   const activeData = JSON.parse(JSON.stringify(adminData || baseData));
 
   editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
   bindAdminEvents(gameId, baseData, activeData);
+}
+
+// ===== 铁路环游数据编辑（城市 / 线路 / 任务票） =====
+function buildTicketAdminHTML(adminData) {
+  const savedAt = getAdminSavedAt('ticket');
+  return `
+    <div class="admin-header">
+      <h2>🛠 铁路环游 · 数据编辑</h2>
+      <div class="admin-head-right">
+        <div class="admin-status">${adminData ? `⚠️ 当前有 admin 覆盖数据（保存于 ${new Date(savedAt).toLocaleString()}）` : 'ℹ️ 当前使用官方基线数据'}</div>
+        <button class="btn" id="admin-back">← 返回大厅</button>
+      </div>
+    </div>
+    <div class="admin-panel" id="panel-json" style="display:block">
+      <div class="json-toolbar">
+        <button class="btn primary" id="json-save">💾 保存并同步云端</button>
+        <button class="btn" id="json-reset">↺ 恢复基线</button>
+        <span class="json-status" id="json-status"></span>
+      </div>
+      <p class="viz-hint" style="margin:0 0 8px">
+        CITIES = 城市（id / 中文名 / 地图坐标 x,y）；ROUTES = 线路（a,b 城市 id、len 1-6、color 为颜色或 null 表示灰色、parallel 0/1 表示平行双线）；TICKETS = 任务票（a,b、points 分值）。
+        保存后同步到云端，玩家下一局生效。
+      </p>
+      <textarea id="json-editor" spellcheck="false"></textarea>
+      <div class="json-validate" id="json-validate"></div>
+    </div>`;
+}
+
+function bindTicketAdminEvents(gameId, baseData, adminData) {
+  document.getElementById('admin-back')?.addEventListener('click', () => { location.hash = '#/lobby'; });
+  document.getElementById('json-save')?.addEventListener('click', () => saveJSONEditor(gameId, baseData));
+  document.getElementById('json-reset')?.addEventListener('click', () => {
+    if (confirm('确定恢复基线？当前 admin 覆盖数据会被清空')) {
+      clearAdminData(gameId);
+      saveConfigToCloud(gameId, baseData).catch(() => {});
+      document.getElementById('json-status').textContent = '✅ 已恢复基线（云端同步中）';
+    }
+  });
+  loadEditorJSON(gameId, baseData, adminData);
 }
 
 function buildAdminHTML(gameId, baseData, activeData, adminData) {
@@ -527,10 +611,10 @@ function openNobleEditor(gameId, data, index) {
   };
 }
 
-function loadEditorJSON(gameId, baseData) {
+function loadEditorJSON(gameId, baseData, presetData) {
   const editor = document.getElementById('json-editor');
   if (!editor) return;
-  const data = loadAdminData(gameId) || baseData;
+  const data = presetData || loadAdminData(gameId) || baseData;
   editor.value = JSON.stringify(data, null, 2);
   editor.addEventListener('input', debounce(() => validateJSON(gameId), 400));
   validateJSON(gameId);
@@ -562,10 +646,15 @@ function saveJSONEditor(gameId, baseData) {
   try {
     const data = JSON.parse(editor.value);
     saveAdminData(gameId, data);
-    status.textContent = `✅ 已保存！刷新游戏后生效`;
-    // 刷新平衡性分析
-    const analysis = BalanceStats.analyzeSplendor(data.CARDS, data.NOBLES);
-    console.log('[Admin] 保存成功，分析:', analysis);
+    status.textContent = '✅ 已保存，正在同步云端...';
+    saveConfigToCloud(gameId, data)
+      .then(() => { status.textContent = '✅ 已保存并同步云端，玩家下一局生效'; })
+      .catch(() => { status.textContent = '⚠️ 已保存到本机，云端同步失败'; });
+    // 刷新平衡性分析（仅璀璨宝石有牌库分析）
+    if (gameId === 'splendor') {
+      const analysis = BalanceStats.analyzeSplendor(data.CARDS, data.NOBLES);
+      console.log('[Admin] 保存成功，分析:', analysis);
+    }
   } catch (e) {
     status.textContent = '❌ 保存失败: ' + e.message;
   }

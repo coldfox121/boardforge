@@ -2,6 +2,8 @@
 // 36 座城市 / 100 条线路选项（78 组连接，其中 22 组为平行双线）/ 29 张目的地票
 // 美国版规则：无隧道、无渡轮、无火车站；开局 3 张任务票，至少保留 2 张
 
+import { loadAdminData } from './admin.js?v=35';
+
 // ===== 常量 =====
 export const TRAIN_COLORS = ['purple', 'white', 'blue', 'yellow', 'orange', 'black', 'red', 'green'];
 
@@ -31,7 +33,7 @@ export const LONGEST_PATH_BONUS = 10;
 export const ROUTE_SCORES = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 10, 6: 15 };
 
 // ===== 城市（坐标为经纬度线性映射的地图坐标） =====
-export const CITIES = [
+const BASE_CITIES = [
   { id: 'van', en: 'Vancouver', zh: '温哥华', x: 70, y: 77 },
   { id: 'sea', en: 'Seattle', zh: '西雅图', x: 87, y: 122 },
   { id: 'por', en: 'Portland', zh: '波特兰', x: 80, y: 179 },
@@ -73,7 +75,7 @@ export const CITIES = [
 // ===== 线路 =====
 // parallel: 0/1 表示同一对城市的平行双线；null 表示单线
 // color: null 表示灰色（任意颜色）
-export const ROUTES = [
+const BASE_ROUTES = [
   { a: 'atl', b: 'cha', len: 2, color: null, parallel: null },
   { a: 'atl', b: 'mia', len: 5, color: 'blue', parallel: null },
   { a: 'atl', b: 'nas', len: 1, color: null, parallel: null },
@@ -177,7 +179,7 @@ export const ROUTES = [
 ];
 
 // ===== 目的地票 =====
-export const TICKETS = [
+const BASE_TICKETS = [
   { id: 't1', a: 'den', b: 'elp', points: 4 },
   { id: 't2', a: 'hou', b: 'kan', points: 5 },
   { id: 't3', a: 'atl', b: 'nyc', points: 6 },
@@ -208,6 +210,13 @@ export const TICKETS = [
   { id: 't28', a: 'los', b: 'nyc', points: 21 },
   { id: 't29', a: 'nyc', b: 'sea', points: 22 }
 ];
+
+// ===== 管理端覆盖 =====
+// 云端配置同步到本机 localStorage 后，优先使用覆盖数据；没有则用官方基线
+const _override = loadAdminData('ticket') || {};
+export const CITIES = Array.isArray(_override.CITIES) && _override.CITIES.length ? _override.CITIES : BASE_CITIES;
+export const ROUTES = Array.isArray(_override.ROUTES) && _override.ROUTES.length ? _override.ROUTES : BASE_ROUTES;
+export const TICKETS = Array.isArray(_override.TICKETS) && _override.TICKETS.length ? _override.TICKETS : BASE_TICKETS;
 
 // ===== 派生索引 =====
 export const CITY_MAP = {};

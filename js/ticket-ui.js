@@ -1,12 +1,12 @@
 // 铁路环游：美国版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=37';
-import { pickAction } from './ticket-ai.js?v=37';
+import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=38';
+import { pickAction } from './ticket-ai.js?v=38';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   ROUTE_SCORES
-} from './ticket-data.js?v=37';
+} from './ticket-data.js?v=38';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
