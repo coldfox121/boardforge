@@ -1,69 +1,157 @@
-// 璀璨宝石 AI（贪心策略）
-import { listValidActions } from './splendor-engine.js?v=26';
+// 璀璨宝石 AI（启发式贪心 + 拿取数量感知）
+// 关键改进：拿宝石的评分要随"实际拿到几颗"上升，否则会和只看有用颜色数量的旧版打平，
+// 导致平局时选到动作列表里靠前的单颗动作。
+import { listValidActions } from './splendor-engine.js?v=27';
+import { GEM_COLORS } from './splendor-data.js?v=27';
 
-// 评估动作"值不值"，分数越高越优先
-function scoreAction(state, action, playerIndex) {
+const COLORS = GEM_COLORS;
+
+function totalGems(p) {
+  return COLORS.reduce((s, c) => s + (p.gems[c] || 0), 0) + (p.gems.gold || 0);
+}
+
+// 某色的有效资源 = 宝石 + 同色卡面加成
+function effective(p, color) {
+  return (p.gems[color] || 0) + p.ownedCards.reduce((s, c) => s + (c.color === color ? 1 : 0), 0);
+}
+
+// 买这张卡还差几颗宝石（不折算黄金）
+function gemDeficit(p, card) {
+  let d = 0;
+  for (const c of COLORS) d += Math.max(0, (card.cost[c] || 0) - effective(p, c));
+  return d;
+}
+
+// 所有可买目标：场上 + 自己预留
+function targetCards(state, p) {
+  const out = [];
+  for (const tier of [1, 2, 3]) {
+    for (const card of state.board[`tier${tier}`] || []) {
+      if (card) out.push(card);
+    }
+  }
+  for (const card of p.reserved) out.push(card);
+  return out;
+}
+
+// 需求向量：只盯最接近买得起的 3 张卡，统计各色还缺多少
+function demandVector(state, p) {
+  const demand = {};
+  for (const c of COLORS) demand[c] = 0;
+
+  const focus = targetCards(state, p)
+    .map(card => ({ card, deficit: gemDeficit(p, card) }))
+    .sort((a, b) => a.deficit - b.deficit)
+    .slice(0, 3);
+
+  for (const { card } of focus) {
+    for (const c of COLORS) {
+      demand[c] += Math.max(0, (card.cost[c] || 0) - effective(p, c));
+    }
+  }
+  // 单色需求按 3 封顶（一回合最多拿 2 同色，囤更多没意义）
+  for (const c of COLORS) demand[c] = Math.min(demand[c], 3);
+  return demand;
+}
+
+// 买这张卡能推进多少贵族进度
+function nobleValue(state, p, card) {
+  if (!state.nobles || state.nobles.length === 0) return 0;
+  let value = 0;
+  for (const noble of state.nobles) {
+    const req = noble.req || noble;
+    let met = 0, total = 0, newlyMet = false;
+    for (const c of COLORS) {
+      if (!req[c]) continue;
+      total++;
+      const before = effective(p, c);
+      const after = before + (card.color === c ? 1 : 0);
+      if (after >= req[c]) {
+        met++;
+        if (before < req[c]) newlyMet = true;
+      }
+    }
+    if (total === 0) continue;
+    if (met === total) value += 12;               // 买完直接拿贵族
+    else value += (met / total) * 2 + (newlyMet ? 1 : 0);
+  }
+  return value;
+}
+
+// 对手是否已经买得起这张卡（用来决定要不要抢）
+function opponentThreat(state, playerIndex, card) {
+  for (let i = 0; i < state.players.length; i++) {
+    if (i === playerIndex) continue;
+    const op = state.players[i];
+    let deficit = 0;
+    for (const c of COLORS) deficit += Math.max(0, (card.cost[c] || 0) - effective(op, c));
+    if (deficit <= (op.gems.gold || 0)) return true;
+  }
+  return false;
+}
+
+function scoreAction(state, action, playerIndex, ctx) {
   const p = state.players[playerIndex];
 
   switch (action.type) {
     case 'BUY': {
-      // 买卡是唯一得分手段，只要买得起就必须买，优先级远高于拿宝石
       let card;
       if (action.source === 'board') card = state.board[`tier${action.tier}`][action.cardIndex];
       else card = p.reserved.find(c => c.id === action.cardId);
-      if (!card) return -9999;
-      const cardOwned = p.ownedCards.filter(c => c.color === card.color).length;
-      // 同一次能买多张时：vp 越高越优先，同色联动加分
-      return 100 + (card.vp || 0) * 10 + cardOwned * 0.5;
+      if (!card) return -99999;
+
+      const sameColor = p.ownedCards.reduce((s, c) => s + (c.color === card.color ? 1 : 0), 0);
+      // 买卡是唯一得分手段，远高于拿宝石
+      return 1000
+        + (card.vp || 0) * 80
+        + sameColor * 6
+        + nobleValue(state, p, card) * 10;
     }
+
     case 'RESERVE': {
-      // 预留一般不优先，除非紧急缺
-      return 0.5;
+      if (action.source === 'top') return 3;      // 盲抽牌堆最不优先
+
+      const card = state.board[`tier${action.tier}`][action.cardIndex];
+      if (!card) return -99999;
+
+      const deficit = gemDeficit(p, card);
+      // VP 权重不能太高，否则开局会连着锁 3 张大牌、完全不拿宝石
+      let score = 6 + (card.vp || 0) * 4;
+
+      if (deficit <= 2) score += 16;                                  // 快买得起了，先锁
+      else if (deficit <= 4) score += 6;
+      if (opponentThreat(state, playerIndex, card)) score += 16;      // 对手马上能买，抢
+      if ((p.gems.gold || 0) < 3) score += 4;                         // 顺带拿黄金
+
+      // 预留槽是稀缺资源（最多 3 个），已经锁了就别再乱锁
+      if (p.reserved.length >= 2) score -= 15;
+      if (p.reserved.length >= 3) score -= 40;
+
+      return score;
     }
+
     case 'TAKE_DIFF':
     case 'TAKE_SAME': {
-      // 只补"最接近买得起"的卡的缺口，避免盲囤
-      const needed = computeNeeded(state, playerIndex);
+      const take = action.type === 'TAKE_DIFF'
+        ? action.colors.slice()
+        : [action.color, action.color];
+
+      const remaining = { ...ctx.demand };
       let score = 0;
-      const takeColors = action.type === 'TAKE_DIFF' ? action.colors : [action.color];
-      for (const c of takeColors) score += needed[c] || 0;
-      return score * 0.5;
+      for (const c of take) {
+        if (remaining[c] > 0) { score += 11; remaining[c]--; }
+        else score += 1.5;   // 需求外的宝石仍有保值 / 卡位价值
+      }
+      // 数量奖励：能拿 3 颗就尽量拿 3 颗（10 颗上限由引擎保证）
+      score += take.length * 5;
+
+      // 快到 10 颗了，别拿太满，留空间给黄金
+      if (totalGems(p) + take.length > 9) score -= 6;
+
+      return score;
     }
   }
   return 0;
-}
-
-// 找当前最接近买得起的目标卡，只统计这些卡的缺口
-function computeNeeded(state, playerIndex) {
-  const p = state.players[playerIndex];
-  const COLORS = ['white', 'blue', 'green', 'red', 'black'];
-  const needed = {};
-  for (const c of COLORS) needed[c] = 0;
-
-  const candidates = [];
-  for (const tier of [1, 2, 3]) {
-    for (const card of state.board[`tier${tier}`]) {
-      if (!card) continue;
-      let deficit = 0;
-      for (const c of COLORS) {
-        const cost = card.cost[c] || 0;
-        const have = (p.gems[c] || 0) + p.ownedCards.filter(o => o.color === c).length;
-        deficit += Math.max(0, cost - have);
-      }
-      candidates.push({ card, deficit });
-    }
-  }
-  candidates.sort((a, b) => a.deficit - b.deficit);
-
-  // 只盯最接近的 2 张卡，集中财力
-  for (const { card } of candidates.slice(0, 2)) {
-    for (const c of COLORS) {
-      const cost = card.cost[c] || 0;
-      const have = (p.gems[c] || 0) + p.ownedCards.filter(o => o.color === c).length;
-      needed[c] += Math.max(0, cost - have);
-    }
-  }
-  return needed;
 }
 
 // 返回最佳动作
@@ -72,10 +160,13 @@ export function pickAction(state, playerIndex) {
   if (actions.length === 0) return null;
   if (actions.length === 1) return actions[0];
 
+  const p = state.players[playerIndex];
+  const ctx = { demand: demandVector(state, p) };
+
   let bestA = actions[0];
-  let bestScore = scoreAction(state, actions[0], playerIndex);
+  let bestScore = scoreAction(state, actions[0], playerIndex, ctx);
   for (let i = 1; i < actions.length; i++) {
-    const s = scoreAction(state, actions[i], playerIndex);
+    const s = scoreAction(state, actions[i], playerIndex, ctx);
     if (s > bestScore) { bestScore = s; bestA = actions[i]; }
   }
   return bestA;
