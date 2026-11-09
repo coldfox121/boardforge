@@ -85,10 +85,25 @@ export function buildMapSVG(data, selectedCity, selectedRoute) {
     </g>`;
   }).join('');
 
+  // 选中线路后，在两端显示可拖动的连接点
+  let handles = '';
+  if (selectedRoute !== null && selectedRoute !== undefined) {
+    const r = (data.ROUTES || [])[selectedRoute];
+    const A = r ? cityMap[r.a] : null;
+    const B = r ? cityMap[r.b] : null;
+    if (A && B) {
+      handles = `<g class="atk-handles">
+        <circle class="atk-end" data-end="a" cx="${A.x}" cy="${A.y}" r="9"/>
+        <circle class="atk-end" data-end="b" cx="${B.x}" cy="${B.y}" r="9"/>
+      </g>`;
+    }
+  }
+
   return `<svg id="atk-map" viewBox="0 0 1260 800" preserveAspectRatio="xMidYMid meet">
     <rect x="0" y="0" width="1260" height="800" fill="#12161d"/>
     <g>${routes}</g>
     <g>${cities}</g>
+    ${handles}
   </svg>`;
 }
 
@@ -189,7 +204,13 @@ export function buildEditorShell(hasOverride) {
       </div>
       <div class="atk-main">
         <div class="atk-mapwrap">
-          <div class="atk-maphead">地图预览<span class="atk-tip-inline">悬停线路显示长度 · 拖动城市改坐标 · 依次点两座城市新增线路</span></div>
+          <div class="atk-maphead">地图预览<span class="atk-tip-inline">拖动城市改坐标 · 依次点两座城市新增线路 · 双击线路快捷编辑 · 右键删除 · 滚轮缩放</span>
+            <span class="atk-zoom">
+              <button class="btn" data-act="zoom-out" title="缩小">－</button>
+              <button class="btn" data-act="zoom-fit" title="适应窗口">适应</button>
+              <button class="btn" data-act="zoom-in" title="放大">＋</button>
+            </span>
+          </div>
           <div class="atk-mapbox" id="atk-map-slot"></div>
         </div>
         <div class="atk-side">
@@ -231,6 +252,7 @@ export function renderTicketEditor(container, baseData, adminData) {
 
   function drawMap() {
     mapSlot.innerHTML = buildMapSVG(data, selectedCity, selectedRoute);
+    applyView();
     bindMap();
     refreshStatus();
   }
@@ -268,25 +290,157 @@ export function renderTicketEditor(container, baseData, adminData) {
     return (data.TICKETS || []).filter(t => t.a === id || t.b === id).length;
   }
 
-  // 地图交互：点城市选点/连线，拖动城市改坐标，点线路选中
-  function bindMap() {
+  // ===== 地图视图（缩放 / 平移） =====
+  const MAP_W = 1260, MAP_H = 800;
+  let view = null;          // null = 适应窗口；否则 {x,y,w,h}
+  let pop = null;           // 当前浮层（快捷编辑 / 右键菜单）
+  let suppressClick = false;  // 拖动后丢弃一次点击
+
+  function currentView() { return view ? { ...view } : { x: 0, y: 0, w: MAP_W, h: MAP_H }; }
+
+  function applyView() {
     const svg = mapSlot.querySelector('#atk-map');
     if (!svg) return;
+    svg.setAttribute('viewBox', view ? `${view.x} ${view.y} ${view.w} ${view.h}` : `0 0 ${MAP_W} ${MAP_H}`);
+  }
 
-    svg.querySelectorAll('[data-route]').forEach(el => {
-      el.addEventListener('click', () => {
-        selectedRoute = Number(el.dataset.route);
-        tab = 'routes';
-        drawSide();
-        drawMap();
-      });
+  function clampView(v) {
+    const w = Math.min(MAP_W * 1.5, Math.max(MAP_W / 4, v.w));
+    const h = w * MAP_H / MAP_W;
+    const x = Math.min(MAP_W - w / 4, Math.max(-w / 4, v.x));
+    const y = Math.min(MAP_H - h / 4, Math.max(-h / 4, v.y));
+    return { x, y, w, h };
+  }
+
+  function zoomAt(px, py, factor) {
+    const cur = currentView();
+    const w = Math.min(MAP_W * 1.5, Math.max(MAP_W / 4, cur.w * factor));
+    const h = w * MAP_H / MAP_W;
+    const rx = (px - cur.x) / cur.w;
+    const ry = (py - cur.y) / cur.h;
+    view = clampView({ x: px - rx * w, y: py - ry * h, w, h });
+    applyView();
+  }
+
+  function zoomCenter(factor) {
+    const cur = currentView();
+    zoomAt(cur.x + cur.w / 2, cur.y + cur.h / 2, factor);
+  }
+
+  function svgPoint(svg, ev) {
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX;
+    pt.y = ev.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function nearestCity(p, maxD) {
+    let best = null, bd = maxD;
+    (data.CITIES || []).forEach(c => {
+      const d = Math.hypot(c.x - p.x, c.y - p.y);
+      if (d < bd) { bd = d; best = c; }
     });
+    return best;
+  }
 
-    svg.querySelectorAll('[data-city]').forEach(g => {
-      const id = g.dataset.city;
-      let suppressClick = false;
-      g.addEventListener('click', (e) => {
-        e.stopPropagation();
+  // ===== 浮层：快捷编辑 / 右键菜单 =====
+  function closePop() { if (pop) { pop.remove(); pop = null; } }
+
+  function showPop(el, ev) {
+    closePop();
+    pop = el;
+    mapSlot.appendChild(el);
+    const box = mapSlot.getBoundingClientRect();
+    const left = Math.min(Math.max(8, ev.clientX - box.left), Math.max(8, box.width - el.offsetWidth - 8));
+    const top = Math.min(Math.max(8, ev.clientY - box.top), Math.max(8, box.height - el.offsetHeight - 8));
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+  }
+
+  function popShell(html) {
+    const el = document.createElement('div');
+    el.className = 'atk-pop';
+    el.innerHTML = html;
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+    el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); });
+    return el;
+  }
+
+  // 双击线路：就地改长度 / 颜色 / 双线
+  function openQuickEdit(rid, ev) {
+    const r = data.ROUTES[rid];
+    if (!r) return;
+    selectedRoute = rid;
+    const a = cityById(r.a), b = cityById(r.b);
+    const el = popShell(`
+      <div class="atk-pop-title">线路 ${rid + 1}：${esc(a ? a.zh : '?')} → ${esc(b ? b.zh : '?')}</div>
+      <div class="atk-pop-row"><span>长度</span><div class="atk-lenbtns">
+        ${[1, 2, 3, 4, 5, 6].map(n => `<button class="atk-chip${r.len === n ? ' on' : ''}" data-len="${n}">${n}</button>`).join('')}
+      </div></div>
+      <div class="atk-pop-row"><span>颜色</span><div class="atk-swatches">
+        ${COLORS.map(c => `<button class="atk-swatch${(r.color || '') === c.v ? ' on' : ''}" data-color="${c.v}" title="${c.n}" style="--sw:${c.hex}"></button>`).join('')}
+      </div></div>
+      <div class="atk-pop-row"><span>双线</span><div class="atk-lenbtns">
+        <button class="atk-chip${r.parallel == null ? ' on' : ''}" data-par="">单</button>
+        <button class="atk-chip${r.parallel === 0 ? ' on' : ''}" data-par="0">①</button>
+        <button class="atk-chip${r.parallel === 1 ? ' on' : ''}" data-par="1">②</button>
+      </div></div>`);
+    el.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      e.stopPropagation();
+      if (btn.dataset.len) r.len = Number(btn.dataset.len);
+      if (btn.hasAttribute('data-color')) r.color = btn.dataset.color || null;
+      if (btn.hasAttribute('data-par')) r.parallel = btn.dataset.par === '' ? null : Number(btn.dataset.par);
+      closePop();
+      redraw();
+    });
+    showPop(el, ev);
+  }
+
+  // 右键菜单：删除线路 / 城市
+  function openCtxMenu(kind, id, ev) {
+    const el = popShell(kind === 'route'
+      ? '<button data-ctx="edit">✏️ 快捷编辑</button><button data-ctx="del" class="danger">🗑 删除线路</button>'
+      : '<button data-ctx="del" class="danger">🗑 删除城市</button>');
+    el.classList.add('atk-ctx');
+    el.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      e.stopPropagation();
+      if (btn.dataset.ctx === 'edit') { closePop(); openQuickEdit(id, ev); return; }
+      if (kind === 'route') {
+        data.ROUTES.splice(id, 1);
+        selectedRoute = null;
+      } else {
+        const rn = usedByRoutes(id), tn = usedByTickets(id);
+        if (rn || tn) {
+          closePop();
+          statusEl.className = 'atk-status bad';
+          statusEl.textContent = `❌ 该城市仍被 ${rn} 条线路、${tn} 张任务票引用，请先删除相关线路与任务票`;
+          return;
+        }
+        data.CITIES = data.CITIES.filter(c => c.id !== id);
+        if (selectedCity === id) selectedCity = null;
+      }
+      closePop();
+      redraw();
+    });
+    showPop(el, ev);
+  }
+
+  // ===== 地图交互（事件委托，只绑定一次） =====
+  function bindMap() {
+    if (mapSlot.dataset.bound) return;
+    mapSlot.dataset.bound = '1';
+
+    mapSlot.addEventListener('click', e => {
+      if (pop && !pop.contains(e.target)) closePop();
+      const cityEl = e.target.closest('[data-city]');
+      const routeEl = e.target.closest('[data-route]');
+
+      if (cityEl) {
+        const id = cityEl.dataset.city;
         if (suppressClick) { suppressClick = false; return; }
         if (selectedCity && selectedCity !== id) {
           // 依次点击两座城市 → 新增线路
@@ -299,49 +453,153 @@ export function renderTicketEditor(container, baseData, adminData) {
         }
         selectedCity = selectedCity === id ? null : id;
         drawMap();
-      });
+        return;
+      }
 
-      // 拖动城市
-      g.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        const city = cityById(id);
-        if (!city) return;
-        const circle = g.querySelector('circle');
-        const label = g.querySelector('text');
-        let moved = false;
-
-        const toSvg = (ev) => {
-          const pt = svg.createSVGPoint();
-          pt.x = ev.clientX;
-          pt.y = ev.clientY;
-          return pt.matrixTransform(svg.getScreenCTM().inverse());
-        };
-
-        const onMove = (ev) => {
-          const p = toSvg(ev);
-          const x = Math.round(Math.min(1240, Math.max(20, p.x)));
-          const y = Math.round(Math.min(780, Math.max(20, p.y)));
-          if (Math.abs(x - city.x) + Math.abs(y - city.y) > 1) moved = true;
-          city.x = x;
-          city.y = y;
-          circle.setAttribute('cx', x);
-          circle.setAttribute('cy', y);
-          label.setAttribute('x', x);
-          label.setAttribute('y', y - 12);
-        };
-        const onUp = () => {
-          document.removeEventListener('pointermove', onMove);
-          document.removeEventListener('pointerup', onUp);
-          if (moved) { suppressClick = true; redraw(); }
-        };
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-      });
+      if (routeEl) {
+        selectedRoute = Number(routeEl.dataset.route);
+        tab = 'routes';
+        drawSide();
+        drawMap();
+      }
     });
+
+    // 双击线路：快捷编辑
+    mapSlot.addEventListener('dblclick', e => {
+      const routeEl = e.target.closest('[data-route]');
+      if (!routeEl) return;
+      e.preventDefault();
+      openQuickEdit(Number(routeEl.dataset.route), e);
+    });
+
+    // 右键：删除线路 / 城市
+    mapSlot.addEventListener('contextmenu', e => {
+      const routeEl = e.target.closest('[data-route]');
+      const cityEl = e.target.closest('[data-city]');
+      if (routeEl) { e.preventDefault(); openCtxMenu('route', Number(routeEl.dataset.route), e); }
+      else if (cityEl) { e.preventDefault(); openCtxMenu('city', cityEl.dataset.city, e); }
+    });
+
+    mapSlot.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      const endEl = e.target.closest('.atk-end');
+      if (endEl) { e.preventDefault(); startEndpointDrag(e, endEl); return; }
+      const cityEl = e.target.closest('[data-city]');
+      if (cityEl) { e.preventDefault(); startCityDrag(e, cityEl); return; }
+      if (e.target.closest('[data-route]')) return;   // 点线路不触发平移
+      startPan(e);
+    });
+
+    // 滚轮缩放（以鼠标位置为中心）
+    mapSlot.addEventListener('wheel', e => {
+      const svg = mapSlot.querySelector('#atk-map');
+      if (!svg) return;
+      e.preventDefault();
+      const p = svgPoint(svg, e);
+      zoomAt(p.x, p.y, e.deltaY > 0 ? 1.18 : 1 / 1.18);
+    }, { passive: false });
+  }
+
+  // 拖动城市改坐标
+  function startCityDrag(ev, g) {
+    const svg = mapSlot.querySelector('#atk-map');
+    const city = cityById(g.dataset.city);
+    if (!svg || !city) return;
+    closePop();
+    const circle = g.querySelector('circle');
+    const label = g.querySelector('text');
+    let moved = false;
+    const onMove = e2 => {
+      const p = svgPoint(svg, e2);
+      const x = Math.round(Math.min(1240, Math.max(20, p.x)));
+      const y = Math.round(Math.min(780, Math.max(20, p.y)));
+      if (Math.abs(x - city.x) + Math.abs(y - city.y) > 1) moved = true;
+      city.x = x;
+      city.y = y;
+      if (circle) { circle.setAttribute('cx', x); circle.setAttribute('cy', y); }
+      if (label) { label.setAttribute('x', x); label.setAttribute('y', y - 12); }
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      if (moved) { suppressClick = true; redraw(); }
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  // 拖动选中线路的端点 → 改连接的城市（靠近城市自动吸附）
+  function startEndpointDrag(ev, handle) {
+    const svg = mapSlot.querySelector('#atk-map');
+    const r = data.ROUTES[selectedRoute];
+    if (!svg || !r) return;
+    closePop();
+    const which = handle.dataset.end;
+    const A = cityById(r.a), B = cityById(r.b);
+    if (!A || !B) return;
+    const fixed = which === 'a' ? B : A;
+    const moving = which === 'a' ? A : B;
+    const preview = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    preview.setAttribute('class', 'atk-dragline');
+    preview.setAttribute('x1', fixed.x);
+    preview.setAttribute('y1', fixed.y);
+    preview.setAttribute('x2', moving.x);
+    preview.setAttribute('y2', moving.y);
+    svg.appendChild(preview);
+    let snapEl = null;
+    let moved = false;
+    const onMove = e2 => {
+      const p = svgPoint(svg, e2);
+      moved = true;
+      preview.setAttribute('x2', p.x);
+      preview.setAttribute('y2', p.y);
+      const near = nearestCity(p, 60);
+      if (snapEl) snapEl.classList.remove('snap');
+      snapEl = near ? mapSlot.querySelector(`[data-city="${near.id}"]`) : null;
+      if (snapEl) snapEl.classList.add('snap');
+    };
+    const onUp = e2 => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      if (snapEl) snapEl.classList.remove('snap');
+      preview.remove();
+      if (!moved) return;
+      const near = nearestCity(svgPoint(svg, e2), 60);
+      if (!near || near.id === fixed.id) return;
+      if (which === 'a') r.a = near.id; else r.b = near.id;
+      redraw();
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  // 拖空白处平移地图
+  function startPan(ev) {
+    const svg = mapSlot.querySelector('#atk-map');
+    if (!svg) return;
+    closePop();
+    const start = currentView();
+    const startP = svgPoint(svg, ev);
+    let moved = false;
+    const onMove = e2 => {
+      const p = svgPoint(svg, e2);
+      const dx = p.x - startP.x, dy = p.y - startP.y;
+      if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+      if (!moved) return;
+      view = clampView({ x: start.x - dx, y: start.y - dy, w: start.w, h: start.h });
+      applyView();
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
   }
 
   // 侧栏与工具栏事件（挂在 mount 上，下次重渲染时随 DOM 一起销毁）
   mount.addEventListener('click', (e) => {
+    if (pop && !pop.contains(e.target)) closePop();
     const el = e.target.closest('[data-act]');
     if (!el || !mount.contains(el)) return;
     const act = el.dataset.act;
@@ -351,6 +609,10 @@ export function renderTicketEditor(container, baseData, adminData) {
       drawSide();
       return;
     }
+
+    if (act === 'zoom-in') { zoomCenter(1 / 1.25); return; }
+    if (act === 'zoom-out') { zoomCenter(1.25); return; }
+    if (act === 'zoom-fit') { view = null; applyView(); return; }
 
     if (act === 'save') {
       const errs = validateTicketData(data);

@@ -1392,6 +1392,26 @@ body {
 .atk-route.sel > line:first-child { filter:drop-shadow(0 0 6px rgba(255,255,255,.55)); }
 .atk-maphead { display:flex; align-items:baseline; gap:8px; }
 .atk-maphead .atk-tip-inline { font-size:11px; color:#5b6478; }
+.atk-zoom { margin-left:auto; display:flex; gap:4px; }
+.atk-zoom .btn { padding:2px 8px; font-size:12px; line-height:1.4; }
+.atk-mapbox { position:relative; overflow:hidden; }
+.atk-end { fill:rgba(255,209,102,.22); stroke:#ffd166; stroke-width:2.5; cursor:crosshair; }
+.atk-end:hover { fill:rgba(255,209,102,.5); }
+.atk-dragline { stroke:#ffd166; stroke-width:5; stroke-linecap:round; stroke-dasharray:7 6; pointer-events:none; }
+.atk-city.snap circle { stroke:#ffd166; stroke-width:3.5; }
+.atk-pop { position:absolute; z-index:20; background:var(--bg-3); border:1px solid var(--border); border-radius:8px; padding:8px 10px; box-shadow:0 10px 26px rgba(0,0,0,.55); min-width:208px; }
+.atk-pop-title { font-size:12px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.atk-pop-row { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:11px; color:var(--text-dim); }
+.atk-lenbtns { display:flex; gap:4px; }
+.atk-chip { min-width:24px; padding:2px 6px; border-radius:5px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:11px; cursor:pointer; }
+.atk-chip.on { border-color:#ffd166; color:#ffd166; background:rgba(255,209,102,.12); }
+.atk-swatches { display:flex; gap:4px; flex-wrap:wrap; }
+.atk-swatch { width:16px; height:16px; border-radius:4px; border:2px solid transparent; background:var(--sw); cursor:pointer; padding:0; }
+.atk-swatch.on { border-color:#fff; }
+.atk-ctx { min-width:132px; padding:4px; }
+.atk-ctx button { display:block; width:100%; text-align:left; padding:6px 8px; border:0; background:transparent; color:var(--text); font-size:12px; border-radius:5px; cursor:pointer; }
+.atk-ctx button:hover { background:var(--bg); }
+.atk-ctx button.danger { color:#e05c5c; }
 .atk-hit { cursor:pointer; }
 .atk-side { width:440px; flex-shrink:0; background:var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:12px; max-height:74vh; overflow-y:auto; }
 .atk-tabs { display:flex; gap:6px; margin-bottom:10px; }
