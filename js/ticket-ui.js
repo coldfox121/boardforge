@@ -1,12 +1,12 @@
 // 铁路环游：欧洲版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete } from './ticket-engine.js?v=32';
-import { pickAction } from './ticket-ai.js?v=32';
+import { initGame, applyAction, validateAction, isTicketComplete } from './ticket-engine.js?v=33';
+import { pickAction } from './ticket-ai.js?v=33';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   STATION_COSTS, STATIONS_PER_PLAYER
-} from './ticket-data.js?v=32';
+} from './ticket-data.js?v=33';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
@@ -56,12 +56,15 @@ function ticketHTML(id, opts = {}) {
     opts.ok === true ? 'ok' : opts.ok === false ? 'bad' : ''
   ].filter(Boolean).join(' ');
   const pts = (opts.ok === false ? '-' : '+') + t.points;
+  const mark = opts.toggle
+    ? `<span class="ttr-ticket-toggle ${opts.selected ? 'on' : ''}" data-act="toggle-sel" data-id="${id}">${opts.selected ? '✓' : ''}</span>`
+    : opts.selected ? '<span class="ttr-ticket-check">✓</span>' : '';
   return `
-    <div class="${cls}" ${opts.attrs || ''}>
+    <div class="${cls}" ${opts.attrs || ''} title="点击在地图上高亮起点与终点">
       <span class="ttr-ticket-pts">${pts}</span>
       <span class="ttr-ticket-line">${esc(cityName(t.a))} → ${esc(cityName(t.b))}</span>
       ${t.long ? '<span class="ttr-ticket-tag">长途</span>' : ''}
-      ${opts.selected ? '<span class="ttr-ticket-check">✓</span>' : ''}
+      ${mark}
     </div>`;
 }
 
@@ -109,6 +112,12 @@ export class TicketGame {
 
     // 只允许在自己回合操作（游戏结束后除重开外都忽略）
     const myTurn = s.phase !== 'ended' && s.currentPlayer === this.humanIndex;
+
+    // 选票/隧道抉择期间，只允许处理提示面板内的操作（地图仍可见）
+    if (s.phase === 'setup' || s.turnPhase === 'tickets' || s.turnPhase === 'tunnel') {
+      const allowed = ['toggle-sel', 'focus-ticket', 'confirm-initial', 'confirm-drawn', 'pay-tunnel', 'decline-tunnel', 'restart'];
+      if (!allowed.includes(act)) return;
+    }
 
     switch (act) {
       case 'claim':
@@ -162,12 +171,14 @@ export class TicketGame {
 
       case 'confirm-initial': {
         if (this.sel.size < 2) { this.msg = '开局至少要保留 2 张任务牌'; this.render(); return; }
+        this.focusTicket = null;
         this.do({ type: 'KEEP_INITIAL_TICKETS', ids: [...this.sel] });
         break;
       }
 
       case 'confirm-drawn': {
         if (this.sel.size < 1) { this.msg = '至少要保留 1 张任务牌'; this.render(); return; }
+        this.focusTicket = null;
         this.do({ type: 'KEEP_TICKETS', ids: [...this.sel] });
         break;
       }
@@ -313,12 +324,16 @@ export class TicketGame {
       </g>`;
     }).join('');
 
+    const focusT = this.focusTicket ? TICKET_MAP[this.focusTicket] : null;
+    const focusLine = focusT && CITY_MAP[focusT.a] && CITY_MAP[focusT.b]
+      ? `<line class="ttr-focus-line" x1="${CITY_MAP[focusT.a].x}" y1="${CITY_MAP[focusT.a].y}" x2="${CITY_MAP[focusT.b].x}" y2="${CITY_MAP[focusT.b].y}"/>`
+      : '';
+
     const cities = CITIES.map(c => {
       const stOwner = s.cityStations[c.id];
-      const focusT = this.focusTicket ? TICKET_MAP[this.focusTicket] : null;
-      const focused = focusT && (focusT.a === c.id || focusT.b === c.id);
+      const role = focusT ? (focusT.a === c.id ? 'focused-start' : focusT.b === c.id ? 'focused-end' : '') : '';
       const selectable = stationCities.has(c.id);
-      const cls = ['ttr-city', focused ? 'focused' : '', selectable ? 'selectable' : ''].filter(Boolean).join(' ');
+      const cls = ['ttr-city', role, selectable ? 'selectable' : ''].filter(Boolean).join(' ');
       return `<g class="${cls}" ${selectable ? `data-act="station-city" data-city="${c.id}"` : ''}>
         <circle class="ttr-city-halo" cx="${c.x}" cy="${c.y}" r="10"/>
         <circle class="ttr-city-dot" cx="${c.x}" cy="${c.y}" r="5"/>
@@ -330,6 +345,7 @@ export class TicketGame {
 
     return `<svg class="ttr-board" viewBox="0 0 1260 800" preserveAspectRatio="xMidYMid meet">
       <g class="ttr-routes">${routes}</g>
+      ${focusLine}
       <g class="ttr-cities">${cities}</g>
     </svg>`;
   }
@@ -428,12 +444,15 @@ export class TicketGame {
       const pool = s.initialTickets[this.humanIndex] || [];
       const cards = pool.map(id => ticketHTML(id, {
         selected: this.sel.has(id),
+        toggle: true,
         clickable: true,
-        attrs: `data-act="toggle-sel" data-id="${id}"`
+        focus: this.focusTicket === id,
+        attrs: `data-act="focus-ticket" data-id="${id}"`
       })).join('');
-      return `<div class="ttr-overlay"><div class="ttr-prompt">
+      return `<div class="ttr-overlay dock"><div class="ttr-prompt">
         <h3>选择开局任务牌</h3>
         <p class="ttr-dim">至少保留 2 张（长途票通常更值钱，但更难完成）</p>
+        <p class="ttr-dim">点击任务票 → 地图高亮起点（绿）与终点（红）；右侧圆点控制是否保留</p>
         <div class="ttr-ticket-list">${cards}</div>
         <button class="ttr-btn primary" data-act="confirm-initial" ${this.sel.size < 2 ? 'disabled' : ''}>确认保留 ${this.sel.size} 张</button>
       </div></div>`;
@@ -459,12 +478,15 @@ export class TicketGame {
     if (s.turnPhase === 'tickets' && s.pendingTickets) {
       const cards = s.pendingTickets.drawn.map(id => ticketHTML(id, {
         selected: this.sel.has(id),
+        toggle: true,
         clickable: true,
-        attrs: `data-act="toggle-sel" data-id="${id}"`
+        focus: this.focusTicket === id,
+        attrs: `data-act="focus-ticket" data-id="${id}"`
       })).join('');
-      return `<div class="ttr-overlay"><div class="ttr-prompt">
+      return `<div class="ttr-overlay dock"><div class="ttr-prompt">
         <h3>选择要保留的任务牌</h3>
         <p class="ttr-dim">至少保留 1 张，其余放回牌堆</p>
+        <p class="ttr-dim">点击任务票 → 地图高亮起点（绿）与终点（红）；右侧圆点控制是否保留</p>
         <div class="ttr-ticket-list">${cards}</div>
         <button class="ttr-btn primary" data-act="confirm-drawn" ${this.sel.size < 1 ? 'disabled' : ''}>确认保留 ${this.sel.size} 张</button>
       </div></div>`;

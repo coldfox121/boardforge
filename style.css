@@ -1173,9 +1173,13 @@ body {
 .ttr-city .ttr-city-dot { fill:#0b1119; stroke:#b9c7d6; stroke-width:1.6; }
 .ttr-city .ttr-city-halo { fill:none; stroke:transparent; stroke-width:2; }
 .ttr-city .ttr-station { fill:none; stroke-width:3; }
-.ttr-city.focused .ttr-city-dot { fill:var(--gold); stroke:#fff3c4; }
-.ttr-city.focused .ttr-city-halo { stroke:rgba(245,197,66,.5); }
-.ttr-city.focused text { fill:var(--gold); }
+.ttr-city.focused-start .ttr-city-dot { fill:#43b581; stroke:#c9ffe6; }
+.ttr-city.focused-start .ttr-city-halo { stroke:rgba(67,181,129,.65); stroke-width:3; }
+.ttr-city.focused-start text { fill:#7fe0b0; font-weight:700; }
+.ttr-city.focused-end .ttr-city-dot { fill:#e05c5c; stroke:#ffd2d2; }
+.ttr-city.focused-end .ttr-city-halo { stroke:rgba(224,92,92,.65); stroke-width:3; }
+.ttr-city.focused-end text { fill:#ff9f9f; font-weight:700; }
+.ttr-focus-line { stroke:#f5c542; stroke-width:2; stroke-dasharray:7 7; opacity:.55; pointer-events:none; }
 .ttr-city.selectable { cursor:pointer; }
 .ttr-city.selectable .ttr-city-halo { stroke:var(--gold); stroke-dasharray:3 3; animation:ttr-pulse 1.4s infinite; }
 .ttr-city .ttr-city-hit { fill:transparent; cursor:pointer; }
@@ -1243,6 +1247,14 @@ body {
 .ttr-ticket.selected { border-color:var(--gold); background:rgba(245,197,66,.1); }
 .ttr-ticket-check { color:var(--gold); font-weight:700; }
 .ttr-ticket.bad .ttr-ticket-check { color:#e05c5c; }
+.ttr-ticket-toggle {
+  flex-shrink:0; width:20px; height:20px; border-radius:50%;
+  border:1px solid var(--border); background:rgba(255,255,255,.04);
+  color:#10151c; font-size:12px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.ttr-ticket-toggle:hover { border-color:var(--accent); }
+.ttr-ticket-toggle.on { background:var(--gold); border-color:var(--gold); }
 
 .ttr-log { flex:1; min-height:60px; overflow-y:auto; }
 .ttr-log p { font-size:11px; color:var(--text-dim); padding:1px 0; line-height:1.5; }
@@ -1266,6 +1278,15 @@ body {
 .ttr-overlay {
   position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
   background:rgba(6,10,15,.72); backdrop-filter:blur(2px); padding:16px;
+}
+/* 选票面板：停靠在右侧，不遮挡地图，便于查看起终点高亮 */
+.ttr-overlay.dock {
+  background:transparent; backdrop-filter:none; padding:0;
+  justify-content:flex-end; align-items:stretch; pointer-events:none;
+}
+.ttr-overlay.dock .ttr-prompt {
+  pointer-events:auto; width:330px; max-width:330px; height:100%; max-height:100%;
+  border-radius:12px; margin-left:8px;
 }
 .ttr-prompt {
   width:100%; max-width:480px; max-height:88%; overflow-y:auto;
@@ -1300,4 +1321,6 @@ body {
   .ttr-panel .ttr-block { flex:1; min-width:240px; }
   .ttr-log { display:none; }
   .ttr-board-wrap { min-height:46vh; }
+  .ttr-overlay.dock { align-items:flex-end; }
+  .ttr-overlay.dock .ttr-prompt { width:100%; max-width:100%; height:auto; max-height:54%; margin-left:0; }
 }
