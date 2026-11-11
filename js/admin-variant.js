@@ -21,7 +21,7 @@ function bindVariantClickOnce(container, getState) {
       dialog.className = 'dialog-mask';
       dialog.innerHTML = `
         <div class="dialog-box">
-          <h4>从哪个版本 fork？</h4>
+          <h4>从哪个版本派生？</h4>
           <div class="fork-source-list">
             <div class="fork-source" data-id="__base__">官方基础版</div>
           </div>
@@ -185,7 +185,7 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
       <div class="variant-card-meta">创建者：${esc(v.creator)} · 更新于 ${new Date(v.updated_at).toLocaleString()}</div>
       <div class="variant-card-actions">
         <button class="btn btn-primary" data-act="variant-edit" data-id="${v.id}">进入编辑</button>
-        ${backendOk ? `<button class="btn ghost" data-act="variant-fork" data-id="${v.id}">从此 fork</button>
+        ${backendOk ? `<button class="btn ghost" data-act="variant-fork" data-id="${v.id}">从此派生</button>
         <button class="btn ghost danger" data-act="variant-delete" data-id="${v.id}">删除</button>` : ''}
       </div>
     </div>
@@ -197,7 +197,7 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
       <h3>🗂 ${gameId === 'splendor' ? '璀璨宝石' : gameId === 'ticket' ? '铁路环游' : gameId} · 版本管理</h3>
       <div>
         ${backendOk ? `<button class="btn" id="variant-create-from-base">＋ 从基础版新建魔改版</button>
-        ${variants.length ? `<button class="btn ghost" id="variant-show-fork">＋ 从现有魔改版 fork</button>` : ''}` : ''}
+        ${variants.length ? `<button class="btn ghost" id="variant-show-fork">＋ 从现有魔改版派生</button>` : ''}` : ''}
       </div>
     </div>
 
