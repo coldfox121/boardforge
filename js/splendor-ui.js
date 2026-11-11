@@ -1,5 +1,5 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=35';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=36';
 import { pickAction } from './splendor-ai.js?v=35';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
 import { OnlineGameBase } from './online-game.js?v=1';

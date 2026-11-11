@@ -94,7 +94,7 @@ export const BalanceStats = {
         totalCost,
         totalVp,
         avgCost: tierCards.length ? (totalCost / tierCards.length).toFixed(1) : 0,
-        avgVpPerCost: totalCost ? (totalVp / totalCost).toFixed(2) : 0, // 性价比
+        avgVpPerCost: totalCost ? (totalVp / totalCost).toFixed(2) : 0,
         colorCount,
         costByColor,
       };
@@ -102,3 +102,62 @@ export const BalanceStats = {
     return { tiers: stats, nobleCount: nobles?.length || 0 };
   }
 };
+
+// ===== 魔改版（variant）云端 CRUD =====
+// 联机时必须统一版本，所以 variant 存 D1 而非 localStorage
+const LS_VARIANT_EDIT = 'bf_variant_edit_';  // 编辑中暂存
+
+function _headers() {
+  const token = localStorage.getItem('bf_token') || '';
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+}
+
+async function _fetchJSON(url, opts = {}) {
+  const res = await fetch(url, { ...opts, headers: { ..._headers(), ...(opts.headers || {}) } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export const VariantAPI = {
+  // 列出某游戏的基础版 + 所有魔改版
+  async list(gameId) {
+    const data = await _fetchJSON(`/api/variant?game=${encodeURIComponent(gameId)}`);
+    return data; // { base: {...}, variants: [...] }
+  },
+  // 读取单个完整配置
+  async get(id) {
+    const data = await _fetchJSON(`/api/variant?id=${encodeURIComponent(id)}`);
+    return data.variant;
+  },
+  async create(baseGame, name) {
+    return _fetchJSON('/api/variant', { method: 'POST', body: JSON.stringify({ action: 'create', base_game: baseGame, name }) });
+  },
+  async fork(baseGame, name, forkFromId) {
+    return _fetchJSON('/api/variant', { method: 'POST', body: JSON.stringify({ action: 'fork', base_game: baseGame, name, fork_from_id: forkFromId }) });
+  },
+  async update(id, patch) {
+    return _fetchJSON('/api/variant', { method: 'POST', body: JSON.stringify({ action: 'update', id, ...patch }) });
+  },
+  async rename(id, name) {
+    return _fetchJSON('/api/variant', { method: 'POST', body: JSON.stringify({ action: 'rename', id, name }) });
+  },
+  async delete(id) {
+    return _fetchJSON('/api/variant', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) });
+  }
+};
+
+// ===== 魔改编辑器本地暂存（未保存时的草稿） =====
+export function saveVariantDraft(variantId, patch) {
+  const key = LS_VARIANT_EDIT + variantId;
+  localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), ...patch }));
+}
+export function loadVariantDraft(variantId) {
+  const key = LS_VARIANT_EDIT + variantId;
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+export function clearVariantDraft(variantId) {
+  localStorage.removeItem(LS_VARIANT_EDIT + variantId);
+}

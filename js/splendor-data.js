@@ -132,17 +132,18 @@ export const CARDS = {
 
 // 10 张贵族：3种宝石各3个触发，+3分
 // 5色选3色 = 10种组合
+// 每张贵族牌带 vp 字段，引擎按此记分（魔改版可改成 +4 等）
 export const NOBLES = [
-  { id: 'N01', req: { white: 3, blue: 3, green: 3 } },
-  { id: 'N02', req: { white: 3, blue: 3, red: 3 } },
-  { id: 'N03', req: { white: 3, blue: 3, black: 3 } },
-  { id: 'N04', req: { white: 3, green: 3, red: 3 } },
-  { id: 'N05', req: { white: 3, green: 3, black: 3 } },
-  { id: 'N06', req: { white: 3, red: 3, black: 3 } },
-  { id: 'N07', req: { blue: 3, green: 3, red: 3 } },
-  { id: 'N08', req: { blue: 3, green: 3, black: 3 } },
-  { id: 'N09', req: { blue: 3, red: 3, black: 3 } },
-  { id: 'N10', req: { green: 3, red: 3, black: 3 } }
+  { id: 'N01', vp: 3, req: { white: 3, blue: 3, green: 3 } },
+  { id: 'N02', vp: 3, req: { white: 3, blue: 3, red: 3 } },
+  { id: 'N03', vp: 3, req: { white: 3, blue: 3, black: 3 } },
+  { id: 'N04', vp: 3, req: { white: 3, green: 3, red: 3 } },
+  { id: 'N05', vp: 3, req: { white: 3, green: 3, black: 3 } },
+  { id: 'N06', vp: 3, req: { white: 3, red: 3, black: 3 } },
+  { id: 'N07', vp: 3, req: { blue: 3, green: 3, red: 3 } },
+  { id: 'N08', vp: 3, req: { blue: 3, green: 3, black: 3 } },
+  { id: 'N09', vp: 3, req: { blue: 3, red: 3, black: 3 } },
+  { id: 'N10', vp: 3, req: { green: 3, red: 3, black: 3 } }
 ];
 
 // 获取某玩家能以折扣价买卡的总资源（手牌 + 卡面折扣）

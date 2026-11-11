@@ -2,7 +2,7 @@
 // 36 座城市 / 100 条线路选项（78 组连接，其中 22 组为平行双线）/ 29 张目的地票
 // 美国版规则：无隧道、无渡轮、无火车站；开局 3 张任务票，至少保留 2 张
 
-import { loadAdminData } from './admin.js?v=35';
+import { loadAdminData } from './admin.js?v=36';
 
 // ===== 常量 =====
 export const TRAIN_COLORS = ['purple', 'white', 'blue', 'yellow', 'orange', 'black', 'red', 'green'];

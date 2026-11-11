@@ -2,7 +2,7 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=35';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=36';
 import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=35';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
@@ -129,37 +129,48 @@ export async function renderAdminPage(gameId = 'splendor') {
     return;
   }
 
-  editor.innerHTML = '<div class="loading">加载默认数据...</div>';
-
+  // 先取基础基线数据（版本选择页要展示）
   let baseData;
   if (gameId === 'ticket') {
     const mod = await import('./ticket-data.js').catch(() => null);
     if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
     baseData = { CITIES: mod.CITIES, ROUTES: mod.ROUTES, TICKETS: mod.TICKETS };
   } else {
-    // 动态加载 splendor-data 拿默认基线
     const mod = await import('./splendor-data.js').catch(() => null);
     if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
-    baseData = {
-      CARDS: mod.CARDS,
-      NOBLES: mod.NOBLES,
-      GEM_COLORS: mod.GEM_COLORS
-    };
+    baseData = { CARDS: mod.CARDS, NOBLES: mod.NOBLES, GEM_COLORS: mod.GEM_COLORS };
   }
   const adminData = loadAdminData(gameId);
 
-  // 铁路环游使用专用可视化编辑器（城市 / 线路 / 任务票），不暴露 JSON
-  if (gameId === 'ticket') {
-    const { renderTicketEditor } = await import('./admin-ticket.js?v=5');
-    renderTicketEditor(editor, baseData, adminData);
-    return;
-  }
+  // 版本选择页：基础版 + 所有魔改版
+  const { renderVariantChooser, renderVariantEditor } = await import('./admin-variant.js?v=1');
 
-  // 深拷贝，避免直接修改原始基线数据
-  const activeData = JSON.parse(JSON.stringify(adminData || baseData));
+  const renderChooser = async () => {
+    await renderVariantChooser(editor, gameId, onPick, baseData, adminData);
+  };
 
-  editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
-  bindAdminEvents(gameId, baseData, activeData);
+  const onPick = async ({ kind, variant }) => {
+    if (kind === 'base') {
+      // 基础版：走原有本地编辑器流程（不存 variant）
+      if (gameId === 'ticket') {
+        const { renderTicketEditor } = await import('./admin-ticket.js?v=5');
+        renderTicketEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
+        return;
+      }
+      const activeData = JSON.parse(JSON.stringify(adminData || baseData));
+      editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
+      bindAdminEvents(gameId, baseData, activeData);
+      return;
+    }
+    // 魔改版：进魔改编辑器
+    editor.innerHTML = '';
+    await renderVariantEditor(editor, gameId, variant, baseData, () => {
+      // 返回版本列表
+      renderChooser();
+    });
+  };
+
+  await renderChooser();
 }
 
 function buildAdminHTML(gameId, baseData, activeData, adminData) {
