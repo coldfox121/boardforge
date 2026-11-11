@@ -328,15 +328,22 @@ function renderDeckPanel(gameId, variant, deck, baseData, rules, labels) {
 
 function renderSplendorDeckEditor(base, merged, onChange) {
   // 简化：每层卡牌做可编辑表格，支持删改加；贵族表同理
-  // 卡牌：id / 颜色 / VP / 费用
-  // 贵族：vp / req
+  const GEM_DOT = { white: '⬜', blue: '🟦', green: '🟩', red: '🟥', black: '⬛' };
+  // 卡牌：两行表头——上面分组，下面每列宝石名+色点
   const tiers = [1, 2, 3].map(t => {
     const rows = merged.CARDS[t] || [];
+    const gemHeadCells = GEM_KEYS.map(k =>
+      `<th class="th-gem-col" data-gem="${k}">${GEM_DOT[k]} ${LABEL_GEM[k]}</th>`
+    ).join('');
     const head = `<h4>等级 ${t} 卡牌（共 ${rows.length} 张）</h4>
-      <table class="deck-table"><thead><tr>
-        <th>ID</th><th>颜色</th><th>VP</th>
-        <th colspan="5">费用</th><th></th>
-      </tr></thead><tbody>`;
+      <table class="deck-table"><thead>
+        <tr class="th-group-row">
+          <th rowspan="2">ID</th><th rowspan="2">颜色</th><th rowspan="2">VP</th>
+          <th colspan="5">费用（宝石）</th>
+          <th rowspan="2"></th>
+        </tr>
+        <tr class="th-gem-row">${gemHeadCells}</tr>
+      </thead><tbody>`;
     const body = rows.map((c, i) => `
       <tr data-tier="${t}" data-idx="${i}">
         <td><input value="${esc(c.id)}" class="inp" data-f="id"></td>

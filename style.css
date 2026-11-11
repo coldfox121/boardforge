@@ -1575,8 +1575,18 @@ body {
 .deck-table th {
   background:rgba(99,102,241,.18); font-weight:700;
   color:#e0d9ff; font-size:12px; letter-spacing:.5px;
-  padding:12px 10px; border-bottom:1px solid rgba(99,102,241,.4);
+  padding:12px 10px;
 }
+.deck-table th.th-gem-col {
+  font-size:11px; font-weight:600; padding:8px 4px; letter-spacing:.2px;
+  background:rgba(99,102,241,.10); color:#e8e0ff;
+  border-top:1px solid rgba(99,102,241,.4);
+}
+.deck-table th[data-gem="white"] { color:#f8fafc; }
+.deck-table th[data-gem="blue"] { color:#93c5fd; }
+.deck-table th[data-gem="green"] { color:#86efac; }
+.deck-table th[data-gem="red"] { color:#fca5a5; }
+.deck-table th[data-gem="black"] { color:#d4d4d8; }
 .deck-table td { color:#e4e6eb; font-weight:500; }
 .deck-table tr:hover td { background:rgba(255,255,255,.04); }
 .deck-table td input.inp {
