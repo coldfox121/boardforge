@@ -17,6 +17,7 @@ export class SplendorGame extends OnlineGameBase {
     this.online = options.online || null;
     this.initialState = options.initialState || null;
     this.memberOnline = null;   // 联机：座位 → 是否在线
+    this.variant = options.variant || null;  // 魔改版配置
     // === 自由操作状态 ===
     this.ops = {
       gems: [],              // 已点的宝石颜色数组（可重复）
@@ -32,9 +33,12 @@ export class SplendorGame extends OnlineGameBase {
   }
 
   start() {
+    // 规则参数（若有 variant.rules 则覆盖引擎默认）
+    const rules = this.variant?.rules || null;
+    const deck = this.variant?.deck || null;
     this.state = this.initialState
       ? JSON.parse(JSON.stringify(this.initialState))
-      : initGame(this.playerNames);
+      : initGame(this.playerNames, rules, deck);
     if (!this.initialState) {
       this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
     }
