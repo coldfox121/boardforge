@@ -365,9 +365,22 @@ export class TicketGame extends OnlineGameBase {
       const g = routeGeom(i);
       const owner = s.routeOwner[i];
       const claimed = owner !== null;
+      const isBlack = r.color === 'black';
+      const isGrey = !r.color;   // 灰色无色路线
       const color = claimed ? PCOLORS[owner] : (HEX[r.color] || '#9fb0c2');
-      const strokeW = claimed ? 11 : (r.color ? 6 : 3.5);
-      const opacity = claimed ? 1 : (r.color ? 0.9 : 0.55);
+
+      // 视觉分层：已占领最粗最饱和；彩色未占领次之；黑色未占领有白色描边；灰色最细且虚线
+      let strokeW, opacity, dasharray = '';
+      if (claimed) {
+        strokeW = 11; opacity = 1;
+      } else if (isBlack) {
+        strokeW = 7; opacity = 1;
+      } else if (isGrey) {
+        strokeW = 4; opacity = 0.7; dasharray = '5 4';
+      } else {
+        strokeW = 6; opacity = 0.9;
+      }
+
       const t0 = 9 / g.L;
       const t1 = 1 - 9 / g.L;
       const span = (t1 - t0) / r.len;
@@ -378,14 +391,20 @@ export class TicketGame extends OnlineGameBase {
         const b = t0 + span * (k + 0.88);
         const x1 = g.x1 + (g.x2 - g.x1) * a, y1 = g.y1 + (g.y2 - g.y1) * a;
         const x2 = g.x1 + (g.x2 - g.x1) * b, y2 = g.y1 + (g.y2 - g.y1) * b;
-        // 已占领：粗线 + 白色虚线轨枕；未占领：细线、低对比；灰色无色再细/淡一档
-        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round" opacity="${opacity}"/>`);
+
+        // 黑色未占领路线先画白色描边，确保在暗底上能看见
+        if (isBlack && !claimed) {
+          segs.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="${strokeW + 3}" stroke-linecap="round" opacity="0.45"/>`);
+        }
+        // 主体线
+        const dashAttr = dasharray ? ` stroke-dasharray="${dasharray}"` : '';
+        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round" opacity="${opacity}"${dashAttr}/>`);
         if (claimed) {
           segs.push(`<line class="ttr-rail" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="2.2" stroke-dasharray="3 6" stroke-linecap="round" opacity=".9"/>`);
         }
       }
 
-      // 已占领的路线加一层深色外壳，进一步和“未占领细线”区分
+      // 已占领的路线加一层深色外壳，进一步和"未占领细线"区分
       const casing = claimed
         ? `<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" stroke="#05090e" stroke-width="15" stroke-linecap="round"/>`
         : '';

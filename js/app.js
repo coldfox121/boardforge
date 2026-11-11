@@ -374,7 +374,7 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ TicketGame }, engine] = await Promise.all([
-        import('./ticket-ui.js?v=42'),
+        import('./ticket-ui.js?v=43'),
         import('./ticket-engine.js?v=38')
       ]);
       return {
