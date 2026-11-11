@@ -184,7 +184,7 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
       </div>
       <div class="variant-card-meta">创建者：${esc(v.creator)} · 更新于 ${new Date(v.updated_at).toLocaleString()}</div>
       <div class="variant-card-actions">
-        <button class="btn" data-act="variant-edit" data-id="${v.id}">进入编辑</button>
+        <button class="btn btn-primary" data-act="variant-edit" data-id="${v.id}">进入编辑</button>
         ${backendOk ? `<button class="btn ghost" data-act="variant-fork" data-id="${v.id}">从此 fork</button>
         <button class="btn ghost danger" data-act="variant-delete" data-id="${v.id}">删除</button>` : ''}
       </div>
@@ -212,7 +212,7 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
           引擎内置基线 · ${hasOverride ? `本地已覆盖（保存于 ${savedStr}）` : '未覆盖'} · 不可删除
         </div>
         <div class="variant-card-actions">
-          <button class="btn" data-act="variant-edit-base">进入编辑</button>
+          <button class="btn btn-primary" data-act="variant-edit-base">进入编辑</button>
         </div>
       </div>
     </div>
