@@ -5,6 +5,97 @@
 //     → 保存时版本号 +1，联机强制同一版本
 import { VariantAPI, saveVariantDraft, loadVariantDraft, clearVariantDraft, getAdminSavedAt, hasAdminData } from './admin.js?v=36';
 
+// 事件委托 handler（全局只绑定一次，container 复用同一 DOM 节点）
+let _variantClickHandler = null;
+function bindVariantClickOnce(container, getState) {
+  if (_variantClickHandler) {
+    container.removeEventListener('click', _variantClickHandler);
+  }
+  _variantClickHandler = async (e) => {
+    const { gameId, onPick, baseData, adminData } = getState();
+    if (!gameId) return;
+
+    // fork 对话框
+    const showForkPicker = () => {
+      const dialog = document.createElement('div');
+      dialog.className = 'dialog-mask';
+      dialog.innerHTML = `
+        <div class="dialog-box">
+          <h4>从哪个版本 fork？</h4>
+          <div class="fork-source-list">
+            <div class="fork-source" data-id="__base__">官方基础版</div>
+          </div>
+          <button class="btn ghost dialog-close">取消</button>
+        </div>
+      `;
+      document.body.appendChild(dialog);
+      dialog.addEventListener('click', async (de) => {
+        if (de.target.classList.contains('dialog-close') || de.target === dialog) { dialog.remove(); return; }
+        const src = de.target.closest('.fork-source');
+        if (!src) return;
+        dialog.remove();
+        const srcId = src.dataset.id;
+        const name = prompt('魔改版名字', srcId === '__base__' ? '我的魔改版' : '我的魔改版');
+        if (!name) return;
+        try {
+          const { variant } = await VariantAPI.fork(gameId, name, srcId === '__base__' ? null : srcId);
+          toast(`已创建 ${variant.name}（v${variant.version}）`);
+          renderVariantChooser(container, gameId, onPick, baseData, adminData);
+        } catch (err) { toast(err.message, true); }
+      });
+    };
+
+    const act = e.target.dataset.act;
+    const id = e.target.dataset.id;
+
+    if (e.target.id === 'variant-create-from-base') {
+      const name = prompt('魔改版名字', '我的魔改版');
+      if (!name) return;
+      try {
+        const { variant } = await VariantAPI.create(gameId, name);
+        toast(`已创建 ${variant.name}（v${variant.version}）`);
+        renderVariantChooser(container, gameId, onPick, baseData, adminData);
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    if (e.target.id === 'variant-show-fork') { showForkPicker(); return; }
+
+    if (act === 'variant-edit-base') {
+      onPick({ kind: 'base', baseData, adminData });
+      return;
+    }
+    if (act === 'variant-edit') {
+      try {
+        const v = await VariantAPI.get(id);
+        onPick({ kind: 'variant', variant: v });
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    if (act === 'variant-fork') { showForkPicker(); return; }
+    if (act === 'variant-delete') {
+      if (!confirm('确定删除此魔改版？此操作不可恢复。')) return;
+      try {
+        await VariantAPI.delete(id);
+        toast('已删除');
+        renderVariantChooser(container, gameId, onPick, baseData, adminData);
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    // 点击卡片主体 = 进入编辑（仅点卡片本身，不点内部按钮）
+    const card = e.target.closest('.variant-card');
+    if (card && e.target === card) {
+      const cid = card.dataset.id;
+      if (cid === '__base__') { onPick({ kind: 'base', baseData, adminData }); return; }
+      try {
+        const v = await VariantAPI.get(cid);
+        onPick({ kind: 'variant', variant: v });
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+  };
+  container.addEventListener('click', _variantClickHandler);
+}
+
 // ===== 游戏规则参数定义（每个游戏一份；粗粒度，支持 variant 覆盖）=====
 // 类型: number / string / boolean
 // 引擎通过 mergeRules 合并 DEFAULT_RULES 与 variant.rules
@@ -132,79 +223,8 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
     </div>
   `;
 
-  // fork 对话框
-  const showForkPicker = () => {
-    const dialog = document.createElement('div');
-    dialog.className = 'dialog-mask';
-    dialog.innerHTML = `
-      <div class="dialog-box">
-        <h4>从哪个版本 fork？</h4>
-        <div class="fork-source-list">
-          <div class="fork-source" data-id="__base__">官方基础版</div>
-          ${variants.map(v => `<div class="fork-source" data-id="${v.id}">${esc(v.name)}（v${v.version}）</div>`).join('')}
-        </div>
-        <button class="btn ghost dialog-close">取消</button>
-      </div>
-    `;
-    document.body.appendChild(dialog);
-    dialog.addEventListener('click', (e) => {
-      if (e.target.classList.contains('dialog-close') || e.target === dialog) dialog.remove();
-      const src = e.target.closest('.fork-source');
-      if (!src) return;
-      dialog.remove();
-      const srcId = src.dataset.id;
-      const name = prompt('魔改版名字', srcId === '__base__' ? '我的魔改版' : `我的 ${esc(variants.find(x=>x.id===srcId)?.name || '魔改版')}`);
-      if (!name) return;
-      VariantAPI.fork(gameId, name, srcId === '__base__' ? null : srcId).then(({ variant }) => {
-        toast(`已创建 ${variant.name}（v${variant.version}）`);
-        renderVariantChooser(container, gameId, onPick, baseData, adminData);
-      }).catch(e => toast(e.message, true));
-    });
-  };
-
-  container.addEventListener('click', async (e) => {
-    const act = e.target.dataset.act;
-    const id = e.target.dataset.id;
-
-    if (e.target.id === 'variant-create-from-base') {
-      const name = prompt('魔改版名字', '我的魔改版');
-      if (!name) return;
-      try {
-        const { variant } = await VariantAPI.create(gameId, name);
-        toast(`已创建 ${variant.name}（v${variant.version}）`);
-        renderVariantChooser(container, gameId, onPick, baseData, adminData);
-      } catch (err) { toast(err.message, true); }
-      return;
-    }
-    if (e.target.id === 'variant-show-fork') { showForkPicker(); return; }
-
-    if (act === 'variant-edit-base') {
-      onPick({ kind: 'base', baseData, adminData });
-      return;
-    }
-    if (act === 'variant-edit') {
-      const v = await VariantAPI.get(id);
-      onPick({ kind: 'variant', variant: v });
-      return;
-    }
-    if (act === 'variant-fork') { showForkPicker(); return; }
-    if (act === 'variant-delete') {
-      const v = variants.find(x => x.id === id);
-      if (!confirm(`确定删除 "${v.name}"？此操作不可恢复。`)) return;
-      try { await VariantAPI.delete(id); toast('已删除'); renderVariantChooser(container, gameId, onPick, baseData, adminData); }
-      catch (err) { toast(err.message, true); }
-      return;
-    }
-    // 点击卡片主体 = 进入编辑
-    const card = e.target.closest('.variant-card');
-    if (card && e.target === card) {
-      const cid = card.dataset.id;
-      if (cid === '__base__') { onPick({ kind: 'base', baseData, adminData }); return; }
-      const v = await VariantAPI.get(cid);
-      onPick({ kind: 'variant', variant: v });
-      return;
-    }
-  }, { once: true });
+  // 事件委托：只绑定一次（重绘 innerHTML 不会丢监听器，container 是同一个 DOM 节点）
+  bindVariantClickOnce(container, () => ({ gameId, onPick, baseData, adminData }));
 }
 
 // ===== 魔改编辑器（进入后：牌库 tab + 规则参数 tab + 命名覆盖 tab + 版本号显示）=====
