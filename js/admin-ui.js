@@ -143,7 +143,24 @@ export async function renderAdminPage(gameId = 'splendor') {
   const adminData = loadAdminData(gameId);
 
   // 版本选择页：基础版 + 所有魔改版
-  const { renderVariantChooser, renderVariantEditor } = await import('./admin-variant.js?v=1');
+  let VariantMod;
+  try {
+    VariantMod = await import('./admin-variant.js?v=2');
+  } catch (e) {
+    // 魔改编辑器模块加载失败 → fallback 直接进原编辑器
+    console.warn('[admin] admin-variant.js 加载失败，使用基础版编辑器:', e.message);
+    editor.innerHTML = '<div class="error">魔改编辑器加载失败，已回退到基础版编辑器</div>';
+    if (gameId === 'ticket') {
+      const { renderTicketEditor } = await import('./admin-ticket.js?v=5');
+      renderTicketEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
+      return;
+    }
+    const activeData = JSON.parse(JSON.stringify(adminData || baseData));
+    editor.innerHTML += buildAdminHTML(gameId, baseData, activeData, adminData);
+    bindAdminEvents(gameId, baseData, activeData);
+    return;
+  }
+  const { renderVariantChooser, renderVariantEditor } = VariantMod;
 
   const renderChooser = async () => {
     await renderVariantChooser(editor, gameId, onPick, baseData, adminData);

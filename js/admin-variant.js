@@ -68,8 +68,17 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
   container.innerHTML = '<div class="loading">加载版本列表...</div>';
 
   let listData;
-  try { listData = await VariantAPI.list(gameId); }
-  catch (e) { container.innerHTML = `<div class="error">加载失败：${e.message}</div>`; return; }
+  let backendOk = true;
+  try {
+    listData = await VariantAPI.list(gameId);
+  } catch (e) {
+    // 后端不可用（超时/404/未部署）→ 本地 fallback，只显示基础版
+    backendOk = false;
+    listData = {
+      base: { id: null, base_game: gameId, name: '官方基础版（离线）', version: 0, isBase: true },
+      variants: []
+    };
+  }
 
   const { base, variants } = listData;
   const savedAt = getAdminSavedAt(gameId);
@@ -85,18 +94,19 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
       <div class="variant-card-meta">创建者：${esc(v.creator)} · 更新于 ${new Date(v.updated_at).toLocaleString()}</div>
       <div class="variant-card-actions">
         <button class="btn" data-act="variant-edit" data-id="${v.id}">进入编辑</button>
-        <button class="btn ghost" data-act="variant-fork" data-id="${v.id}">从此 fork</button>
-        <button class="btn ghost danger" data-act="variant-delete" data-id="${v.id}">删除</button>
+        ${backendOk ? `<button class="btn ghost" data-act="variant-fork" data-id="${v.id}">从此 fork</button>
+        <button class="btn ghost danger" data-act="variant-delete" data-id="${v.id}">删除</button>` : ''}
       </div>
     </div>
-  `).join('') : `<div class="empty-tip">还没有魔改版，点"新建魔改版"创建第一个</div>`;
+  `).join('') : `<div class="empty-tip">${backendOk ? '还没有魔改版，点"新建魔改版"创建第一个' : '（后端不可用，离线模式仅支持基础版编辑）'}</div>`;
 
   container.innerHTML = `
+    ${!backendOk ? '<div class="deck-notice">⚠️ 魔改版后端暂不可用，当前为离线模式，仅基础版可编辑。部署 variant.js 后刷新即可启用魔改版管理。</div>' : ''}
     <div class="variant-toolbar">
       <h3>🗂 ${gameId === 'splendor' ? '璀璨宝石' : gameId === 'ticket' ? '铁路环游' : gameId} · 版本管理</h3>
       <div>
-        <button class="btn" id="variant-create-from-base">＋ 从基础版新建魔改版</button>
-        ${variants.length ? `<button class="btn ghost" id="variant-show-fork">＋ 从现有魔改版 fork</button>` : ''}
+        ${backendOk ? `<button class="btn" id="variant-create-from-base">＋ 从基础版新建魔改版</button>
+        ${variants.length ? `<button class="btn ghost" id="variant-show-fork">＋ 从现有魔改版 fork</button>` : ''}` : ''}
       </div>
     </div>
 

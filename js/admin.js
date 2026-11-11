@@ -113,7 +113,14 @@ function _headers() {
 }
 
 async function _fetchJSON(url, opts = {}) {
-  const res = await fetch(url, { ...opts, headers: { ..._headers(), ...(opts.headers || {}) } });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);  // 5s 超时，本地 dev 没有后端也能 fallback
+  let res;
+  try {
+    res = await fetch(url, { ...opts, headers: { ..._headers(), ...(opts.headers || {}) }, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
