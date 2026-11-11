@@ -12,7 +12,7 @@ import {
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {
   purple: '#a273ff', white: '#f5f9ff', blue: '#4f8cff', yellow: '#f3cf4a',
-  orange: '#f59a45', black: '#7d8ba0', red: '#ec5f5f', green: '#3fc97a', loco: '#d08bff'
+  orange: '#f59a45', black: '#1a202c', red: '#ec5f5f', green: '#3fc97a', loco: '#d08bff'
 };
 const HAND_ORDER = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'black', 'white', 'loco'];
 const SHORT_NAME = {
@@ -366,6 +366,8 @@ export class TicketGame extends OnlineGameBase {
       const owner = s.routeOwner[i];
       const claimed = owner !== null;
       const color = claimed ? PCOLORS[owner] : (HEX[r.color] || '#9fb0c2');
+      const strokeW = claimed ? 11 : (r.color ? 6 : 3.5);
+      const opacity = claimed ? 1 : (r.color ? 0.9 : 0.55);
       const t0 = 9 / g.L;
       const t1 = 1 - 9 / g.L;
       const span = (t1 - t0) / r.len;
@@ -376,8 +378,8 @@ export class TicketGame extends OnlineGameBase {
         const b = t0 + span * (k + 0.88);
         const x1 = g.x1 + (g.x2 - g.x1) * a, y1 = g.y1 + (g.y2 - g.y1) * a;
         const x2 = g.x1 + (g.x2 - g.x1) * b, y2 = g.y1 + (g.y2 - g.y1) * b;
-        // 已占领：粗线 + 白色虚线轨枕；未占领：细线、低对比
-        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${claimed ? 11 : 6}" stroke-linecap="round"/>`);
+        // 已占领：粗线 + 白色虚线轨枕；未占领：细线、低对比；灰色无色再细/淡一档
+        segs.push(`<line class="ttr-seg" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round" opacity="${opacity}"/>`);
         if (claimed) {
           segs.push(`<line class="ttr-rail" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#ffffff" stroke-width="2.2" stroke-dasharray="3 6" stroke-linecap="round" opacity=".9"/>`);
         }

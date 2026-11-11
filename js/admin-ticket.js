@@ -9,10 +9,10 @@ const COLORS = [
   { v: 'blue', n: '蓝色', hex: '#3f7fd0' },
   { v: 'yellow', n: '黄色', hex: '#e6c246' },
   { v: 'orange', n: '橙色', hex: '#dd8438' },
-  { v: 'black', n: '黑色', hex: '#4a5568' },
+  { v: 'black', n: '黑色', hex: '#1a202c' },
   { v: 'red', n: '红色', hex: '#cf4a4a' },
   { v: 'green', n: '绿色', hex: '#3f9c5a' },
-  { v: '', n: '灰色（任意颜色）', hex: '#9aa4b2' }
+  { v: '', n: '灰色（任意颜色）', hex: '#a8b5c8' }
 ];
 const COLOR_HEX = {};
 COLORS.forEach(c => { COLOR_HEX[c.v] = c.hex; });
