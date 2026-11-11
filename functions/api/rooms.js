@@ -77,6 +77,7 @@ export async function onRequestPost({ request, env }) {
 
   const gameId = String(body.game || 'splendor');
   const roomName = String(body.name || `${user.username}的房间`).slice(0, 30);
+  const variantId = body.variant_id ? String(body.variant_id).slice(0, 20) : null;
 
   const game = GAMES[gameId];
   if (!game) return json({ error: '未知游戏' }, 400);
@@ -92,9 +93,9 @@ export async function onRequestPost({ request, env }) {
     roomCode = randomRoomCode();
     try {
       await env.DB.prepare(
-        'INSERT INTO rooms (id, name, game, created_by, room_code, status, max_players, current_players, created_at, updated_at) ' +
-        'VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)'
-      ).bind(id, roomName, gameId, user.user_id, roomCode, 'waiting', maxPlayers, now, now).run();
+        'INSERT INTO rooms (id, name, game, created_by, room_code, status, max_players, current_players, created_at, updated_at, variant_id, variant_version) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 0)'
+      ).bind(id, roomName, gameId, user.user_id, roomCode, 'waiting', maxPlayers, now, now, variantId).run();
       ok = true;
       break;
     } catch (e) {
