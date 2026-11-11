@@ -379,23 +379,25 @@ function vizNobleHTML(noble, index) {
   </div>`;
 }
 
-function renderVisualPanel(gameId, data) {
-  const panel = document.getElementById('panel-viz');
+export function renderVisualPanel(gameId, data, panelId = 'panel-viz') {
+  const panel = document.getElementById(panelId);
   if (panel) panel.innerHTML = buildVisualHTML(data);
 }
 
-function bindVisualEvents(gameId, data) {
-  const panel = document.getElementById('panel-viz');
+export function bindVisualEvents(gameId, data, panelId = 'panel-viz', autoSaveCallback = null, opts = {}) {
+  const panel = document.getElementById(panelId);
   if (!panel) return;
+  const hideSaveReset = !!opts.hideSaveReset;
 
-  // 用 onclick 赋值，避免多次渲染后监听器叠加；同时兼容面板内部重渲染
   panel.onclick = async (e) => {
     const status = document.getElementById('viz-status');
 
-    if (e.target.closest('#viz-save')) {
+    const saveBtn = e.target.closest('#viz-save');
+    if (saveBtn) {
+      if (hideSaveReset) return; // variant 模式不处理
       if (status) { status.textContent = '⏳ 保存中...'; status.style.color = ''; }
       try {
-        saveAdminData(gameId, data); // 本地缓存，离线也能用
+        saveAdminData(gameId, data);
         await saveConfigToCloud(gameId, data);
         if (status) { status.textContent = '✅ 已保存到云端，所有人可见'; status.style.color = '#70ad47'; }
       } catch (err) {
@@ -404,7 +406,9 @@ function bindVisualEvents(gameId, data) {
       return;
     }
 
-    if (e.target.closest('#viz-reset')) {
+    const resetBtn = e.target.closest('#viz-reset');
+    if (resetBtn) {
+      if (hideSaveReset) return;
       if (!confirm('确定恢复基线？当前 admin 覆盖数据会被清空')) return;
       clearAdminData(gameId);
       renderAdminPage(gameId);
@@ -412,7 +416,7 @@ function bindVisualEvents(gameId, data) {
     }
 
     const addCard = e.target.closest('[data-add-card]');
-    if (addCard) { addCardToData(data, Number(addCard.dataset.addCard)); renderVisualPanel(gameId, data); return; }
+    if (addCard) { addCardToData(data, Number(addCard.dataset.addCard)); renderVisualPanel(gameId, data, panelId); autoSaveCallback?.(); return; }
 
     const addNoble = e.target.closest('[data-add-noble]');
     if (addNoble) {
@@ -420,22 +424,24 @@ function bindVisualEvents(gameId, data) {
       let n = data.NOBLES.length + 1;
       while (data.NOBLES.some(x => x.id === 'N' + n)) n++;
       data.NOBLES.push({ id: 'N' + n, req: { white: 3, blue: 3, green: 3 } });
-      renderVisualPanel(gameId, data);
+      renderVisualPanel(gameId, data, panelId);
+      autoSaveCallback?.();
       return;
     }
 
     const cardEl = e.target.closest('[data-card]');
     if (cardEl) {
       const [t, i] = cardEl.dataset.card.split(':').map(Number);
-      openCardEditor(gameId, data, t, i);
+      openCardEditor(gameId, data, t, i, panelId, autoSaveCallback);
       return;
     }
 
     const nobleEl = e.target.closest('[data-noble]');
-    if (nobleEl) openNobleEditor(gameId, data, Number(nobleEl.dataset.noble));
+    if (nobleEl) openNobleEditor(gameId, data, Number(nobleEl.dataset.noble), panelId, autoSaveCallback);
   };
 }
 
+// 卡牌编辑器（支持 variant 模式：panelId + autoSave）
 function addCardToData(data, tier) {
   if (!data.CARDS) data.CARDS = {};
   if (!data.CARDS[tier]) data.CARDS[tier] = [];
@@ -446,10 +452,13 @@ function addCardToData(data, tier) {
   list.push({ id, color: 'white', cost: {}, tier, vp: 0 });
 }
 
-function openCardEditor(gameId, data, tier, index) {
+export function openCardEditor(gameId, data, tier, index, panelId = 'panel-viz', autoSaveCallback = null) {
   const card = data.CARDS[tier][index];
-  const mount = document.getElementById('viz-modal-mount');
-  if (!mount) return;
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  // 找或创建 modal-mount（variant 模式下 panel 就是 #variant-panel-deck）
+  let mount = panel.querySelector('#viz-modal-mount');
+  if (!mount) { mount = document.createElement('div'); mount.id = 'viz-modal-mount'; panel.appendChild(mount); }
 
   mount.innerHTML = `
     <div class="viz-backdrop">
@@ -510,15 +519,17 @@ function openCardEditor(gameId, data, tier, index) {
     if (e.target.id === 've-img-clear') {
       delete card.image;
       deleteCardImage(gameId, card.id);
-      renderVisualPanel(gameId, data);
-      openCardEditor(gameId, data, tier, index);
+      renderVisualPanel(gameId, data, panelId);
+      openCardEditor(gameId, data, tier, index, panelId, autoSaveCallback);
+      autoSaveCallback?.();
       return;
     }
 
     if (e.target.id === 've-ok') {
       applyFormToCard();
       mount.innerHTML = '';
-      renderVisualPanel(gameId, data);
+      renderVisualPanel(gameId, data, panelId);
+      autoSaveCallback?.();
       return;
     }
 
@@ -526,7 +537,8 @@ function openCardEditor(gameId, data, tier, index) {
       if (!confirm('确定删除这张卡？')) return;
       data.CARDS[tier].splice(index, 1);
       mount.innerHTML = '';
-      renderVisualPanel(gameId, data);
+      renderVisualPanel(gameId, data, panelId);
+      autoSaveCallback?.();
     }
   };
 
@@ -535,15 +547,16 @@ function openCardEditor(gameId, data, tier, index) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
-    applyFormToCard(); // 上传前保留当前表单输入
+    applyFormToCard();
     const btn = document.getElementById('ve-upload');
     if (btn) { btn.disabled = true; btn.textContent = '上传中...'; }
 
     try {
       const r = await uploadCardImage(gameId, card.id, file);
       card.image = r.url;
-      renderVisualPanel(gameId, data);
-      openCardEditor(gameId, data, tier, index);
+      renderVisualPanel(gameId, data, panelId);
+      openCardEditor(gameId, data, tier, index, panelId, autoSaveCallback);
+      autoSaveCallback?.();
     } catch (err) {
       alert('图片上传失败：' + err.message);
       if (btn) { btn.disabled = false; btn.textContent = '上传图片'; }
@@ -551,10 +564,12 @@ function openCardEditor(gameId, data, tier, index) {
   };
 }
 
-function openNobleEditor(gameId, data, index) {
+export function openNobleEditor(gameId, data, index, panelId = 'panel-viz', autoSaveCallback = null) {
   const noble = data.NOBLES[index];
-  const mount = document.getElementById('viz-modal-mount');
-  if (!mount) return;
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  let mount = panel.querySelector('#viz-modal-mount');
+  if (!mount) { mount = document.createElement('div'); mount.id = 'viz-modal-mount'; panel.appendChild(mount); }
 
   mount.innerHTML = `
     <div class="viz-backdrop">
@@ -587,7 +602,8 @@ function openNobleEditor(gameId, data, index) {
       }
       noble.req = req;
       mount.innerHTML = '';
-      renderVisualPanel(gameId, data);
+      renderVisualPanel(gameId, data, panelId);
+      autoSaveCallback?.();
       return;
     }
 
@@ -595,7 +611,8 @@ function openNobleEditor(gameId, data, index) {
       if (!confirm('确定删除这个贵族？')) return;
       data.NOBLES.splice(index, 1);
       mount.innerHTML = '';
-      renderVisualPanel(gameId, data);
+      renderVisualPanel(gameId, data, panelId);
+      autoSaveCallback?.();
     }
   };
 }

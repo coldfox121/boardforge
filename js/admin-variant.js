@@ -306,24 +306,32 @@ function renderDeckPanel(gameId, variant, deck, baseData, rules, labels) {
   const panel = document.getElementById('variant-panel-deck');
   panel.dataset.variantId = variant.id || '';
   if (!baseData) { panel.innerHTML = '<div class="error">基础数据不可用</div>'; return; }
-  const merged = { ...baseData };
-  for (const k of Object.keys(deck)) merged[k] = deck[k];
 
-  if (gameId === 'ticket') {
-    panel.innerHTML = '<div class="loading">加载可视化地图编辑器...</div>';
-    import('./admin-ticket.js?v=5').then(({ renderTicketEditor }) => {
-      renderTicketEditor(panel, baseData, merged, {
-        onSave: (newData) => {
-          deck.CITIES = newData.CITIES; deck.ROUTES = newData.ROUTES; deck.TICKETS = newData.TICKETS;
-          saveVariantDraft(variant.id, { rules, labels, deck });
-        },
-        autoSave: true
-      });
-    });
-  } else {
-    panel.innerHTML = renderSplendorDeckEditor(baseData, merged, () => saveVariantDraft(variant.id, { rules, labels, deck }));
-    bindSplendorDeckEditor(gameId, deck, baseData, variant.id, rules, labels);
-  }
+  // 合并 variant.deck 覆盖到 baseData → 可编辑的完整数据
+  const merged = JSON.parse(JSON.stringify(baseData));
+  for (const k of Object.keys(deck)) merged[k] = JSON.parse(JSON.stringify(deck[k]));
+
+  // 复用 admin-ui.js 的可视化编辑器（带图片上传）
+  import('./admin-ui.js?v=37').then(({ renderVisualPanel, bindVisualEvents }) => {
+    // 把面板伪装成 viz panel（但要隐藏 viz-save/viz-reset，因为 variant 有自己的顶栏保存）
+    renderVisualPanel(gameId, merged, 'variant-panel-deck');
+    // 隐藏 viz-save/viz-reset 按钮（variant 走顶栏"💾 保存到云端"）
+    const saveBtn = document.getElementById('viz-save');
+    const resetBtn = document.getElementById('viz-reset');
+    if (saveBtn) { saveBtn.style.display = 'none'; }
+    if (resetBtn) { resetBtn.style.display = 'none'; }
+    const hint = document.querySelector('#variant-panel-deck .viz-hint');
+    if (hint) hint.textContent = '点击卡牌 / 贵族即可编辑，支持上传卡图 · 改完点顶栏「💾 保存到云端」';
+
+    // 事件绑定：autoSaveCallback 把 merged 写回 variant.deck 草稿
+    bindVisualEvents(gameId, merged, 'variant-panel-deck', () => {
+      // 计算 variant.deck = merged 与 base 差异的完整快照（简单起见存完整）
+      deck.CARDS = JSON.parse(JSON.stringify(merged.CARDS));
+      deck.NOBLES = JSON.parse(JSON.stringify(merged.NOBLES));
+      if (merged.GEM_COLORS) deck.GEM_COLORS = JSON.parse(JSON.stringify(merged.GEM_COLORS));
+      saveVariantDraft(variant.id, { rules, labels, deck });
+    }, { hideSaveReset: true });
+  });
 }
 
 function renderSplendorDeckEditor(base, merged, onChange) {
