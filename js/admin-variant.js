@@ -3,7 +3,7 @@
 //   游戏 tab → 版本选择页（基础版 + 魔改版列表 + 创建/fork）
 //     → 选中后进入对应编辑器
 //     → 保存时版本号 +1，联机强制同一版本
-import { VariantAPI, saveVariantDraft, loadVariantDraft, clearVariantDraft } from './admin.js?v=36';
+import { VariantAPI, saveVariantDraft, loadVariantDraft, clearVariantDraft, getAdminSavedAt, hasAdminData } from './admin.js?v=36';
 
 // ===== 游戏规则参数定义（每个游戏一份；粗粒度，支持 variant 覆盖）=====
 // 类型: number / string / boolean

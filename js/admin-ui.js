@@ -145,7 +145,7 @@ export async function renderAdminPage(gameId = 'splendor') {
   // 版本选择页：基础版 + 所有魔改版
   let VariantMod;
   try {
-    VariantMod = await import('./admin-variant.js?v=2');
+    VariantMod = await import('./admin-variant.js?v=3');
   } catch (e) {
     // 魔改编辑器模块加载失败 → fallback 直接进原编辑器
     console.warn('[admin] admin-variant.js 加载失败，使用基础版编辑器:', e.message);
