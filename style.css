@@ -1556,14 +1556,43 @@ body {
 .label-row .inp { flex:1; font-size:13px; padding:4px 8px; }
 
 /* 牌库编辑器 */
-.deck-notice { font-size:12px; color:#ffb74d; background:rgba(255,183,77,.1); padding:10px 14px; border-radius:8px; margin-bottom:14px; border:1px solid rgba(255,183,77,.2); border-left:3px solid #ffb74d; }
-.deck-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; margin-bottom:12px; border-radius:8px; overflow:hidden; border:1px solid var(--border); }
-.deck-table th, .deck-table td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.04); text-align:center; }
+.deck-notice {
+  font-size:12px; font-weight:500; color:#ffe0a0;
+  background:rgba(255,183,77,.15); padding:12px 16px; border-radius:8px;
+  margin-bottom:16px; border:1px solid rgba(255,183,77,.4); border-left:4px solid #ffb74d;
+  line-height:1.6;
+}
+.deck-table {
+  width:100%; border-collapse:separate; border-spacing:0; font-size:13px;
+  margin-bottom:14px; border-radius:10px; overflow:hidden;
+  border:1px solid rgba(255,255,255,.12);
+}
+.deck-table th, .deck-table td {
+  padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.08);
+  text-align:center; vertical-align:middle;
+}
 .deck-table tr:last-child td { border-bottom:none; }
-.deck-table th { background:rgba(99,102,241,.08); font-weight:600; color:#a78bfa; font-size:11px; letter-spacing:.3px; padding:8px; }
-.deck-table tr:hover td { background:rgba(255,255,255,.02); }
-.deck-table td input.inp { width:50px; text-align:center; padding:4px 6px; font-size:12px; border-radius:4px; }
-.deck-table td select.inp { padding:3px 4px; font-size:11px; border-radius:4px; }
+.deck-table th {
+  background:rgba(99,102,241,.18); font-weight:700;
+  color:#e0d9ff; font-size:12px; letter-spacing:.5px;
+  padding:12px 10px; border-bottom:1px solid rgba(99,102,241,.4);
+}
+.deck-table td { color:#e4e6eb; font-weight:500; }
+.deck-table tr:hover td { background:rgba(255,255,255,.04); }
+.deck-table td input.inp {
+  width:56px; text-align:center; padding:6px 8px; font-size:13px;
+  border-radius:6px; border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06); color:#f0f2f5; font-weight:600;
+  transition:border-color .15s, background .15s;
+}
+.deck-table td input.inp:focus {
+  outline:none; border-color:var(--accent); background:rgba(99,102,241,.12);
+}
+.deck-table td select.inp {
+  padding:5px 6px; font-size:12px; border-radius:6px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06); color:#f0f2f5; font-weight:500;
+}
 
 /* 信息面板 */
 .info-box { background:var(--bg-2); border:1px solid var(--border); border-radius:12px; padding:22px; }
