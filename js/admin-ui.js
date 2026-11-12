@@ -367,6 +367,7 @@ function vizNobleHTML(noble, index) {
   if (noble.image) {
     return `<div class="viz-card viz-noble viz-has-img" data-noble="${index}">
       <img class="viz-thumb" src="${noble.image}" alt="">
+      <span class="viz-vp viz-vp-badge">👑 ${noble.vp ?? 3}</span>
     </div>`;
   }
   const reqs = Object.entries(noble.req || {})
@@ -374,7 +375,7 @@ function vizNobleHTML(noble, index) {
     .map(([c, n]) => `<span class="viz-cost">${colorDot(c)}${n}</span>`)
     .join('');
   return `<div class="viz-card viz-noble" data-noble="${index}">
-    <div class="viz-card-top"><span class="viz-vp">👑 3分</span></div>
+    <div class="viz-card-top"><span class="viz-vp">👑 ${noble.vp ?? 3}分</span></div>
     <div class="viz-costs">${reqs}</div>
   </div>`;
 }
@@ -575,13 +576,17 @@ export function openNobleEditor(gameId, data, index, panelId = 'panel-viz', auto
     <div class="viz-backdrop">
       <div class="viz-modal">
         <h3>编辑贵族 <span class="viz-id">${noble.id}</span></h3>
-        <div class="viz-hint">贵族固定 3 分，只需设置所需卡牌数量</div>
+        <div class="viz-hint">贵族分值可自定义（基础版官方默认 3 分）</div>
         <div class="viz-cost-grid">
           ${VIZ_COLORS.map(c => `
             <div class="viz-field">
               <label>${colorDot(c)} ${VIZ_NAME[c]}</label>
               <input type="number" id="vn-req-${c}" min="0" max="5" value="${(noble.req && noble.req[c]) || 0}">
             </div>`).join('')}
+          <div class="viz-field viz-field-vp">
+            <label>🏆 分值 (vp)</label>
+            <input type="number" id="vn-vp" min="1" max="10" step="1" value="${noble.vp ?? 3}">
+          </div>
         </div>
         <div class="viz-modal-actions">
           <button class="btn primary" id="vn-ok">完成</button>
@@ -601,6 +606,7 @@ export function openNobleEditor(gameId, data, index, panelId = 'panel-viz', auto
         if (v > 0) req[c] = v;
       }
       noble.req = req;
+      noble.vp = Math.max(1, Number(document.getElementById('vn-vp').value) || 3);
       mount.innerHTML = '';
       renderVisualPanel(gameId, data, panelId);
       autoSaveCallback?.();
