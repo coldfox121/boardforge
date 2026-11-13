@@ -48,6 +48,8 @@ function bindVariantClickOnce(container, getState) {
     const act = e.target.dataset.act;
     const id = e.target.dataset.id;
 
+    if (e.target.id === 'variant-back-lobby') { location.hash = '#/lobby'; return; }
+
     if (e.target.id === 'variant-create-from-base') {
       const name = prompt('魔改版名字', '我的魔改版');
       if (!name) return;
@@ -196,6 +198,7 @@ export async function renderVariantChooser(container, gameId, onPick, baseData, 
     <div class="variant-toolbar">
       <h3>🗂 ${gameId === 'splendor' ? '璀璨宝石' : gameId === 'ticket' ? '铁路环游' : gameId} · 版本管理</h3>
       <div>
+        <button class="btn ghost" id="variant-back-lobby">← 返回大厅</button>
         ${backendOk ? `<button class="btn" id="variant-create-from-base">＋ 从基础版新建魔改版</button>
         ${variants.length ? `<button class="btn ghost" id="variant-show-fork">＋ 从现有魔改版派生</button>` : ''}` : ''}
       </div>
@@ -245,6 +248,7 @@ export async function renderVariantEditor(container, gameId, variant, baseData, 
       <div>
         <button class="btn" id="variant-save">💾 保存到云端（版本 +1）</button>
         <button class="btn ghost" id="variant-reset">重置为上次保存</button>
+        <button class="btn ghost" id="variant-back-lobby">← 返回大厅</button>
       </div>
     </div>
 
@@ -262,6 +266,10 @@ export async function renderVariantEditor(container, gameId, variant, baseData, 
   `;
 
   document.getElementById('variant-back').addEventListener('click', () => { clearVariantDraft(variant.id); goBack(); });
+  document.getElementById('variant-back-lobby').addEventListener('click', () => {
+    if (loadVariantDraft(variant.id) && !confirm('有未保存的草稿，确定离开？')) return;
+    location.hash = '#/lobby';
+  });
   document.getElementById('variant-reset').addEventListener('click', () => {
     if (confirm('丢弃所有草稿，恢复到上次保存的版本？')) {
       clearVariantDraft(variant.id);
