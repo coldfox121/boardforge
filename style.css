@@ -1176,6 +1176,9 @@ body {
 .ttr-route.free .ttr-seg { opacity:.85; }
 .ttr-route.mine .ttr-seg { filter:drop-shadow(0 0 5px rgba(255,255,255,.45)); }
 .ttr-route.foe .ttr-seg { opacity:.95; }
+/* 2-3 人局：平行双线的另一条已被占领 → 本条关闭，压暗 + 细虚线，不可点 */
+.ttr-route.closed .ttr-seg { opacity:.18 !important; stroke-dasharray:2 6 !important; }
+.ttr-route.closed .ttr-hit { cursor:not-allowed; }
 .ttr-route .ttr-rail { pointer-events:none; }
 
 .ttr-legend {
@@ -1188,6 +1191,7 @@ body {
 .ttr-legend i.free { background:rgba(190,205,220,.8); }
 .ttr-legend i.mine { background:#43b581; box-shadow:0 0 0 1px #fff inset; }
 .ttr-legend i.foe { background:#4a90d9; box-shadow:0 0 0 1px #fff inset; }
+.ttr-legend i.closed { background:repeating-linear-gradient(90deg, rgba(190,205,220,.75) 0 2px, transparent 2px 5px); }
 
 .ttr-city text {
   font-size:15px; fill:#eef5fc; pointer-events:none;

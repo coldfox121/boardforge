@@ -2,7 +2,7 @@
 // 目标：能完整打完一局，行为合理（优先完成目的地票、按需补牌、必要时抽票）
 
 import { ROUTES, TICKET_MAP, TRAIN_COLORS, ROUTE_SCORES } from './ticket-data.js?v=38';
-import { listValidActions, canConnect } from './ticket-engine.js?v=38';
+import { listValidActions, canConnect, isDoubleRouteClosed } from './ticket-engine.js?v=40';
 
 const COLOR_LIST = TRAIN_COLORS;
 
@@ -20,6 +20,8 @@ function shortestPlan(state, playerIndex, a, b) {
   ROUTES.forEach((r, rid) => {
     const owner = state.routeOwner[rid];
     if (owner !== null && owner !== playerIndex) return;
+    // 2-3 人局中被平行双线规则关闭的路线不可再使用，规划时直接排除
+    if (owner === null && isDoubleRouteClosed(state, rid)) return;
     const w = owner === playerIndex ? 0 : r.len + (r.ferries || 0) * 0.4;
     add(r.a, r.b, w, rid);
     add(r.b, r.a, w, rid);

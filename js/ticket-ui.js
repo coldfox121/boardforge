@@ -1,8 +1,8 @@
 // 铁路环游：美国版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=39';
-import { pickAction } from './ticket-ai.js?v=38';
+import { initGame, applyAction, validateAction, isTicketComplete, claimOptions, isDoubleRouteClosed } from './ticket-engine.js?v=40';
+import { pickAction } from './ticket-ai.js?v=39';
 import { OnlineGameBase } from './online-game.js?v=1';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
@@ -339,12 +339,14 @@ export class TicketGame extends OnlineGameBase {
         claimable[i] = validateAction(s, this.humanIndex, { type: 'CLAIM_ROUTE', routeId: i }) === null;
       }
     }
+    // 2-3 人局中被平行双线规则关闭的路线（另一条已被人占领）
+    const closed = ROUTES.map((r, i) => s.routeOwner[i] === null && isDoubleRouteClosed(s, i));
 
     this.root.innerHTML = `
       <div class="ttr-shell">
         <div class="ttr-players">${this.playersHTML(s)}</div>
         <div class="ttr-body">
-          <div class="ttr-board-wrap">${this.boardHTML(s, claimable)}</div>
+          <div class="ttr-board-wrap">${this.boardHTML(s, claimable, closed)}</div>
           <aside class="ttr-panel">${this.panelHTML(s, myTurn, idle, my)}</aside>
         </div>
         <div class="ttr-me">${this.meHTML(s, my)}</div>
@@ -364,7 +366,7 @@ export class TicketGame extends OnlineGameBase {
     }).join('');
   }
 
-  boardHTML(s, claimable) {
+  boardHTML(s, claimable, closed = []) {
     const routes = ROUTES.map((r, i) => {
       const g = routeGeom(i);
       const owner = s.routeOwner[i];
@@ -416,10 +418,15 @@ export class TicketGame extends OnlineGameBase {
       const cls = [
         'ttr-route',
         owner !== null ? (owner === this.humanIndex ? 'mine' : 'foe') : '',
-        claimable[i] ? 'claimable' : ''
+        claimable[i] ? 'claimable' : '',
+        closed[i] ? 'closed' : ''
       ].filter(Boolean).join(' ');
 
-      return `<g class="${cls}" data-rid="${i}">
+      const tip = closed[i]
+        ? `<title>2-3 人局：该平行双线的另一条已被占领，本条关闭</title>`
+        : '';
+
+      return `<g class="${cls}" data-rid="${i}">${tip}
         ${casing}${segs.join('')}
         <line class="ttr-hit" data-act="claim" data-rid="${i}" x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}"/>
       </g>`;
@@ -449,6 +456,7 @@ export class TicketGame extends OnlineGameBase {
       <span><i class="free"></i>未占领</span>
       <span><i class="mine"></i>我的</span>
       <span><i class="foe"></i>对手</span>
+      ${s.players.length <= 3 ? '<span><i class="closed"></i>双线已关闭</span>' : ''}
     </div>`;
   }
 

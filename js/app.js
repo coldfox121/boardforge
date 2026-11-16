@@ -290,7 +290,7 @@ const GAME_RULES = {
       },
       {
         title: '🚃 占领路线',
-        body: '打出与路线格数和颜色相同的车票。灰色路线可用任意单一颜色。2-3 人局中平行双线只能使用其中一条。'
+        body: '打出与路线格数和颜色相同的车票。灰色路线可用任意单一颜色。平行双线：2-3 人局只能用其中一条（另一条随即关闭）；4-5 人局两条可分别被不同玩家占领，但同一玩家不能两条都占。'
       },
       {
         title: '🏁 终局',
@@ -376,8 +376,8 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ TicketGame }, engine] = await Promise.all([
-        import('./ticket-ui.js?v=44'),
-        import('./ticket-engine.js?v=39')
+        import('./ticket-ui.js?v=45'),
+        import('./ticket-engine.js?v=40')
       ]);
       return {
         initState: (names) => engine.initGame(names),

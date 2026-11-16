@@ -61,7 +61,19 @@ const DOUBLE_GROUPS = (() => {
 
 function doubleGroupOf(routeIdx) {
   const r = ROUTES[routeIdx];
-  return DOUBLE_GROUPS.get([r.a, r.b].sort().join('|')) || null;
+  const g = DOUBLE_GROUPS.get([r.a, r.b].sort().join('|')) || null;
+  // 只有成对（≥2 条）才算平行双线，避免后台数据只标了一半时误判
+  return g && g.length >= 2 ? g : null;
+}
+
+// 官方规则（美国版规则书）：
+// - 2-3 人局：一对平行双线中只能使用一条，任一条被占领后另一条对所有人关闭
+// - 4-5 人局：两条都可被占领，但同一玩家不能同时占领两条
+export function isDoubleRouteClosed(state, routeIdx) {
+  const group = doubleGroupOf(routeIdx);
+  if (!group) return false;
+  if (state.players.length >= 4) return false;
+  return group.some(i => i !== routeIdx && state.routeOwner[i] !== null);
 }
 
 // ===== 发牌 / 牌堆 =====
@@ -370,14 +382,17 @@ export function validateAction(state, playerIndex, action) {
       if (typeof routeIdx !== 'number' || !ROUTES[routeIdx]) return '路线无效';
       if (state.routeOwner[routeIdx] !== null) return '该路线已被占领';
 
+      const r = ROUTES[routeIdx];
       const group = doubleGroupOf(routeIdx);
       if (group) {
-        // 同一玩家不能同时占领同一对城市的两条平行线；
-        // 不同玩家可以各占一条（不受人数限制）
+        // 任何人数下，同一玩家都不能同时占领同一对城市的两条平行线
         if (group.some(i => state.routeOwner[i] === playerIndex)) return '不能同时占领同一对城市的两条线路';
+        // 2-3 人局：平行双线只能二选一，另一条对所有人关闭
+        if (isDoubleRouteClosed(state, routeIdx)) {
+          return `2-3 人局中平行双线只能使用一条（${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh} 的另一条已被占领）`;
+        }
       }
 
-      const r = ROUTES[routeIdx];
       if (p.trains < r.len) return '车厢不足';
       const pay = resolveClaimPayment(p.hand, routeIdx, action);
       if (!pay) {
@@ -681,6 +696,8 @@ export function distanceForPlayer(state, playerIndex, from, to, opts = {}) {
   };
   ROUTES.forEach((r, i) => {
     const owner = state.routeOwner[i];
+    // 2-3 人局中被平行双线规则关闭的路线永远无法被占领，不计入路径
+    if (owner === null && isDoubleRouteClosed(state, i)) return;
     let w;
     if (owner === playerIndex) w = 0;
     else if (owner === null) w = r.len;
