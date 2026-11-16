@@ -188,7 +188,7 @@ export function initGame(playerNames, opts = {}) {
   }
   s.ticketDeck = regularDeck;
 
-  s.log.push(`游戏开始：${n} 人局`);
+  s.log.push(`游戏开始：${n} 人局（${s.players.map(p => p.name).join('、')}），先手 ${s.players[0].name}`);
   return s;
 }
 
@@ -471,7 +471,13 @@ export function applyAction(state, playerIndex, action) {
       payCardsFromHand(p, pay);
       s.discard.push(...paymentToCards(pay));
       claimRoute(s, playerIndex, routeIdx, r);
-      s.log.push(`${p.name} 占领 ${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh}`);
+      // 路线长度/颜色/得分都是桌面公开信息，记录里写明，方便回看谁占了多少分
+      const colorZh = r.color ? (COLOR_NAMES[r.color] || r.color) : '灰色·任意色';
+      const dbl = (r.parallel !== null && r.parallel !== undefined) ? '·双线' : '';
+      const pts = ROUTE_SCORES[r.len] || 0;
+      s.log.push(
+        `${p.name} 占领 ${CITY_MAP[r.a].zh}–${CITY_MAP[r.b].zh}（${r.len}格·${colorZh}${dbl}，+${pts}分）`
+      );
       finishTurn(s);
       break;
     }
@@ -627,6 +633,18 @@ function scoreGame(s) {
     longestPath: p.longestPath,
     trainsLeft: p.trains
   }));
+  // 每人结算明细入记录：哪部分得分、任务票成/败几张，一眼看懂输赢原因
+  for (const p of s.players) {
+    const b = p.breakdown || {};
+    const ts = Array.isArray(b.tickets) ? b.tickets : [];
+    const ok = ts.filter(t => t.ok).length;
+    const fail = ts.length - ok;
+    const tScore = b.ticketScore ?? 0;
+    const lb = b.longestBonus ? ` + 最长连续 +${b.longestBonus}` : '';
+    s.log.push(
+      `🏁 ${p.name}：路线 ${b.routeScore ?? 0} + 任务 ${tScore >= 0 ? '+' : ''}${tScore}（${ok} 成 ${fail} 败）${lb} = ${p.score} 分`
+    );
+  }
   s.log.push(`游戏结束，最高分 ${maxScore}：${s.players.filter(p => s.winners.includes(p.id)).map(p => p.name).join('、')}`);
 }
 

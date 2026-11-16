@@ -5,6 +5,12 @@ import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
 import { OnlineGameBase } from './online-game.js?v=2';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
+// HTML 转义：玩家名等外部字符串进 innerHTML 前统一走这里（与 ticket-ui 一致）
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 export class SplendorGame extends OnlineGameBase {
   constructor(container, options = {}) {
@@ -130,7 +136,7 @@ export class SplendorGame extends OnlineGameBase {
     const offline = !p.isAI && this.memberOnline && this.memberOnline[seat] === false;
     return `
       <div class="ps-name">
-        <span>${p.isAI ? '🤖 ' : ''}${p.name}${isCurrent ? ' ← 回合' : ''}${offline ? '<span class="ps-offline">离线</span>' : ''}</span>
+        <span>${p.isAI ? '🤖 ' : ''}${esc(p.name)}${isCurrent ? ' ← 回合' : ''}${offline ? '<span class="ps-offline">离线</span>' : ''}</span>
         <span class="ps-score">${p.score}</span>
       </div>
       <div class="ps-resource-row">${gemDots}</div>
@@ -196,7 +202,7 @@ export class SplendorGame extends OnlineGameBase {
 
     return `
       <div class="ps-name" style="justify-content:space-between">
-        <span>👤 我 · ${p.name}${isMyTurn ? ' ← 你的回合' : ''}</span>
+        <span>👤 我 · ${esc(p.name)}${isMyTurn ? ' ← 你的回合' : ''}</span>
         <span class="ps-score" style="color:var(--gold)">${p.score} pts</span>
       </div>
       <div style="font-size:12px;color:${isDiscardMode ? '#ff9966' : 'var(--text-dim)'};margin:4px 0">
@@ -913,7 +919,7 @@ export class SplendorGame extends OnlineGameBase {
     const items = list.map(l =>
       `<div class="log-item${l.seat === this.humanIndex ? ' is-me' : ''}">` +
       `<span class="log-turn">第${l.turn}回合</span> ` +
-      `<span class="log-who">${l.name}</span> ${l.desc}` +
+      `<span class="log-who">${esc(l.name)}</span> ${l.desc}` +
       `</div>`
     ).join('');
     el.innerHTML = `<h4>📜 行动记录</h4>${items}`;
@@ -936,7 +942,7 @@ export class SplendorGame extends OnlineGameBase {
       const row = document.createElement('div');
       row.className = `score-row ${this.state.winners.includes(p.id) ? 'winner' : ''}`;
       row.innerHTML = `
-        <span>${i === 0 && this.state.winners.includes(p.id) ? '🏆 ' : ''}${p.name}${p.isAI ? ' 🤖' : ''}</span>
+        <span>${i === 0 && this.state.winners.includes(p.id) ? '🏆 ' : ''}${esc(p.name)}${p.isAI ? ' 🤖' : ''}</span>
         <span>${p.score} pts · ${p.ownedCards.length} 卡 · ${p.nobles.length} 👑 贵族</span>
       `;
       scores.appendChild(row);

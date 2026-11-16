@@ -346,7 +346,7 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ SplendorGame }, engine] = await Promise.all([
-        import('./splendor-ui.js?v=40'),
+        import('./splendor-ui.js?v=41'),
         import('./splendor-engine.js?v=39')
       ]);
       return {
@@ -375,8 +375,8 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ TicketGame }, engine] = await Promise.all([
-        import('./ticket-ui.js?v=46'),
-        import('./ticket-engine.js?v=40')
+        import('./ticket-ui.js?v=47'),
+        import('./ticket-engine.js?v=41')
       ]);
       return {
         initState: (names) => engine.initGame(names),
