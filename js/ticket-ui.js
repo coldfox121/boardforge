@@ -3,7 +3,7 @@
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
 import { initGame, applyAction, validateAction, isTicketComplete, claimOptions, isDoubleRouteClosed } from './ticket-engine.js?v=40';
 import { pickAction } from './ticket-ai.js?v=39';
-import { OnlineGameBase } from './online-game.js?v=1';
+import { OnlineGameBase } from './online-game.js?v=2';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   ROUTE_SCORES
@@ -81,6 +81,7 @@ export class TicketGame extends OnlineGameBase {
     this.online = options.online || null;
     this.initialState = options.initialState || null;
     this.memberOnline = null;   // 联机模式：座位 → 是否在线
+    this.onRematch = options.onRematch || null;  // 联机：房主开启新一局的回调
     this.focusTicket = null;   // 高亮某张票的起终点城市
     this.claimDraft = null;    // 待确认占领的路线 index
     this.claimPay = null;      // 玩家选中的支付组合 { color, locos }
@@ -136,7 +137,7 @@ export class TicketGame extends OnlineGameBase {
 
     // 选票期间，只允许处理提示面板内的操作（地图仍可见）
     if (s.phase === 'setup' || s.turnPhase === 'tickets') {
-      const allowed = ['toggle-sel', 'focus-ticket', 'confirm-initial', 'confirm-drawn', 'restart', 'back-lobby'];
+      const allowed = ['toggle-sel', 'focus-ticket', 'confirm-initial', 'confirm-drawn', 'restart', 'back-lobby', 'rematch'];
       if (!allowed.includes(act)) return;
     }
 
@@ -238,11 +239,27 @@ export class TicketGame extends OnlineGameBase {
 
       case 'restart':
         if (this.online) {
-          this.msg = '联机对局请返回大厅后重新创建房间';
+          // 联机：房主走一键开新局，其他玩家等房主
+          if (this.session && this.session.isHost && this.onRematch) { this.onRematch(); break; }
+          this.msg = '联机对局请等房主开启新一局';
           this.render();
           break;
         }
         this.start();
+        break;
+
+      case 'rematch':
+        if (!this.online) break;
+        if (!(this.session && this.session.isHost)) {
+          this.msg = '只有房主可以开启新一局';
+          this.render();
+          break;
+        }
+        if (this._rematchPending) break;
+        this._rematchPending = true;
+        Promise.resolve(this.onRematch && this.onRematch()).finally(() => {
+          this._rematchPending = false;
+        });
         break;
 
       case 'back-lobby':
@@ -693,7 +710,9 @@ export class TicketGame extends OnlineGameBase {
         <div class="ttr-end-log-list">${logRows || '<p class="ttr-dim">无记录</p>'}</div>
       </details>
       ${this.online
-        ? '<button class="ttr-btn primary" data-act="back-lobby">🏠 返回大厅</button>'
+        ? (this.session && this.session.isHost
+          ? '<button class="ttr-btn primary" data-act="rematch">🔄 再来一局</button>'
+          : '<button class="ttr-btn primary" data-act="rematch" disabled>⏳ 等房主再来一局</button>')
         : '<button class="ttr-btn primary" data-act="restart">再来一局</button>'}
     </div></div>`;
   }

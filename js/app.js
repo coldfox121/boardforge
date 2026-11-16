@@ -346,19 +346,20 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ SplendorGame }, engine] = await Promise.all([
-        import('./splendor-ui.js?v=38'),
+        import('./splendor-ui.js?v=39'),
         import('./splendor-engine.js?v=38')
       ]);
       return {
         initState: (names) => engine.initGame(names),
-        create: ({ data, isHost, push }) => {
+        create: ({ data, isHost, push, onRematch }) => {
           document.getElementById('ticket-game').classList.add('hidden');
           document.getElementById('splendor-end').classList.add('hidden');
           document.getElementById('splendor-game').classList.remove('hidden');
           const game = new SplendorGame(null, {
             humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
             initialState: data.state,
-            online: { isHost, version: data.version, push }
+            online: { isHost, version: data.version, push },
+            onRematch
           });
           game.start();
           return game;
@@ -374,12 +375,12 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ TicketGame }, engine] = await Promise.all([
-        import('./ticket-ui.js?v=45'),
+        import('./ticket-ui.js?v=46'),
         import('./ticket-engine.js?v=40')
       ]);
       return {
         initState: (names) => engine.initGame(names),
-        create: ({ data, isHost, push }) => {
+        create: ({ data, isHost, push, onRematch }) => {
           const root = document.getElementById('ticket-game');
           const fresh = root.cloneNode(false);
           fresh.innerHTML = '';
@@ -388,7 +389,8 @@ const ONLINE_GAMES = {
           const game = new TicketGame(fresh, {
             humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
             initialState: data.state,
-            online: { isHost, version: data.version, push }
+            online: { isHost, version: data.version, push },
+            onRematch
           });
           game.start();
           return game;
@@ -797,7 +799,13 @@ async function syncRoom(code) {
   state.roomInfo = data;
   renderRoomWaiting(data);
   // 对局中：成员在线状态 → 游戏层掉线标记；状态版本 → 拉取对局
-  if (state.onlineGame) state.onlineGame.syncMembers(data.members);
+  if (state.onlineGame) {
+    // 开局/重开时服务器会压缩座位（有人离开会留空洞），座位变了要跟着更新本地视角
+    if (typeof data.me?.seat === 'number' && state.onlineGame.humanIndex !== data.me.seat) {
+      state.onlineGame.humanIndex = data.me.seat;
+    }
+    state.onlineGame.syncMembers(data.members);
+  }
   if (data.room.status === 'playing' && data.state) {
     if (state.onlineGame) state.onlineGame.syncState(data.state, data.version);
     else launchOnlineGame(data, !!data.me.is_owner);
@@ -865,7 +873,7 @@ async function startRoomGame() {
     // initState 放进 try：任何开局异常都要弹提示，不能无声失败
     const st = adapter.initState(names);
     st.players.forEach((p, i) => { p.isAI = i >= members.length; });
-    await api('/api/room?code=' + state.roomCode, {
+    const res = await api('/api/room?code=' + state.roomCode, {
       method: 'POST',
       body: JSON.stringify({
         action: 'start',
@@ -873,10 +881,56 @@ async function startRoomGame() {
         state: st
       })
     });
-    await launchOnlineGame({ ...data, state: st, version: 1 }, true);
+    // 服务器开局时会压缩座位，按成员顺序重新定位自己的座位
+    const mySeat = Math.max(0, members.findIndex(m => m.seat === data.me.seat));
+    await launchOnlineGame({ ...data, me: { ...data.me, seat: mySeat }, state: st, version: res.version }, true);
   } catch (e) {
     btn.disabled = false;
     alert(e.message || '开始游戏失败');
+  }
+}
+
+// 再来一局：房主一键开新局，沿用当前房间成员与上一局的 AI 座位。
+// 服务器在同一个请求里写入新对局状态并把版本号 +1，其他玩家下一次轮询自动进入新局。
+async function restartRoomGame() {
+  const data = state.roomInfo;
+  const oldGame = state.onlineGame;
+  if (!data || !data.me || !data.me.is_owner) {
+    alert('只有房主可以开启新一局');
+    return;
+  }
+  if (state._rematching) return;
+  state._rematching = true;
+  try {
+    const adapter = await getOnlineAdapter(data.room.game);
+    if (!adapter) { alert('该游戏尚未接入联机'); return; }
+
+    // 人类座位按当前房间成员顺序；AI 座位沿用上一局（离开的人自动让位于 AI 数量上限）
+    const members = (data.members || []).slice().sort((a, b) => a.seat - b.seat);
+    const prevPlayers = (oldGame && oldGame.state && oldGame.state.players) || [];
+    const aiNames = prevPlayers.filter(p => p.isAI).map(p => p.name);
+    const maxAI = Math.max(0, (data.room.max_players || 4) - members.length);
+    const names = members.map(m => m.username).concat(aiNames.slice(0, maxAI));
+    while (names.length < 2) names.push('AI-' + names.length);
+
+    // initState 放进 try：开局异常要有提示，不能无声失败
+    const st = adapter.initState(names);
+    st.players.forEach((p, i) => { p.isAI = i >= members.length; });
+
+    const res = await api('/api/room?code=' + state.roomCode, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'rematch', code: state.roomCode, state: st })
+    });
+
+    // 销毁旧实例：停掉它的 AI 定时器与待推送，避免上一局状态覆盖新局
+    if (oldGame && oldGame.session) oldGame.session.dispose();
+    state.onlineGame = null;
+    const mySeat = Math.max(0, members.findIndex(m => m.seat === data.me.seat));
+    await launchOnlineGame({ ...data, me: { ...data.me, seat: mySeat }, state: st, version: res.version }, true);
+  } catch (e) {
+    alert(e.message || '再来一局失败');
+  } finally {
+    state._rematching = false;
   }
 }
 
@@ -896,7 +950,8 @@ async function launchOnlineGame(data, isHost) {
       push: (st, baseVersion) => api('/api/room?code=' + state.roomCode, {
         method: 'POST',
         body: JSON.stringify({ action: 'push', code: state.roomCode, baseVersion, state: st })
-      }).then(r => r.version)
+      }).then(r => r.version),
+      onRematch: restartRoomGame
     });
     if (data.members) state.onlineGame.syncMembers(data.members);
   } finally {

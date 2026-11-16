@@ -2,7 +2,7 @@
 import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=38';
 import { pickAction } from './splendor-ai.js?v=36';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
-import { OnlineGameBase } from './online-game.js?v=1';
+import { OnlineGameBase } from './online-game.js?v=2';
 
 const GEM_NAMES_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑' };
 
@@ -17,6 +17,7 @@ export class SplendorGame extends OnlineGameBase {
     this.online = options.online || null;
     this.initialState = options.initialState || null;
     this.memberOnline = null;   // 联机：座位 → 是否在线
+    this.onRematch = options.onRematch || null;  // 联机：房主开启新一局的回调
     // === 自由操作状态 ===
     this.ops = {
       gems: [],              // 已点的宝石颜色数组（可重复）
@@ -48,7 +49,9 @@ export class SplendorGame extends OnlineGameBase {
 
   restart() {
     if (this.session) {
-      this.lastError = '联机对局请返回大厅后重新创建房间';
+      // 联机：房主走一键开新局，其他玩家等房主
+      if (this.session.isHost && this.onRematch) { this.onRematch(); return; }
+      this.lastError = '联机对局请等房主开启新一局';
       this._renderAll();
       return;
     }
@@ -64,6 +67,11 @@ export class SplendorGame extends OnlineGameBase {
   // ===== 渲染入口 =====
   _renderAll() {
     if (this.state.gameOver) { this._renderEnd(); return; }
+    // 联机再来一局：新对局状态到达时把棋盘恢复显示，否则会停在结束页
+    const gameEl = document.getElementById('splendor-game');
+    if (gameEl) gameEl.classList.remove('hidden');
+    const endEl = document.getElementById('splendor-end');
+    if (endEl) endEl.classList.add('hidden');
     this._renderPlayersBar();
     this._renderNobles();
     this._renderTiers();
@@ -975,15 +983,28 @@ export class SplendorGame extends OnlineGameBase {
       scores.appendChild(row);
     });
 
-    // 联机对局没有本地重开，按钮改为返回大厅；单机才显示再来一局
+    // 结束页按钮：联机房主可一键开新局，其他玩家等房主；单机沿用本地重开
     const btn = document.getElementById('btn-new-game');
     if (btn) {
-      if (this.session) {
-        btn.textContent = '🏠 返回大厅';
-        btn.onclick = () => { location.hash = '#/lobby'; };
-      } else {
+      const isHost = !!(this.session && this.session.isHost);
+      btn.disabled = false;
+      if (!this.session) {
         btn.textContent = '🔄 再来一局';
         btn.onclick = () => this.restart();
+      } else if (!isHost) {
+        btn.textContent = '⏳ 等房主再来一局';
+        btn.disabled = true;
+        btn.onclick = null;
+      } else {
+        btn.textContent = '🔄 再来一局';
+        btn.onclick = () => {
+          btn.disabled = true;
+          btn.textContent = '⏳ 正在开启新一局…';
+          Promise.resolve(this.onRematch && this.onRematch()).catch(() => {
+            btn.disabled = false;
+            btn.textContent = '🔄 再来一局';
+          });
+        };
       }
     }
   }

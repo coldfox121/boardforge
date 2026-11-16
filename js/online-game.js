@@ -39,12 +39,14 @@ export class OnlineSession {
 
   // 本地状态变化：跑 AI（仅房主/单机）+ 推送
   localChanged() {
+    if (this.disposed) return;
     this.scheduleAI();
     this.queuePush();
   }
 
   // 串联推送：同一时间只有一个请求，期间的多次变更合并为最后一次
   queuePush() {
+    if (this.disposed) return;
     this._pending = this.game.state;
     if (this._pushing) return;
     this._flushPush();
@@ -52,22 +54,32 @@ export class OnlineSession {
 
   async _flushPush() {
     this._pushing = true;
-    while (this._pending) {
+    while (this._pending && !this.disposed) {
       const st = this._pending;
       this._pending = null;
       try {
         const v = await this.push(st, this.version);
         if (typeof v === 'number') this.version = v;
       } catch (e) {
-        if (this.game.onSyncConflict) this.game.onSyncConflict();
+        if (this.game && this.game.onSyncConflict) this.game.onSyncConflict();
         break;
       }
     }
     this._pushing = false;
   }
 
+  // 「再来一局」时销毁旧会话：停掉 AI 定时器、丢弃待推送，
+  // 防止旧对局的定时任务把上一局状态推回服务器覆盖新局
+  dispose() {
+    this.disposed = true;
+    clearTimeout(this._aiTimer);
+    this._aiTimer = null;
+    this._pending = null;
+  }
+
   // 轮询拉到更新的云端状态
   syncState(state, version) {
+    if (this.disposed) return;
     if (!state || typeof version !== 'number') return;
     if (this._pushing) return;      // 本地还有未落库的动作，先不覆盖
     if (version <= this.version) return;
@@ -90,13 +102,14 @@ export class OnlineSession {
   // 只有房主端代跑 AI 座位；人类座位永远等本人操作
   scheduleAI() {
     clearTimeout(this._aiTimer);
-    if (!this.isHost) return;
+    if (this.disposed || !this.isHost) return;
     const g = this.game;
     const s = g.state;
     if (!s || s.phase === 'ended') return;
     if (s.currentPlayer === g.humanIndex) return;
     if (!(s.players[s.currentPlayer] && s.players[s.currentPlayer].isAI)) return;
     this._aiTimer = setTimeout(() => {
+      if (this.disposed) return;
       if (g.canRunAI && !g.canRunAI()) return;
       const st = g.state;
       if (!st || st.phase === 'ended') return;

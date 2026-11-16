@@ -1,6 +1,6 @@
 // 房间联机：成员（邀请进房）+ 对局状态同步（轮询）
 // GET  /api/room?code=XXXXXX  → 同步房间信息、成员、对局状态
-// POST /api/room              → { action: 'join' | 'leave' | 'start' | 'push' | 'reset', code, ... }
+// POST /api/room              → { action: 'join' | 'leave' | 'start' | 'rematch' | 'push' | 'reset', code, ... }
 import { json, getAuthUser } from '../_shared.js';
 import { projectState, mergeState } from './_project.js';
 
@@ -53,6 +53,22 @@ async function cleanMembers(env, roomId, now) {
   await env.DB.prepare('UPDATE rooms SET current_players = ?, updated_at = ? WHERE id = ?')
     .bind(c, now, roomId).run();
   return c;
+}
+
+// 座位压缩：state.players 的下标必须与成员 seat 一一对应。
+// 有人离开后会留下空洞（如 {0,2}），不重排会让玩家操作到别人的座位。
+// 只在开局 / 再来一局时调用，保持原有先后顺序。
+async function reseatMembers(env, roomId) {
+  const rows = await env.DB.prepare(
+    'SELECT user_id FROM room_members WHERE room_id = ? ORDER BY seat ASC'
+  ).bind(roomId).all();
+  const list = rows.results || [];
+  if (!list.length) return list.length;
+  await env.DB.batch(list.map((m, i) =>
+    env.DB.prepare('UPDATE room_members SET seat = ? WHERE room_id = ? AND user_id = ?')
+      .bind(i, roomId, m.user_id)
+  ));
+  return list.length;
 }
 
 export async function onRequestGet({ request, env }) {
@@ -160,13 +176,38 @@ export async function onRequestPost({ request, env }) {
       if (state.players.length < 2 || state.players.length > room.max_players) {
         return json({ error: '人数不符合该房间限制' }, 400);
       }
+      await reseatMembers(env, room.id);
+      // 版本号只增不减：客户端靠 version 单调递增判断是否应用新状态
+      const prev = await env.DB.prepare('SELECT version FROM room_states WHERE room_id = ?').bind(room.id).first();
+      const version = (prev?.version || 0) + 1;
       await env.DB.prepare(
-        'INSERT INTO room_states (room_id, version, state, updated_at) VALUES (?, 1, ?, ?) ' +
-        'ON CONFLICT(room_id) DO UPDATE SET version = 1, state = excluded.state, updated_at = excluded.updated_at'
-      ).bind(room.id, JSON.stringify(state), now).run();
+        'INSERT INTO room_states (room_id, version, state, updated_at) VALUES (?, ?, ?, ?) ' +
+        'ON CONFLICT(room_id) DO UPDATE SET version = excluded.version, state = excluded.state, updated_at = excluded.updated_at'
+      ).bind(room.id, version, JSON.stringify(state), now).run();
       await env.DB.prepare('UPDATE rooms SET status = ?, updated_at = ? WHERE id = ?')
         .bind('playing', now, room.id).run();
-      return json({ ok: true, version: 1 });
+      return json({ ok: true, version });
+    }
+
+    // 再来一局：房主一键开新局。原子写入新对局状态并把版本递增，
+    // 其他玩家下一次轮询就能拉到新状态（version 必须比他们手上的旧版本大）
+    case 'rematch': {
+      if (!isOwner) return json({ error: '只有房主可以开启新一局' }, 403);
+      const state = body.state;
+      if (!state || !Array.isArray(state.players)) return json({ error: '缺少初始对局数据' }, 400);
+      if (state.players.length < 2 || state.players.length > room.max_players) {
+        return json({ error: '人数不符合该房间限制' }, 400);
+      }
+      await reseatMembers(env, room.id);
+      const prev = await env.DB.prepare('SELECT version FROM room_states WHERE room_id = ?').bind(room.id).first();
+      const version = (prev?.version || 0) + 1;
+      await env.DB.prepare(
+        'INSERT INTO room_states (room_id, version, state, updated_at) VALUES (?, ?, ?, ?) ' +
+        'ON CONFLICT(room_id) DO UPDATE SET version = excluded.version, state = excluded.state, updated_at = excluded.updated_at'
+      ).bind(room.id, version, JSON.stringify(state), now).run();
+      await env.DB.prepare('UPDATE rooms SET status = ?, updated_at = ? WHERE id = ?')
+        .bind('playing', now, room.id).run();
+      return json({ ok: true, version });
     }
 
     case 'push': {
