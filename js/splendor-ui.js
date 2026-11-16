@@ -1,5 +1,5 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=39';
+import { initGame, applyAction, validateAction, listValidActions, discardGems, chooseNoble } from './splendor-engine.js?v=40';
 import { pickAction } from './splendor-ai.js?v=36';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
 import { OnlineGameBase } from './online-game.js?v=2';
@@ -355,22 +355,54 @@ export class SplendorGame extends OnlineGameBase {
   _renderNobles() {
     const row = document.getElementById('splendor-nobles');
     row.innerHTML = '';
-    this.state.nobles.forEach(n => {
+    // 官方规则：同时达成多张贵族时由玩家点击自选（本回合限拿 1 张）
+    const pn = this.state.pendingNoble;
+    const canChoose = !!(pn && pn.playerIndex === this.humanIndex && this.state.currentPlayer === this.humanIndex);
+    this.state.nobles.forEach((n, idx) => {
       const div = document.createElement('div');
-      div.className = n.image ? 'noble-card noble-has-art' : 'noble-card';
+      const selectable = canChoose && pn.candidates.includes(idx);
+      div.className = (n.image ? 'noble-card noble-has-art' : 'noble-card') + (selectable ? ' noble-selectable' : '');
       const req = n.req || n;
       const reqs = [];
       for (const c of GEM_COLORS) if (req[c]) reqs.push({ color: c, count: req[c] });
       div.innerHTML = n.image
         ? `<img class="noble-art" src="${n.image}" alt="">`
         : `
-        <div class="noble-vp">👑 +3</div>
+        <div class="noble-vp">👑 +${n.vp ?? 3}</div>
         <div class="noble-req">
           ${reqs.map(r => `<span class="req-chip req-${r.color}">${r.count} ${GEM_NAMES_SHORT[r.color]}</span>`).join(' ')}
         </div>
       `;
+      if (selectable) {
+        div.title = '点击获得该贵族（本回合限拿 1 张）';
+        div.addEventListener('click', () => this._chooseNoble(idx));
+      }
       row.appendChild(div);
     });
+  }
+
+  // 选择要获得的贵族卡（人类玩家），选完由引擎推进回合
+  _chooseNoble(idx) {
+    const pn = this.state.pendingNoble;
+    if (!pn || pn.playerIndex !== this.humanIndex || this.state.currentPlayer !== this.humanIndex) return;
+    try {
+      this.state = chooseNoble(this.state, this.humanIndex, idx);
+    } catch (e) {
+      this.lastError = e.message;
+      this._renderAll();
+      return;
+    }
+    const nobleToast = this.state._lastNoblesGained;
+    if (nobleToast && nobleToast.playerIndex === this.humanIndex && nobleToast.nobles.length > 0) {
+      const first = nobleToast.nobles[0];
+      const req = first.req || first;
+      const reqs = GEM_COLORS.filter(c => req[c]).map(c => `${req[c]}${GEM_NAMES_SHORT[c]}`).join('+');
+      this.lastError = `👑 获得贵族！满足条件 ${reqs}，+${first.vp ?? 3} 分`;
+    }
+    delete this.state._lastNoblesGained;
+    this._renderAll();
+    this._checkGameOver();
+    this._afterChange();
   }
 
   // ===== 三级卡 =====
@@ -433,6 +465,16 @@ export class SplendorGame extends OnlineGameBase {
 
     // 弃宝石模式：不渲染操作按钮（弃宝石操作在 _renderMyHTML 的宝石 badge 上）
     if (this.state.pendingDiscard) return;
+
+    // 贵族待选模式：显示选择提示，不渲染常规操作按钮（选择在贵族牌上点击完成）
+    if (this.state.pendingNoble) {
+      const row = document.createElement('div');
+      row.className = 'status-row';
+      row.style.cssText = 'padding:8px 10px;border-radius:8px;margin-top:8px;font-size:12px;background:rgba(255,213,79,0.15);border:1px solid rgba(255,213,79,0.4);color:var(--gold);text-align:center';
+      row.textContent = `👑 你同时达成了 ${this.state.pendingNoble.candidates.length} 张贵族卡的条件 · 本回合限拿 1 张 · 点击上方贵族牌选择要获得的`;
+      bottom.appendChild(row);
+      return;
+    }
 
     const p = this.state.players[this.humanIndex];
 
@@ -726,6 +768,16 @@ export class SplendorGame extends OnlineGameBase {
     // 清掉一次性标记，避免下回合重复提示
     delete this.state._lastNoblesGained;
 
+    // 官方规则：一回合限拿 1 张贵族。同时达成多张时引擎挂起 pendingNoble，等玩家点击场上贵族自选
+    if (this.state.pendingNoble) {
+      const cnt = this.state.pendingNoble.candidates.length;
+      this.lastError = `👑 你同时达成了 ${cnt} 张贵族卡的条件！本回合限拿 1 张，请点击上方贵族牌选择要获得的`;
+      this._clearOps();
+      this._renderAll();
+      this._afterChange();
+      return;
+    }
+
     // 人类玩家触发终局（达到 15 分）→ toast 提示
     if (this.state._justTriggeredEnd) {
       const p = this.state.players[this.humanIndex];
@@ -776,6 +828,23 @@ export class SplendorGame extends OnlineGameBase {
     if (this.state.gameOver) return;
     const p = this.state.players[this.state.currentPlayer];
     if (!p.isAI) return;
+
+    // AI 处于贵族待选状态 → 选 VP 最高的一张（平分取先出现的）
+    if (this.state.pendingNoble) {
+      this.aiTimer = setTimeout(() => {
+        try {
+          const pn = this.state.pendingNoble;
+          const best = pn.candidates.reduce((a, b) =>
+            ((this.state.nobles[b].vp ?? 3) > (this.state.nobles[a].vp ?? 3)) ? b : a);
+          this.state = chooseNoble(this.state, this.state.currentPlayer, best);
+          delete this.state._lastNoblesGained;
+          this._renderAll();
+          this._checkGameOver();
+          this._maybeAIMove();
+        } catch (e) { console.error('[AI] 选贵族报错:', e); }
+      }, 400);
+      return;
+    }
 
     // AI 处于弃宝石状态 → 自动弃（优先弃最多的普通宝石，保留黄金）
     if (this.state.pendingDiscard) {
@@ -856,6 +925,12 @@ export class SplendorGame extends OnlineGameBase {
 
   // ===== 通用联机基类所需的游戏钩子 =====
   aiAction(state, seat) {
+    // 贵族待选：选 VP 最高的一张（平分取先出现的）
+    if (state.pendingNoble && state.pendingNoble.playerIndex === seat) {
+      const best = state.pendingNoble.candidates.reduce((a, b) =>
+        ((state.nobles[b].vp ?? 3) > (state.nobles[a].vp ?? 3)) ? b : a);
+      return { type: 'NOBLE', nobleIndex: best };
+    }
     // 弃宝石阶段：优先弃数量最多的普通宝石
     if (state.pendingDiscard) {
       let bestColor = null, bestCount = 0;
@@ -872,6 +947,11 @@ export class SplendorGame extends OnlineGameBase {
   applyAIAction(seat, action) {
     if (action.type === '_DISCARD') {
       this.state = discardGems(this.state, seat, action.color);
+      return;
+    }
+    if (action.type === 'NOBLE') {
+      this.state = chooseNoble(this.state, seat, action.nobleIndex);
+      delete this.state._lastNoblesGained;  // 一次性标记，别让它跟着状态同步出去
       return;
     }
     this.state = applyAction(this.state, seat, action);

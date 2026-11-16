@@ -711,6 +711,18 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 .noble-card .noble-vp { font-size: 20px; font-weight: 700; }
+/* 贵族待选：可点击选择的贵族卡高亮 */
+.noble-card.noble-selectable {
+  cursor: pointer;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  animation: noble-pulse 1.2s ease-in-out infinite;
+}
+.noble-card.noble-selectable:hover { transform: translateY(-3px); box-shadow: 0 4px 14px rgba(255,213,79,0.4); }
+@keyframes noble-pulse {
+  0%, 100% { outline-color: var(--gold); }
+  50% { outline-color: rgba(255,213,79,0.35); }
+}
 .noble-card.noble-has-art { width:70px; height:98px; padding:0; background:none; box-shadow:none; overflow:hidden; }
 .noble-has-art .noble-art { width:100%; height:100%; object-fit:cover; display:block; border-radius:8px; }
 .noble-card .noble-req {

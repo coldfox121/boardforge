@@ -26,7 +26,7 @@ npx serve .
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js?v=51`、`style.css?v=45`（改文件必须同步升级引用处的版本号） |
+| **当前 cache bust** | `app.js?v=51`、`splendor-ui?v=43`、`splendor-engine?v=40`、`style.css?v=47`（改文件必须同步升级引用处的版本号） |
 | **当前功能完整度** | 璀璨宝石 + 铁路环游（美国版）均支持联机对局；两者都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md` |
 
 ## 🏗 文件结构
@@ -129,6 +129,13 @@ C 走第 K 轮 → countdown=0 → gameOver  (C 补到 K)
 **2 人局**：A 触发 → B 补一轮 → gameOver。A=K, B=K ✅
 
 **千万不要改成**：`countdown=players.length` + 所有人都 -1 → 触发者多走一轮 ❌
+
+### 贵族卡一回合限拿 1 张（官方规则，2026-11-16 修复）
+
+- 购买结算时判定达成几张贵族：**只达成 1 张 → 引擎自动获得**；**同时达成 ≥2 张 → 挂起 `state.pendingNoble`（候选为 nobles 下标），玩家点击场上贵族自选 1 张后才推进回合**
+- 选择走新动作类型 `NOBLE`（`chooseNoble()`），选完剩余贵族保留在场，之后的回合达成条件可继续拿
+- AI 选 VP 最高的一张（平分取先出现）；`validateAction` 在待选期拦截其他所有动作
+- 不要改回"达成几张就拿几张"的旧逻辑
 
 ### 卡面抵扣顺序（极其重要）
 

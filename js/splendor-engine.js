@@ -161,6 +161,7 @@ export function initGame(playerNames) {
     _endCountdown: 0,
     _justTriggeredEnd: false,
     pendingDiscard: null,
+    pendingNoble: null,      // 贵族待选 { playerIndex, candidates: nobles 下标数组 }
     log: []                  // 行动记录（随对局同步，联机双方一致）
   };
 }
@@ -173,6 +174,12 @@ export function validateAction(state, playerIndex, action) {
   if (!p) return '玩家不存在';
   if (state.gameOver) return '游戏已结束';
   if (state.currentPlayer !== playerIndex) return '不是你的回合';
+  // 贵族待选阶段：只允许选择贵族卡（官方规则每回合限拿 1 张）
+  if (state.pendingNoble && action.type !== 'NOBLE') {
+    return state.pendingNoble.playerIndex === playerIndex
+      ? '请先点击场上贵族牌选择要获得的贵族（每回合限拿 1 张）'
+      : '等待对方选择贵族卡';
+  }
 
   switch (action.type) {
     case 'TAKE_DIFF': {
@@ -231,6 +238,11 @@ export function validateAction(state, playerIndex, action) {
     }
     case 'PASS':
       return null;
+    case 'NOBLE': {
+      if (!state.pendingNoble || state.pendingNoble.playerIndex !== playerIndex) return '无需选择贵族卡';
+      if (!state.pendingNoble.candidates.includes(action.nobleIndex)) return '该贵族卡不可选';
+      return null;
+    }
     default:
       return `未知动作类型: ${action.type}`;
   }
@@ -345,25 +357,25 @@ export function applyAction(state, playerIndex, action) {
         'buy'
       );
 
-      // 贵族：按贵族牌自身 vp 字段得分，兼容老数据无 vp 时用规则默认
-      const noblesGained = [];
-      for (let i = s.nobles.length - 1; i >= 0; i--) {
-        const n = s.nobles[i];
-        if (canGetNoble(p, n, GEM_COLORS)) {
-          s.nobles.splice(i, 1);
-          p.nobles.push(n);
-          p.score += (n.vp ?? R.NOBLE_SCORE_FALLBACK);
-          noblesGained.push(n);
-        }
+      // 贵族：官方规则每回合最多拿 1 张。
+      // 只达成 1 张 → 自动获得；同时达成多张 → 挂起 pendingNoble 等玩家自选，选完才推进回合
+      const eligible = [];
+      for (let i = 0; i < s.nobles.length; i++) {
+        if (canGetNoble(p, s.nobles[i], GEM_COLORS)) eligible.push(i);
       }
-      for (const n of noblesGained) {
-        const req = n.req || n;
-        const reqDesc = E_GEM_COLORS.filter(c => (req[c] || 0) > 0).map(c => `${req[c]}${gemLabel(c)}`).join('+');
-        pushLog(s, playerIndex, `👑 达成 ${reqDesc}，获得贵族卡 +${n.vp ?? R.NOBLE_SCORE_FALLBACK} 分`, 'noble');
+      if (eligible.length === 1) {
+        grantNoble(s, playerIndex, eligible[0]);
+      } else if (eligible.length > 1) {
+        s.pendingNoble = { playerIndex, candidates: eligible };
       }
-      if (noblesGained.length > 0) s._lastNoblesGained = { playerIndex, nobles: noblesGained };
       break;
     }
+  }
+
+  // 贵族待选：本回合不推进，等玩家选完再走
+  if (s.pendingNoble) {
+    s.lastAction = { player: playerIndex, type: 'BUY', at: Date.now() };
+    return s;
   }
 
   // 弃宝石检查（超 MAX_GEMS 进入待弃状态）
@@ -451,12 +463,47 @@ function canGetNoble(player, noble, gemColors) {
   return true;
 }
 
+// 发放一张贵族卡（写日志 + 一次性提示标记），nobleIndex 为 state.nobles 下标
+function grantNoble(s, playerIndex, nobleIndex) {
+  const R = s._rules || DEFAULT_RULES;
+  const n = s.nobles[nobleIndex];
+  s.nobles.splice(nobleIndex, 1);
+  const p = s.players[playerIndex];
+  p.nobles.push(n);
+  p.score += (n.vp ?? R.NOBLE_SCORE_FALLBACK);
+  const req = n.req || n;
+  const reqDesc = E_GEM_COLORS.filter(c => (req[c] || 0) > 0).map(c => `${req[c]}${gemLabel(c)}`).join('+');
+  pushLog(s, playerIndex, `👑 达成 ${reqDesc}，获得贵族卡 +${n.vp ?? R.NOBLE_SCORE_FALLBACK} 分`, 'noble');
+  s._lastNoblesGained = { playerIndex, nobles: [n] };
+}
+
+// 玩家在待选状态下选择要获得的贵族卡（官方规则：一回合限拿 1 张），选完推进回合
+export function chooseNoble(state, playerIndex, nobleIndex) {
+  const R = state._rules || DEFAULT_RULES;
+  const s = deepClone(state);
+  if (!s.pendingNoble || s.pendingNoble.playerIndex !== playerIndex) {
+    throw new Error('无需选择贵族卡');
+  }
+  if (!s.pendingNoble.candidates.includes(nobleIndex)) {
+    throw new Error('该贵族卡不可选');
+  }
+  grantNoble(s, playerIndex, nobleIndex);
+  delete s.pendingNoble;
+  return _advanceTurn(s, playerIndex, 'NOBLE', R);
+}
+
 // ===== 便捷：生成所有合法动作 =====
 export function listValidActions(state, playerIndex) {
   const R = state._rules || DEFAULT_RULES;
   const GEM_COLORS = state._gemColors || E_GEM_COLORS;
   const actions = [];
   const p = state.players[playerIndex];
+
+  // 贵族待选阶段：合法动作只有选贵族
+  if (state.pendingNoble) {
+    if (state.pendingNoble.playerIndex !== playerIndex) return [];
+    return state.pendingNoble.candidates.map(i => ({ type: 'NOBLE', nobleIndex: i }));
+  }
 
   const availableColors = GEM_COLORS.filter(c => state.gemPool[c] > 0);
   const combos = [];
