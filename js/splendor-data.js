@@ -132,7 +132,7 @@ export const CARDS = {
 
 // 10 张贵族：3种宝石各3个触发，+3分
 // 5色选3色 = 10种组合
-// 每张贵族牌带 vp 字段，引擎按此记分（魔改版可改成 +4 等）
+// 每张贵族牌带 vp 字段，引擎按此记分（官方规则为 3 分）
 export const NOBLES = [
   { id: 'N01', vp: 3, req: { white: 3, blue: 3, green: 3 } },
   { id: 'N02', vp: 3, req: { white: 3, blue: 3, red: 3 } },

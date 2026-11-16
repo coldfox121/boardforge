@@ -7,7 +7,7 @@ import { OnlineGameBase } from './online-game.js?v=1';
 import {
   CITIES, CITY_MAP, ROUTES, TICKET_MAP, COLOR_NAMES,
   ROUTE_SCORES
-} from './ticket-data.js?v=38';
+} from './ticket-data.js?v=39';
 
 const PCOLORS = ['#e05c5c', '#4a90d9', '#43b581', '#e8c34a', '#a06bd0'];
 const HEX = {

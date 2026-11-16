@@ -1,8 +1,8 @@
 // 璀璨宝石 · 游戏引擎（纯函数，输入 state + action → 输出 newState）
 // 不含网络 / 渲染 / IO — 好测、好挂联机
 //
-// 规则常量全部从 RULES 对象读取，支持 variant 传入覆盖。
-// RULES 默认值保持官方规则不变。
+// 规则常量全部从 DEFAULT_RULES 读取，即官方规则，不支持任何自定义覆盖。
+// 牌库数据默认用官方基线，管理员可通过后台维护牌面（admin 覆盖），规则本身不可改。
 
 import { CARDS, NOBLES, GEM_COLORS } from './splendor-data.js';
 import { loadAdminData } from './admin.js';
@@ -33,16 +33,6 @@ export const DEFAULT_RULES = {
   TAKE_DIFF_MAX: 3
 };
 
-// ===== 合并规则：variant rules + 官方默认 =====
-// 注意：联机入口可能传 null（无魔改版），这里必须兜底，不能依赖默认参数（默认参数只对 undefined 生效）
-export function mergeRules(variantRules = {}) {
-  const out = { ...DEFAULT_RULES };
-  for (const [k, v] of Object.entries(variantRules || {})) {
-    if (v !== undefined && v !== null) out[k] = v;
-  }
-  return out;
-}
-
 // ===== 应用 admin 覆盖（引擎模块加载时一次性） =====
 const _admin = (typeof localStorage !== 'undefined') ? loadAdminData('splendor') : null;
 const E_CARDS = _admin?.CARDS || CARDS;
@@ -64,18 +54,15 @@ function countGems(gems) {
 
 // ===== 游戏初始化 =====
 // playerNames: ['P1','P2'] 或 ['P1','P2','P3','P4']
-// rules: variant 规则覆盖（可选）
-// deckData: variant 牌库覆盖（可选）{ CARDS, NOBLES, GEM_COLORS }
-export function initGame(playerNames, rules = {}, deckData = {}) {
-  const R = mergeRules(rules || {});
-  const decks = deckData || {};
+// 规则固定为官方规则；牌库用官方基线 + 管理员后台维护的牌面
+export function initGame(playerNames) {
+  const R = { ...DEFAULT_RULES };
   const n = playerNames.length;
   if (n < R.MIN_PLAYERS || n > R.MAX_PLAYERS) throw new Error(`玩家数必须 ${R.MIN_PLAYERS}-${R.MAX_PLAYERS}`);
 
-  // 牌库：variant 传入优先，否则 admin 覆盖，否则官方基线
-  const cards = decks.CARDS || E_CARDS;
-  const nobles = (decks.NOBLES || E_NOBLES).map(nob => ({ vp: R.NOBLE_SCORE_FALLBACK, ...nob }));
-  const gemColors = decks.GEM_COLORS || E_GEM_COLORS;
+  const cards = E_CARDS;
+  const nobles = E_NOBLES.map(nob => ({ vp: R.NOBLE_SCORE_FALLBACK, ...nob }));
+  const gemColors = E_GEM_COLORS;
 
   const setup = R.SETUP[n] || R.SETUP[R.MAX_PLAYERS];
 

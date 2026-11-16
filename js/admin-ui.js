@@ -2,8 +2,8 @@
 // 设计：JSON 编辑器 + 自动校验 + 平衡性分析
 // 未来加游戏只需：registerGame({ id, name, getDefaultData, validate })
 
-import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=36';
-import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=35';
+import { saveAdminData, loadAdminData, clearAdminData, hasAdminData, getAdminSavedAt, BalanceStats } from './admin.js?v=37';
+import { saveConfigToCloud, uploadCardImage, deleteCardImage } from './config-sync.js?v=36';
 
 // === 游戏注册表（未来加新游戏只要 push 一个） ===
 const GAMES = {
@@ -129,7 +129,7 @@ export async function renderAdminPage(gameId = 'splendor') {
     return;
   }
 
-  // 先取基础基线数据（版本选择页要展示）
+  // 取官方基线数据
   let baseData;
   if (gameId === 'ticket') {
     const mod = await import('./ticket-data.js').catch(() => null);
@@ -142,52 +142,15 @@ export async function renderAdminPage(gameId = 'splendor') {
   }
   const adminData = loadAdminData(gameId);
 
-  // 版本选择页：基础版 + 所有魔改版
-  let VariantMod;
-  try {
-    VariantMod = await import('./admin-variant.js?v=6');
-  } catch (e) {
-    // 魔改编辑器模块加载失败 → fallback 直接进原编辑器
-    console.warn('[admin] admin-variant.js 加载失败，使用基础版编辑器:', e.message);
-    editor.innerHTML = '<div class="error">魔改编辑器加载失败，已回退到基础版编辑器</div>';
-    if (gameId === 'ticket') {
-      const { renderTicketEditor } = await import('./admin-ticket.js?v=5');
-      renderTicketEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
-      return;
-    }
-    const activeData = JSON.parse(JSON.stringify(adminData || baseData));
-    editor.innerHTML += buildAdminHTML(gameId, baseData, activeData, adminData);
-    bindAdminEvents(gameId, baseData, activeData);
+  // 平台只有官方规则：后台仅维护牌面数据，没有版本选择 / 魔改概念
+  if (gameId === 'ticket') {
+    const { renderTicketEditor } = await import('./admin-ticket.js?v=6');
+    renderTicketEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
     return;
   }
-  const { renderVariantChooser, renderVariantEditor } = VariantMod;
-
-  const renderChooser = async () => {
-    await renderVariantChooser(editor, gameId, onPick, baseData, adminData);
-  };
-
-  const onPick = async ({ kind, variant }) => {
-    if (kind === 'base') {
-      // 基础版：走原有本地编辑器流程（不存 variant）
-      if (gameId === 'ticket') {
-        const { renderTicketEditor } = await import('./admin-ticket.js?v=5');
-        renderTicketEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
-        return;
-      }
-      const activeData = JSON.parse(JSON.stringify(adminData || baseData));
-      editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
-      bindAdminEvents(gameId, baseData, activeData);
-      return;
-    }
-    // 魔改版：进魔改编辑器
-    editor.innerHTML = '';
-    await renderVariantEditor(editor, gameId, variant, baseData, () => {
-      // 返回版本列表
-      renderChooser();
-    });
-  };
-
-  await renderChooser();
+  const activeData = JSON.parse(JSON.stringify(adminData || baseData));
+  editor.innerHTML = buildAdminHTML(gameId, baseData, activeData, adminData);
+  bindAdminEvents(gameId, baseData, activeData);
 }
 
 function buildAdminHTML(gameId, baseData, activeData, adminData) {
@@ -385,17 +348,15 @@ export function renderVisualPanel(gameId, data, panelId = 'panel-viz') {
   if (panel) panel.innerHTML = buildVisualHTML(data);
 }
 
-export function bindVisualEvents(gameId, data, panelId = 'panel-viz', autoSaveCallback = null, opts = {}) {
+export function bindVisualEvents(gameId, data, panelId = 'panel-viz', autoSaveCallback = null) {
   const panel = document.getElementById(panelId);
   if (!panel) return;
-  const hideSaveReset = !!opts.hideSaveReset;
 
   panel.onclick = async (e) => {
     const status = document.getElementById('viz-status');
 
     const saveBtn = e.target.closest('#viz-save');
     if (saveBtn) {
-      if (hideSaveReset) return; // variant 模式不处理
       if (status) { status.textContent = '⏳ 保存中...'; status.style.color = ''; }
       try {
         saveAdminData(gameId, data);
@@ -409,7 +370,6 @@ export function bindVisualEvents(gameId, data, panelId = 'panel-viz', autoSaveCa
 
     const resetBtn = e.target.closest('#viz-reset');
     if (resetBtn) {
-      if (hideSaveReset) return;
       if (!confirm('确定恢复基线？当前 admin 覆盖数据会被清空')) return;
       clearAdminData(gameId);
       renderAdminPage(gameId);
@@ -442,7 +402,7 @@ export function bindVisualEvents(gameId, data, panelId = 'panel-viz', autoSaveCa
   };
 }
 
-// 卡牌编辑器（支持 variant 模式：panelId + autoSave）
+// 卡牌编辑器（panelId 支持嵌入其他面板，autoSaveCallback 供外部保存使用）
 function addCardToData(data, tier) {
   if (!data.CARDS) data.CARDS = {};
   if (!data.CARDS[tier]) data.CARDS[tier] = [];
@@ -457,7 +417,7 @@ export function openCardEditor(gameId, data, tier, index, panelId = 'panel-viz',
   const card = data.CARDS[tier][index];
   const panel = document.getElementById(panelId);
   if (!panel) return;
-  // 找或创建 modal-mount（variant 模式下 panel 就是 #variant-panel-deck）
+  // 找或创建 modal-mount（嵌入模式下 panel 就是外层面板）
   let mount = panel.querySelector('#viz-modal-mount');
   if (!mount) { mount = document.createElement('div'); mount.id = 'viz-modal-mount'; panel.appendChild(mount); }
 

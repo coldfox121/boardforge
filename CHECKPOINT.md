@@ -22,11 +22,11 @@ npx serve .
 |---|---|
 | **线上** | https://boardforge.pages.dev |
 | **GitHub** | https://github.com/coldfox121/boardforge |
-| **D1** | `boardforge-db`（绑定为 `DB`）：users / sessions / rooms / room_members / room_states / game_config / card_images |
+| **D1** | `boardforge-db`（绑定为 `DB`）：users / sessions / rooms / room_members / room_states / game_configs / card_images（+ 已停用的遗留空表 game_variants） |
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js?v=45`、`style.css?v=44`（改文件必须同步升级引用处的版本号） |
+| **当前 cache bust** | `app.js?v=47`、`style.css?v=45`（改文件必须同步升级引用处的版本号） |
 | **当前功能完整度** | 璀璨宝石 + 铁路环游（美国版）均支持联机对局；两者都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md` |
 
 ## 🏗 文件结构
@@ -34,7 +34,7 @@ npx serve .
 ```
 boardforge/
 ├── index.html              ← SPA 入口，hash 路由（引用 JS 时带 ?v=N）
-├── style.css               ← 全局样式 + 组件样式（当前 v=31）
+├── style.css               ← 全局样式 + 组件样式（当前 v=45）
 ├── CHECKPOINT.md           ← 本文档
 ├── DEVELOPMENT_TIMELINE.md ← 开发时间线（按天记录做了什么）
 ├── js/
@@ -382,7 +382,7 @@ Splendor 原版平衡数据（admin 页面"平衡性分析"tab 展示的基线�
 
 1. **卡坦岛**：按 `GAME-GUIDE.md` 五步接入（数据 / 引擎 / AI / UI / 注册 + 可视化编辑器）
 2. **奥地利大饭店**：同上
-3. **魔改框架**：自定义规则覆盖引擎，作为平台特性
+3. ~~魔改框架~~：已按需求下线，平台只提供官方规则（不得再引入自定义规则入口）
 4. **卡图增强**：批量导入 BGG 图包 / AI 生成卡图
 5. **观战 / 好友邀请推送**
 6. **房间生命周期**：Cron 自动清理僵尸房

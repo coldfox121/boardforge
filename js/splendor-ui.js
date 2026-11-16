@@ -1,6 +1,6 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=37';
-import { pickAction } from './splendor-ai.js?v=35';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=38';
+import { pickAction } from './splendor-ai.js?v=36';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
 import { OnlineGameBase } from './online-game.js?v=1';
 
@@ -17,7 +17,6 @@ export class SplendorGame extends OnlineGameBase {
     this.online = options.online || null;
     this.initialState = options.initialState || null;
     this.memberOnline = null;   // 联机：座位 → 是否在线
-    this.variant = options.variant || null;  // 魔改版配置
     // === 自由操作状态 ===
     this.ops = {
       gems: [],              // 已点的宝石颜色数组（可重复）
@@ -33,12 +32,9 @@ export class SplendorGame extends OnlineGameBase {
   }
 
   start() {
-    // 规则参数（若有 variant.rules 则覆盖引擎默认）
-    const rules = this.variant?.rules || null;
-    const deck = this.variant?.deck || null;
     this.state = this.initialState
       ? JSON.parse(JSON.stringify(this.initialState))
-      : initGame(this.playerNames, rules, deck);
+      : initGame(this.playerNames);
     if (!this.initialState) {
       this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
     }

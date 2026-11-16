@@ -78,9 +78,9 @@ function handleRoute() {
     // 只允许 admin 访问
     if (!state.isAdmin) { navigate('/lobby'); return; }
     showView('admin');
-    import('./config-sync.js?v=35')
+    import('./config-sync.js?v=36')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=37'))
+      .then(() => import('./admin-ui.js?v=38'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -341,26 +341,24 @@ const ONLINE_GAMES = {
   splendor: {
     name: '璀璨宝石',
     async prepare() {
-      const { syncGameConfig } = await import('./config-sync.js?v=35');
+      const { syncGameConfig } = await import('./config-sync.js?v=36');
       await syncGameConfig('splendor');
     },
     async load() {
       const [{ SplendorGame }, engine] = await Promise.all([
-        import('./splendor-ui.js?v=37'),
-        import('./splendor-engine.js?v=37')
+        import('./splendor-ui.js?v=38'),
+        import('./splendor-engine.js?v=38')
       ]);
       return {
-        initState: (names, variant) => engine.initGame(names, variant?.rules || null, variant?.deck || null),
+        initState: (names) => engine.initGame(names),
         create: ({ data, isHost, push }) => {
           document.getElementById('ticket-game').classList.add('hidden');
           document.getElementById('splendor-end').classList.add('hidden');
           document.getElementById('splendor-game').classList.remove('hidden');
-          const variant = data.variant || null;
           const game = new SplendorGame(null, {
             humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
             initialState: data.state,
-            online: { isHost, version: data.version, push },
-            variant
+            online: { isHost, version: data.version, push }
           });
           game.start();
           return game;
@@ -371,7 +369,7 @@ const ONLINE_GAMES = {
   ticket: {
     name: '铁路环游',
     async prepare() {
-      const { syncGameConfig } = await import('./config-sync.js?v=35');
+      const { syncGameConfig } = await import('./config-sync.js?v=36');
       await syncGameConfig('ticket');
     },
     async load() {
@@ -468,8 +466,6 @@ function openRestrictedModal(gameId, defaultTab) {
       <div class="modal-panel" data-panel="create" style="display:${defaultTab==='create'?'':'none'}">
         <label>房间名称</label>
         <input id="rm-name" placeholder="${state.username}的房间" maxlength="30">
-        ${gameId === 'splendor' ? `<label>游戏版本（魔改版）</label>
-        <select id="rm-variant"><option value="">官方基础版（默认）</option><option disabled>加载中...</option></select>` : ''}
         <button class="btn-primary" id="rm-create">创建并进入</button>
         <p id="rm-create-msg" class="msg"></p>
       </div>
@@ -483,26 +479,6 @@ function openRestrictedModal(gameId, defaultTab) {
   document.body.appendChild(modal);
   showRestrictedTab(modal, defaultTab);
 
-  // 异步拉 variant 列表填充选择器
-  if (gameId === 'splendor') {
-    api('/api/variant?game=splendor').then(res => {
-      const sel = document.getElementById('rm-variant');
-      if (!sel) return;
-      const opts = [`<option value="">官方基础版（默认）</option>`];
-      if (res.variants && res.variants.length) {
-        res.variants.forEach(v => {
-          opts.push(`<option value="${v.id}">🎨 ${v.name} · v${v.version}</option>`);
-        });
-      } else {
-        opts.push(`<option disabled>（暂无魔改版）</option>`);
-      }
-      sel.innerHTML = opts.join('');
-    }).catch(() => {
-      const sel = document.getElementById('rm-variant');
-      if (sel) sel.innerHTML = `<option value="">官方基础版（默认）</option>`;
-    });
-  }
-
   modal.querySelectorAll('.modal-tab').forEach(tab => {
     tab.addEventListener('click', () => showRestrictedTab(modal, tab.dataset.tab));
   });
@@ -512,14 +488,12 @@ function openRestrictedModal(gameId, defaultTab) {
   // 创建
   modal.querySelector('#rm-create').addEventListener('click', async () => {
     const name = document.getElementById('rm-name').value.trim();
-    const variantSel = document.getElementById('rm-variant');
-    const variantId = variantSel?.value || null;
     const msgEl = document.getElementById('rm-create-msg');
     msgEl.className = 'msg'; msgEl.textContent = '';
     try {
       const data = await api('/api/rooms', {
         method: 'POST',
-        body: JSON.stringify({ name, game: gameId, variant_id: variantId })
+        body: JSON.stringify({ name, game: gameId })
       });
       localStorage.setItem('bf_room_game_' + data.room_code.toUpperCase(), gameId);
       modal.remove();
@@ -584,7 +558,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=35').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=38').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===
@@ -607,8 +581,6 @@ function openRoomModal(gameId, presetCode) {
       <div class="modal-panel" data-panel="create" style="display:${gameId ? '' : 'none'}">
         <label>房间名称</label>
         <input id="rm-name" placeholder="${state.username}的房间" maxlength="30">
-        ${gameId === 'splendor' ? `<label>游戏版本（魔改版）</label>
-        <select id="rm-variant"><option value="">官方基础版（默认）</option><option disabled>加载中...</option></select>` : ''}
         <button class="btn-primary" id="rm-create">创建并进入</button>
         <p id="rm-create-msg" class="msg"></p>
       </div>
@@ -623,26 +595,6 @@ function openRoomModal(gameId, presetCode) {
   document.body.appendChild(modal);
   showModal(gameId ? 'create' : 'join');
 
-  // 异步拉 variant 列表填充选择器
-  if (gameId === 'splendor') {
-    api('/api/variant?game=splendor').then(res => {
-      const sel = document.getElementById('rm-variant');
-      if (!sel) return;
-      const opts = [`<option value="">官方基础版（默认）</option>`];
-      if (res.variants && res.variants.length) {
-        res.variants.forEach(v => {
-          opts.push(`<option value="${v.id}">🎨 ${v.name} · v${v.version}</option>`);
-        });
-      } else {
-        opts.push(`<option disabled>（暂无魔改版）</option>`);
-      }
-      sel.innerHTML = opts.join('');
-    }).catch(() => {
-      const sel = document.getElementById('rm-variant');
-      if (sel) sel.innerHTML = `<option value="">官方基础版（默认）</option>`;
-    });
-  }
-
   // Tab 切换
   modal.querySelectorAll('.modal-tab').forEach(tab => {
     tab.addEventListener('click', () => showModal(tab.dataset.tab));
@@ -654,14 +606,12 @@ function openRoomModal(gameId, presetCode) {
   // 创建
   modal.querySelector('#rm-create').addEventListener('click', async () => {
     const name = document.getElementById('rm-name').value.trim();
-    const variantSel = document.getElementById('rm-variant');
-    const variantId = variantSel?.value || null;
     const msgEl = document.getElementById('rm-create-msg');
     msgEl.className = 'msg'; msgEl.textContent = '';
     try {
       const data = await api('/api/rooms', {
         method: 'POST',
-        body: JSON.stringify({ name, game: gameId, variant_id: variantId })
+        body: JSON.stringify({ name, game: gameId })
       });
       state.currentRoomCode = data.room_code;
       state.currentGame = gameId;
@@ -909,25 +859,18 @@ async function startRoomGame() {
   for (let i = 1; i <= aiN; i++) names.push('AI-' + i);
   while (names.length < 2) names.push('AI-' + names.length);
 
-  // variant（魔改版）：从房间信息取
-  const variant = data.variant || null;
-  const vId = data.room?.variant_id || null;
-  const vVer = data.room?.variant_version || 0;
-
   const btn = document.getElementById('btn-start-game');
   btn.disabled = true;
   try {
     // initState 放进 try：任何开局异常都要弹提示，不能无声失败
-    const st = adapter.initState(names, variant);
+    const st = adapter.initState(names);
     st.players.forEach((p, i) => { p.isAI = i >= members.length; });
     await api('/api/room?code=' + state.roomCode, {
       method: 'POST',
       body: JSON.stringify({
         action: 'start',
         code: state.roomCode,
-        state: st,
-        variant_id: vId,
-        variant_version: vVer
+        state: st
       })
     });
     await launchOnlineGame({ ...data, state: st, version: 1 }, true);

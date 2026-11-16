@@ -1,7 +1,7 @@
 // 铁路环游 · 可视化数据编辑器（城市 / 线路 / 任务票）
 // 约定：所有配置项都用可视化控件编辑，不向用户暴露 JSON
-import { saveAdminData, clearAdminData } from './admin.js?v=36';
-import { saveConfigToCloud } from './config-sync.js?v=35';
+import { saveAdminData, clearAdminData } from './admin.js?v=37';
+import { saveConfigToCloud } from './config-sync.js?v=36';
 
 const COLORS = [
   { v: 'purple', n: '紫色', hex: '#8e5bd0' },
