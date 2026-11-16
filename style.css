@@ -1007,6 +1007,7 @@ body {
   text-align: center;
 }
 .end-card h2 { margin: 0 0 16px; }
+.end-card .ttr-end-log { margin-top: 14px; text-align: left; }
 .score-row {
   display: flex;
   justify-content: space-between;

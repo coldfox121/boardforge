@@ -948,6 +948,23 @@ export class SplendorGame extends OnlineGameBase {
       scores.appendChild(row);
     });
 
+    // 结束页可查看本局完整行动记录（与铁路环游结束页同一交互模式）
+    const endCard = endEl.querySelector('.end-card');
+    if (endCard) {
+      const old = endCard.querySelector('.ttr-end-log');
+      if (old) old.remove();
+      const entries = this.state.log || [];
+      const logRows = entries.map((l, i) =>
+        `<p><span class="ttr-log-no">${i + 1}</span><span>第${l.turn}回合 ${esc(l.name)} ${l.desc}</span></p>`
+      ).join('');
+      const details = document.createElement('details');
+      details.className = 'ttr-end-log';
+      details.innerHTML =
+        `<summary>📜 查看本局行动记录（${entries.length} 条）</summary>` +
+        `<div class="ttr-end-log-list">${logRows || '<p>无记录</p>'}</div>`;
+      endCard.insertBefore(details, endCard.querySelector('#btn-new-game'));
+    }
+
     // 结束页按钮：联机房主可一键开新局，其他玩家等房主；单机沿用本地重开
     const btn = document.getElementById('btn-new-game');
     if (btn) {
