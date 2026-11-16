@@ -52,6 +52,50 @@ function countGems(gems) {
   return GEM_COLORS.reduce((s, c) => s + (gems[c] || 0), 0) + (gems.gold || 0);
 }
 
+// ===== 行动记录 =====
+// 记录写在 state.log 里随对局同步，联机双方（含非房主）看到的完全一致。
+// 老存档没有 log 字段 → 首次写日志时自动初始化，读不到时 UI 显示“暂无记录”，不影响对局。
+const LOG_MAX = 120;
+const GEM_SHORT = { white: '白', blue: '蓝', green: '绿', red: '红', black: '黑', gold: '金' };
+function gemLabel(c) { return GEM_SHORT[c] || c; }
+
+function pushLog(s, seat, desc, type) {
+  if (!Array.isArray(s.log)) s.log = [];
+  const name = s.players[seat] ? s.players[seat].name : '';
+  s.log.push({ turn: s.turn, seat, name, type: type || '', desc });
+  if (s.log.length > LOG_MAX) s.log.splice(0, s.log.length - LOG_MAX);
+}
+
+// 弃宝石是逐颗执行的，连续同回合同玩家的弃牌合并成一条
+function pushDiscardLog(s, seat, color) {
+  if (!Array.isArray(s.log)) s.log = [];
+  const last = s.log[s.log.length - 1];
+  if (last && last.type === 'discard' && last.seat === seat && last.turn === s.turn && Array.isArray(last.parts)) {
+    const hit = last.parts.find(x => x.color === color);
+    if (hit) hit.n += 1; else last.parts.push({ color, n: 1 });
+    last.desc = '弃掉 ' + last.parts.map(x => `${x.n}${gemLabel(x.color)}`).join('+');
+    return;
+  }
+  s.log.push({
+    turn: s.turn, seat, name: s.players[seat] ? s.players[seat].name : '',
+    type: 'discard', parts: [{ color, n: 1 }], desc: '弃掉 1' + gemLabel(color)
+  });
+  if (s.log.length > LOG_MAX) s.log.splice(0, s.log.length - LOG_MAX);
+}
+
+// 卡面成本展示：1白+2蓝
+function costLabel(cost) {
+  if (!cost) return '无';
+  const parts = E_GEM_COLORS.filter(c => (cost[c] || 0) > 0).map(c => `${cost[c]}${gemLabel(c)}`);
+  return parts.length ? parts.join('+') : '无';
+}
+
+// 卡面描述：2级蓝卡（3VP）
+function cardLabel(card) {
+  if (!card) return '一张卡';
+  return `${card.tier || '?'}级${gemLabel(card.color)}卡（${card.vp || 0}VP）`;
+}
+
 // ===== 游戏初始化 =====
 // playerNames: ['P1','P2'] 或 ['P1','P2','P3','P4']
 // 规则固定为官方规则；牌库用官方基线 + 管理员后台维护的牌面
@@ -116,7 +160,8 @@ export function initGame(playerNames) {
     endTriggeredBy: null,
     _endCountdown: 0,
     _justTriggeredEnd: false,
-    pendingDiscard: null
+    pendingDiscard: null,
+    log: []                  // 行动记录（随对局同步，联机双方一致）
   };
 }
 
@@ -208,16 +253,23 @@ export function applyAction(state, playerIndex, action) {
   s._justTriggeredEnd = false;
 
   switch (action.type) {
-    case 'TAKE_DIFF':
+    case 'TAKE_DIFF': {
       action.colors.forEach(c => { s.gemPool[c]--; p.gems[c]++; });
+      const counts = {};
+      action.colors.forEach(c => { counts[c] = (counts[c] || 0) + 1; });
+      const takeParts = E_GEM_COLORS.filter(c => counts[c]).map(c => `${counts[c]}${gemLabel(c)}`);
+      pushLog(s, playerIndex, `拿了 ${takeParts.join('+')}`, 'take');
       break;
+    }
 
     case 'TAKE_SAME':
       s.gemPool[action.color] -= 2;
       p.gems[action.color] += 2;
+      pushLog(s, playerIndex, `拿了 2${gemLabel(action.color)}`, 'take');
       break;
 
     case 'PASS':
+      pushLog(s, playerIndex, '跳过回合', 'pass');
       break;
 
     case 'RESERVE': {
@@ -233,6 +285,13 @@ export function applyAction(state, playerIndex, action) {
       p.reserved.push(card);
       s.gemPool.gold--;
       p.gems.gold++;
+      // 预留牌拿到后即正面朝上，属于公开信息，写明是哪张牌
+      const fromTop = action.source === 'top';
+      pushLog(
+        s, playerIndex,
+        `${fromTop ? '从牌库顶预留了' : '预留了'} ${cardLabel(card)}，需 ${costLabel(card && card.cost)}，另得 1金`,
+        'reserve'
+      );
       break;
     }
 
@@ -277,6 +336,15 @@ export function applyAction(state, playerIndex, action) {
       p.ownedCards.push(card);
       p.score += (card.vp || 0);
 
+      // 记录：卡面 + 实际付出去的宝石（已扣卡面折扣，黄金顶替的部分单列）
+      const payParts = GEM_COLORS.filter(c => (payBack[c] || 0) > 0).map(c => `${payBack[c]}${gemLabel(c)}`);
+      if (payBack.gold > 0) payParts.push(`${payBack.gold}金`);
+      pushLog(
+        s, playerIndex,
+        `买了 ${cardLabel(card)}，${payParts.length ? '付 ' + payParts.join('+') : '未付宝石（卡面折扣全抵）'}`,
+        'buy'
+      );
+
       // 贵族：按贵族牌自身 vp 字段得分，兼容老数据无 vp 时用规则默认
       const noblesGained = [];
       for (let i = s.nobles.length - 1; i >= 0; i--) {
@@ -287,6 +355,11 @@ export function applyAction(state, playerIndex, action) {
           p.score += (n.vp ?? R.NOBLE_SCORE_FALLBACK);
           noblesGained.push(n);
         }
+      }
+      for (const n of noblesGained) {
+        const req = n.req || n;
+        const reqDesc = E_GEM_COLORS.filter(c => (req[c] || 0) > 0).map(c => `${req[c]}${gemLabel(c)}`).join('+');
+        pushLog(s, playerIndex, `👑 达成 ${reqDesc}，获得贵族卡 +${n.vp ?? R.NOBLE_SCORE_FALLBACK} 分`, 'noble');
       }
       if (noblesGained.length > 0) s._lastNoblesGained = { playerIndex, nobles: noblesGained };
       break;
@@ -358,6 +431,7 @@ export function discardGems(state, playerIndex, color) {
   p.gems[color]--;
   s.gemPool[color]++;
   s.pendingDiscard.count--;
+  pushDiscardLog(s, playerIndex, color);
 
   if (s.pendingDiscard.count <= 0) {
     delete s.pendingDiscard;

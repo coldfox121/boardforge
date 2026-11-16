@@ -26,7 +26,7 @@ npx serve .
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js?v=49`、`style.css?v=45`（改文件必须同步升级引用处的版本号） |
+| **当前 cache bust** | `app.js?v=50`、`style.css?v=45`（改文件必须同步升级引用处的版本号） |
 | **当前功能完整度** | 璀璨宝石 + 铁路环游（美国版）均支持联机对局；两者都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md` |
 
 ## 🏗 文件结构

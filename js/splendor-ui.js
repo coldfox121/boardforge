@@ -1,5 +1,5 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
-import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=38';
+import { initGame, applyAction, validateAction, listValidActions, discardGems } from './splendor-engine.js?v=39';
 import { pickAction } from './splendor-ai.js?v=36';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
 import { OnlineGameBase } from './online-game.js?v=2';
@@ -39,7 +39,6 @@ export class SplendorGame extends OnlineGameBase {
     if (!this.initialState) {
       this.state.players.forEach((p, i) => { p.isAI = i !== this.humanIndex; });
     }
-    this.actionLog = [];
     window.__splendor = this;
     this._renderAll();
     // 联机：AI 交给通用联机会话（仅房主端代跑）；单机：本地跑
@@ -708,7 +707,6 @@ export class SplendorGame extends OnlineGameBase {
       return;
     }
 
-    this._logAction(this.humanIndex, action);
     this.state = applyAction(this.state, this.humanIndex, action);
 
     // 人类玩家拿贵族 → toast 提示
@@ -813,7 +811,6 @@ export class SplendorGame extends OnlineGameBase {
       // 还是没有合法动作 → PASS 跳过回合
       if (actions.length === 0) {
         try {
-          this._logAction(this.state.currentPlayer, { type: 'PASS' });
           this.state = applyAction(this.state, this.state.currentPlayer, { type: 'PASS' });
           this._renderAll();
           this._checkGameOver();
@@ -825,8 +822,8 @@ export class SplendorGame extends OnlineGameBase {
       const action = pickAction(this.state, this.state.currentPlayer);
       if (!action) return;
       try {
-        this._logAction(this.state.currentPlayer, action);
         this.state = applyAction(this.state, this.state.currentPlayer, action);
+        delete this.state._lastNoblesGained;  // 一次性标记，别让它跟着状态同步出去
         this._renderAll();
         this._checkGameOver();
         this._maybeAIMove();
@@ -871,8 +868,8 @@ export class SplendorGame extends OnlineGameBase {
       this.state = discardGems(this.state, seat, action.color);
       return;
     }
-    this._logAction(seat, action);
     this.state = applyAction(this.state, seat, action);
+    delete this.state._lastNoblesGained;  // 一次性标记，别让它跟着状态同步出去
   }
 
   render() {
@@ -903,58 +900,20 @@ export class SplendorGame extends OnlineGameBase {
   }
 
   // ===== 行动记录 =====
-  _logAction(playerIndex, action) {
-    const p = this.state.players[playerIndex];
-    const turn = this.state.turn;
-    let desc = '';
-    switch (action.type) {
-      case 'TAKE_DIFF': {
-        const counts = {};
-        action.colors.forEach(c => counts[c] = (counts[c] || 0) + 1);
-        const parts = Object.entries(counts).map(([c, n]) => `${n}颗${GEM_NAMES[c]}`);
-        desc = `拿了 ${parts.join('、')}`;
-        break;
-      }
-      case 'TAKE_SAME':
-        desc = `拿了 2 颗${GEM_NAMES[action.color]}宝石`;
-        break;
-      case 'RESERVE':
-        desc = action.source === 'top' ? `预留了牌库顶一张卡` : `预留了场上一张卡`;
-        break;
-      case 'BUY': {
-        let vp = 0;
-        if (action.source === 'reserved') {
-          const card = p.reserved.find(c => c.id === action.cardId);
-          vp = card ? (card.vp || 0) : 0;
-        } else if (action.source === 'board') {
-          const card = this.state.board[`tier${action.tier}`][action.cardIndex];
-          vp = card ? (card.vp || 0) : 0;
-        }
-        desc = vp > 0 ? `买了一张 ${vp}VP 的卡` : `买了一张卡`;
-        break;
-      }
-      case 'PASS':
-        desc = `跳过回合`;
-        break;
-      default:
-        desc = action.type;
-    }
-    this.actionLog.push({ turn, who: p.name, isMe: playerIndex === this.humanIndex, desc });
-    // 最多保留 100 条
-    if (this.actionLog.length > 100) this.actionLog.shift();
-  }
-
+  // 记录由引擎写入 state.log（随对局同步），这里只负责渲染。
+  // 老对局没有该字段时显示“暂无记录”，从下一次动作开始自动累积。
   _renderLog() {
     const el = document.getElementById('splendor-log');
     if (!el) return;
-    if (this.actionLog.length === 0) {
+    const list = Array.isArray(this.state?.log) ? this.state.log : [];
+    if (list.length === 0) {
       el.innerHTML = '<h4>📜 行动记录</h4><div class="log-empty">暂无记录</div>';
       return;
     }
-    const items = this.actionLog.map(l =>
-      `<div class="log-item${l.isMe ? ' is-me' : ''}">` +
+    const items = list.map(l =>
+      `<div class="log-item${l.seat === this.humanIndex ? ' is-me' : ''}">` +
       `<span class="log-turn">第${l.turn}回合</span> ` +
-      `<span class="log-who">${l.who}</span> ${l.desc}` +
+      `<span class="log-who">${l.name}</span> ${l.desc}` +
       `</div>`
     ).join('');
     el.innerHTML = `<h4>📜 行动记录</h4>${items}`;

@@ -346,8 +346,8 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ SplendorGame }, engine] = await Promise.all([
-        import('./splendor-ui.js?v=39'),
-        import('./splendor-engine.js?v=38')
+        import('./splendor-ui.js?v=40'),
+        import('./splendor-engine.js?v=39')
       ]);
       return {
         initState: (names) => engine.initGame(names),
