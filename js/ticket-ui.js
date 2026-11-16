@@ -1,7 +1,7 @@
 // 铁路环游：美国版 · 交互界面（纯 DOM + SVG，无图片资源）
 // 交互原则与璀璨宝石一致：直接操作，无“选择动作类型”按钮。
 // 点击地图路线 = 占领；点击右侧车票 = 抽牌；点击盲抽堆 = 盲抽。
-import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=38';
+import { initGame, applyAction, validateAction, isTicketComplete, claimOptions } from './ticket-engine.js?v=39';
 import { pickAction } from './ticket-ai.js?v=38';
 import { OnlineGameBase } from './online-game.js?v=1';
 import {
@@ -136,7 +136,7 @@ export class TicketGame extends OnlineGameBase {
 
     // 选票期间，只允许处理提示面板内的操作（地图仍可见）
     if (s.phase === 'setup' || s.turnPhase === 'tickets') {
-      const allowed = ['toggle-sel', 'focus-ticket', 'confirm-initial', 'confirm-drawn', 'restart'];
+      const allowed = ['toggle-sel', 'focus-ticket', 'confirm-initial', 'confirm-drawn', 'restart', 'back-lobby'];
       if (!allowed.includes(act)) return;
     }
 
@@ -243,6 +243,10 @@ export class TicketGame extends OnlineGameBase {
           break;
         }
         this.start();
+        break;
+
+      case 'back-lobby':
+        location.hash = '#/lobby';
         break;
     }
   }
@@ -680,7 +684,9 @@ export class TicketGame extends OnlineGameBase {
         <summary>📜 查看本局操作记录（${(s.log || []).length} 条）</summary>
         <div class="ttr-end-log-list">${logRows || '<p class="ttr-dim">无记录</p>'}</div>
       </details>
-      <button class="ttr-btn primary" data-act="restart">再来一局</button>
+      ${this.online
+        ? '<button class="ttr-btn primary" data-act="back-lobby">🏠 返回大厅</button>'
+        : '<button class="ttr-btn primary" data-act="restart">再来一局</button>'}
     </div></div>`;
   }
 

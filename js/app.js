@@ -346,7 +346,7 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ SplendorGame }, engine] = await Promise.all([
-        import('./splendor-ui.js?v=36'),
+        import('./splendor-ui.js?v=37'),
         import('./splendor-engine.js?v=36')
       ]);
       return {
@@ -376,8 +376,8 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ TicketGame }, engine] = await Promise.all([
-        import('./ticket-ui.js?v=43'),
-        import('./ticket-engine.js?v=38')
+        import('./ticket-ui.js?v=44'),
+        import('./ticket-engine.js?v=39')
       ]);
       return {
         initState: (names) => engine.initGame(names),
@@ -579,6 +579,8 @@ document.querySelectorAll('.game-card').forEach(card => {
 
 // === 大厅 ===
 function enterLobby() {
+  // 从对局/房间返回大厅：释放座位并停止轮询，避免占位与后台继续同步
+  if (state.roomCode || state.onlineGame) leaveRoomSession();
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();

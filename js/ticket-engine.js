@@ -372,10 +372,9 @@ export function validateAction(state, playerIndex, action) {
 
       const group = doubleGroupOf(routeIdx);
       if (group) {
+        // 同一玩家不能同时占领同一对城市的两条平行线；
+        // 不同玩家可以各占一条（不受人数限制）
         if (group.some(i => state.routeOwner[i] === playerIndex)) return '不能同时占领同一对城市的两条线路';
-        if (state.players.length <= 3 && group.some(i => state.routeOwner[i] !== null)) {
-          return '2-3 人局中该双线只能使用一条';
-        }
       }
 
       const r = ROUTES[routeIdx];

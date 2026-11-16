@@ -978,5 +978,17 @@ export class SplendorGame extends OnlineGameBase {
       `;
       scores.appendChild(row);
     });
+
+    // 联机对局没有本地重开，按钮改为返回大厅；单机才显示再来一局
+    const btn = document.getElementById('btn-new-game');
+    if (btn) {
+      if (this.session) {
+        btn.textContent = '🏠 返回大厅';
+        btn.onclick = () => { location.hash = '#/lobby'; };
+      } else {
+        btn.textContent = '🔄 再来一局';
+        btn.onclick = () => this.restart();
+      }
+    }
   }
 }
