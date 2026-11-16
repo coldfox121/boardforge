@@ -196,6 +196,39 @@ function scoreAction(state, action, playerIndex, ctx) {
   return 0;
 }
 
+// 贵族待选（官方规则一回合限拿 1 张时的 AI 决策）：
+// 优先拦截对手——对手"已经达成"的威胁度最高（dist=0，下回合就被拿走），
+// 其次是"马上要达成"的（按对手还缺的卡数排序，高分对手的威胁更紧迫）；
+// 威胁度相同才选 VP 高的。返回候选中的 nobles 下标。
+export function pickNoble(state, playerIndex, candidates) {
+  const threatOf = (noble) => {
+    const req = noble.req || noble;
+    let best = Infinity;
+    for (let i = 0; i < state.players.length; i++) {
+      if (i === playerIndex) continue;
+      const op = state.players[i];
+      let dist = 0;
+      for (const c of COLORS) {
+        const need = req[c] || 0;
+        if (need <= 0) continue;
+        const owned = op.ownedCards.reduce((s, card) => s + (card.color === c ? 1 : 0), 0);
+        if (owned < need) dist += need - owned;
+      }
+      // dist=0 → 对手已达成（最紧迫）；否则按缺卡数，除以对手权重（分数高的对手威胁更紧迫）
+      best = Math.min(best, dist === 0 ? 0 : (1 + dist) / opponentWeight(op));
+    }
+    return best;
+  };
+
+  let best = candidates[0];
+  for (let k = 1; k < candidates.length; k++) {
+    const a = state.nobles[best], b = state.nobles[candidates[k]];
+    const ta = threatOf(a), tb = threatOf(b);
+    if (tb < ta || (tb === ta && (b.vp ?? 3) > (a.vp ?? 3))) best = candidates[k];
+  }
+  return best;
+}
+
 // 返回最佳动作
 export function pickAction(state, playerIndex) {
   const actions = listValidActions(state, playerIndex);

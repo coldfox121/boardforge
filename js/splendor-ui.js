@@ -1,6 +1,6 @@
 ﻿// 璀璨宝石 UI 渲染 + 交互（直接操作，不选动作类型）
 import { initGame, applyAction, validateAction, listValidActions, discardGems, chooseNoble } from './splendor-engine.js?v=40';
-import { pickAction } from './splendor-ai.js?v=36';
+import { pickAction, pickNoble } from './splendor-ai.js?v=37';
 import { GEM_NAMES, GEM_COLORS } from './splendor-data.js?v=35';
 import { OnlineGameBase } from './online-game.js?v=2';
 
@@ -829,13 +829,12 @@ export class SplendorGame extends OnlineGameBase {
     const p = this.state.players[this.state.currentPlayer];
     if (!p.isAI) return;
 
-    // AI 处于贵族待选状态 → 选 VP 最高的一张（平分取先出现的）
+    // AI 处于贵族待选状态 → 优先拦截对手（已达成/马上达成），平分再选 VP 高的
     if (this.state.pendingNoble) {
       this.aiTimer = setTimeout(() => {
         try {
           const pn = this.state.pendingNoble;
-          const best = pn.candidates.reduce((a, b) =>
-            ((this.state.nobles[b].vp ?? 3) > (this.state.nobles[a].vp ?? 3)) ? b : a);
+          const best = pickNoble(this.state, this.state.currentPlayer, pn.candidates);
           this.state = chooseNoble(this.state, this.state.currentPlayer, best);
           delete this.state._lastNoblesGained;
           this._renderAll();
@@ -925,11 +924,9 @@ export class SplendorGame extends OnlineGameBase {
 
   // ===== 通用联机基类所需的游戏钩子 =====
   aiAction(state, seat) {
-    // 贵族待选：选 VP 最高的一张（平分取先出现的）
+    // 贵族待选：优先拦截对手（已达成/马上达成），平分再选 VP 高的
     if (state.pendingNoble && state.pendingNoble.playerIndex === seat) {
-      const best = state.pendingNoble.candidates.reduce((a, b) =>
-        ((state.nobles[b].vp ?? 3) > (state.nobles[a].vp ?? 3)) ? b : a);
-      return { type: 'NOBLE', nobleIndex: best };
+      return { type: 'NOBLE', nobleIndex: pickNoble(state, seat, state.pendingNoble.candidates) };
     }
     // 弃宝石阶段：优先弃数量最多的普通宝石
     if (state.pendingDiscard) {
