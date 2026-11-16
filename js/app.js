@@ -954,6 +954,7 @@ async function launchOnlineGame(data, isHost) {
       onRematch: restartRoomGame
     });
     if (data.members) state.onlineGame.syncMembers(data.members);
+    window.__onlineGame = state.onlineGame;   // 调试 / 自动化排查用
   } finally {
     state._launchingOnline = false;
   }
