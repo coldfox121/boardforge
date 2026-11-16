@@ -347,7 +347,7 @@ const ONLINE_GAMES = {
     async load() {
       const [{ SplendorGame }, engine] = await Promise.all([
         import('./splendor-ui.js?v=37'),
-        import('./splendor-engine.js?v=36')
+        import('./splendor-engine.js?v=37')
       ]);
       return {
         initState: (names, variant) => engine.initGame(names, variant?.rules || null, variant?.deck || null),
@@ -914,12 +914,12 @@ async function startRoomGame() {
   const vId = data.room?.variant_id || null;
   const vVer = data.room?.variant_version || 0;
 
-  const st = adapter.initState(names, variant);
-  st.players.forEach((p, i) => { p.isAI = i >= members.length; });
-
   const btn = document.getElementById('btn-start-game');
   btn.disabled = true;
   try {
+    // initState 放进 try：任何开局异常都要弹提示，不能无声失败
+    const st = adapter.initState(names, variant);
+    st.players.forEach((p, i) => { p.isAI = i >= members.length; });
     await api('/api/room?code=' + state.roomCode, {
       method: 'POST',
       body: JSON.stringify({

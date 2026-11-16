@@ -34,9 +34,10 @@ export const DEFAULT_RULES = {
 };
 
 // ===== 合并规则：variant rules + 官方默认 =====
+// 注意：联机入口可能传 null（无魔改版），这里必须兜底，不能依赖默认参数（默认参数只对 undefined 生效）
 export function mergeRules(variantRules = {}) {
   const out = { ...DEFAULT_RULES };
-  for (const [k, v] of Object.entries(variantRules)) {
+  for (const [k, v] of Object.entries(variantRules || {})) {
     if (v !== undefined && v !== null) out[k] = v;
   }
   return out;
@@ -66,14 +67,15 @@ function countGems(gems) {
 // rules: variant 规则覆盖（可选）
 // deckData: variant 牌库覆盖（可选）{ CARDS, NOBLES, GEM_COLORS }
 export function initGame(playerNames, rules = {}, deckData = {}) {
-  const R = mergeRules(rules);
+  const R = mergeRules(rules || {});
+  const decks = deckData || {};
   const n = playerNames.length;
   if (n < R.MIN_PLAYERS || n > R.MAX_PLAYERS) throw new Error(`玩家数必须 ${R.MIN_PLAYERS}-${R.MAX_PLAYERS}`);
 
   // 牌库：variant 传入优先，否则 admin 覆盖，否则官方基线
-  const cards = deckData.CARDS || E_CARDS;
-  const nobles = (deckData.NOBLES || E_NOBLES).map(nob => ({ vp: R.NOBLE_SCORE_FALLBACK, ...nob }));
-  const gemColors = deckData.GEM_COLORS || E_GEM_COLORS;
+  const cards = decks.CARDS || E_CARDS;
+  const nobles = (decks.NOBLES || E_NOBLES).map(nob => ({ vp: R.NOBLE_SCORE_FALLBACK, ...nob }));
+  const gemColors = decks.GEM_COLORS || E_GEM_COLORS;
 
   const setup = R.SETUP[n] || R.SETUP[R.MAX_PLAYERS];
 
