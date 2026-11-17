@@ -590,7 +590,7 @@ export class HotelGame extends OnlineGameBase {
     const prepared = me.rooms.filter(r => r.prepared).length;
     const occupied = me.rooms.filter(r => r.occupied).length;
     const hint = this.root.querySelector('#gah-hotel-hint');
-    hint.textContent = `已备 ${prepared} · 已住 ${occupied}`;
+    hint.textContent = `蓝=贵族 · 红=市民 · 黄=艺术家 · 已备 ${prepared} · 已住 ${occupied}`;
 
     this.root.querySelector('#gah-res').innerHTML =
       `<span>💰 ${me.money} 克朗</span>
@@ -701,7 +701,7 @@ export class HotelGame extends OnlineGameBase {
       if (t.setupRooms) {
         const done = me.rooms.filter(r => r.prepared).length;
         body = `<div class="gah-pendtitle">开局备房：放置第 ${done + 1}/3 间</div>
-        <div class="gah-hint">在房间图板点 1 个空位 · 第一间=底层最左，后续须相邻 · 楼层费 1层0/2层1/3层2/4层3 克朗</div>
+        <div class="gah-hint">在房间图板点 1 个空位 · 第一间=底层最左，后续须相邻 · 楼层费 1层0/2层1/3层2/4层3 克朗<br>方块底色=房型颜色（蓝=贵族 / 红=市民 / 黄=艺术家）</div>
         <div class="gah-opts">
           <button class="gah-btn primary" data-act="pend-rooms-done" ${picked.length ? '' : 'disabled'}>确认放置（${picked.length}/1）</button>
         </div>`;
