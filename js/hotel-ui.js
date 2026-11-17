@@ -195,6 +195,7 @@ export class HotelGame extends OnlineGameBase {
               <div class="gah-ph">我的酒店 <span class="gah-hint" id="gah-hotel-hint"></span></div>
               <div class="gah-hotel" id="gah-hotel"></div>
               <div class="gah-res" id="gah-res"></div>
+              <div class="gah-bonusrule" id="gah-bonusrule"></div>
             </div>
             <div class="gah-panel">
               <div class="gah-ph">咖啡吧（最多 3 位）与厨房</div>
@@ -596,6 +597,41 @@ export class HotelGame extends OnlineGameBase {
       `<span>💰 ${me.money} 克朗</span>
        <span>👑 皇帝轨 <b>${me.emperor}</b> (${EMPEROR_POINTS[me.emperor] || 0}分)</span>
        <span>🏨 房 ${prepared}/20</span>`;
+
+    this._renderBonusRule(me);
+  }
+
+  // 满组奖励规则 + 各组实时进度
+  _renderBonusRule(me) {
+    const wrap = this.root.querySelector('#gah-bonusrule');
+    if (!wrap) return;
+    const COLOR_OF = { blue: '贵族', red: '市民', yellow: '艺术家' };
+    const rule = {
+      blue: '1/2/3/4 间组 → +2/+5/+9/+15 分',
+      red: '1/2/3/4 间组 → +1/+3/+6/+10 克朗',
+      yellow: '1/2/3/4 间组 → +1/+3/+6/+10 皇帝轨'
+    };
+    const rows = ['blue', 'red', 'yellow'].map(c => `
+      <div class="gah-br-row">
+        <span class="gah-color c-${c}">${COLOR_OF[c]}</span>
+        <span class="gah-br-rule">${rule[c]}</span>
+      </div>`).join('');
+
+    // 各组进度：只显示玩家已备过房的组
+    const chips = [];
+    for (const grp of ROOM_GROUPS) {
+      const preparedN = grp.filter(i => me.rooms[i].prepared).length;
+      if (!preparedN) continue;
+      const occN = grp.filter(i => me.rooms[i].occupied).length;
+      const color = ROOM_COLORS[grp[0]];
+      const full = occN === grp.length;
+      chips.push(`<span class="gah-br-chip c-${color} ${full ? 'full' : ''}">${COLOR_OF[color]} ${occN}/${grp.length}${full ? ' ✓已满' : ''}</span>`);
+    }
+    const prog = chips.length
+      ? `<div class="gah-br-prog">${chips.join('')}</div>`
+      : `<div class="gah-br-prog"><span class="gah-br-none">同色房间组全部住满即触发（进度会显示在这里）</span></div>`;
+
+    wrap.innerHTML = `<div class="gah-br-title">🏆 满组奖励（同色房整组住满）</div>${rows}${prog}`;
   }
 
   _renderCafe() {
