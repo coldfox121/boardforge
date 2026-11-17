@@ -103,7 +103,7 @@ const ADMIN_GAMES = [
   { id: 'splendor', name: '💎 璀璨宝石', ready: true },
   { id: 'catan', name: '🗺️ 卡坦岛', ready: false },
   { id: 'ticket', name: '🚂 铁路环游', ready: true },
-  { id: 'hotel', name: '🏨 奥地利大饭店', ready: false }
+  { id: 'hotel', name: '🏨 奥地利大饭店', ready: true }
 ];
 
 export async function renderAdminPage(gameId = 'splendor') {
@@ -135,6 +135,10 @@ export async function renderAdminPage(gameId = 'splendor') {
     const mod = await import('./ticket-data.js').catch(() => null);
     if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
     baseData = { CITIES: mod.CITIES, ROUTES: mod.ROUTES, TICKETS: mod.TICKETS };
+  } else if (gameId === 'hotel') {
+    const mod = await import('./hotel-data.js').catch(() => null);
+    if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
+    baseData = mod.BASE_DATA;
   } else {
     const mod = await import('./splendor-data.js').catch(() => null);
     if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
@@ -146,6 +150,11 @@ export async function renderAdminPage(gameId = 'splendor') {
   if (gameId === 'ticket') {
     const { renderTicketEditor } = await import('./admin-ticket.js?v=6');
     renderTicketEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
+    return;
+  }
+  if (gameId === 'hotel') {
+    const { renderHotelEditor } = await import('./admin-hotel.js?v=1');
+    renderHotelEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
     return;
   }
   const activeData = JSON.parse(JSON.stringify(adminData || baseData));

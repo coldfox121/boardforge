@@ -305,6 +305,43 @@ const GAME_RULES = {
         body: '美国版没有隧道、渡轮和火车站；任务票只按自己的铁轨是否连通来判定。'
       }
     ]
+  },
+  hotel: {
+    name: '奥地利大饭店 · 官方规则',
+    sections: [
+      {
+        title: '🎯 目标与流程',
+        body: '共 7 轮。每轮起始玩家掷全部骰子并按点数分到 6 个行动区；按顺位每人有 2 次行动。第 3/5/7 轮末各有一次皇帝结算，第 7 轮结算后终局。'
+      },
+      {
+        title: '🎲 一回合',
+        body: '①（可选）从 5 位队列房客中接 1 位进咖啡吧（咖啡吧最多 3 位，按位置付 3/2/1/0/0 克朗）<br>②（必须）取 1 颗骰子执行对应行动，<b>行动强度 = 取走时该区剩余骰数</b><br>每回合可付 1 克朗让强度 +1（限一次）。'
+      },
+      {
+        title: '6 个行动区',
+        body: '① 拿苹果卷/蛋糕（蛋糕不能多于苹果卷）<br>② 拿红酒/咖啡（咖啡不能多于红酒）<br>③ 每点强度准备 1 间房（须从底层相邻扩展、颜色对应、按楼层付费）<br>④ 每点强度在皇帝轨和金钱之间自由分配<br>⑤ 雇佣 1 名员工，强度每点减 1 克朗<br>⑥ 付 1 克朗模仿 ①-⑤ 任一行动，强度按 6 区的骰数算'
+      },
+      {
+        title: '🍽 餐饮与入住',
+        body: '获得的餐饮可立刻免费放到咖啡吧客人的订单上，剩余进厨房。付 1 克朗可从厨房向客人补送最多 3 份。订单满足后，可把客人免费安排进同色空房（绿色客任意房），获得卡面分数与奖励；房间翻面变成已入住，整组住满还有满组奖励。'
+      },
+      {
+        title: '👑 皇帝轨',
+        body: '13 格封顶，超出每格 +1 分。第 3/5/7 轮结算：按位置得分，然后分别后退 3/5/7 格。停在第 3 格及以上拿皇帝板块奖励；停在 0 格受惩罚；停在 1-2 格不奖不罚。'
+      },
+      {
+        title: '📜 目标卡',
+        body: '每局 A/B/C 各 1 张。自己回合内满足条件即可放标记，按 15/10/5 先抢先得；每人每张卡限放 1 个标记。'
+      },
+      {
+        title: '🏁 终局计分',
+        body: '终局员工卡 + 已入住房间（1/2/3/4 层分别 1/2/3/4 分）+ 每 1 克朗和厨房剩余每份餐饮 1 分 − 咖啡吧滞留每位客人 5 分。'
+      },
+      {
+        title: 'ℹ️ 本平台说明',
+        body: '员工开局为随机发 6 张（不做轮抽），其余严格按 2021 官方零售版规则。'
+      }
+    ]
   }
 };
 
@@ -331,7 +368,7 @@ function openRulesModal(gameId) {
 }
 
 // === 受限模式：朋友只看到单个游戏 ===
-const GAME_NAMES = { splendor: '璀璨宝石', ticket: '铁路环游' };
+const GAME_NAMES = { splendor: '璀璨宝石', ticket: '铁路环游', hotel: '奥地利大饭店' };
 
 // === 联机游戏注册表 ===
 // 新增联机游戏只需要在这里加一项：initState 生成开局数据，create 返回游戏实例。
@@ -353,6 +390,7 @@ const ONLINE_GAMES = {
         initState: (names) => engine.initGame(names),
         create: ({ data, isHost, push, onRematch }) => {
           document.getElementById('ticket-game').classList.add('hidden');
+          document.getElementById('hotel-game').classList.add('hidden');
           document.getElementById('splendor-end').classList.add('hidden');
           document.getElementById('splendor-game').classList.remove('hidden');
           const game = new SplendorGame(null, {
@@ -381,12 +419,49 @@ const ONLINE_GAMES = {
       return {
         initState: (names) => engine.initGame(names),
         create: ({ data, isHost, push, onRematch }) => {
+          document.getElementById('splendor-game').classList.add('hidden');
+          document.getElementById('splendor-end').classList.add('hidden');
+          document.getElementById('hotel-game').classList.add('hidden');
           const root = document.getElementById('ticket-game');
           const fresh = root.cloneNode(false);
           fresh.innerHTML = '';
           root.replaceWith(fresh);
           fresh.classList.remove('hidden');
           const game = new TicketGame(fresh, {
+            humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
+            initialState: data.state,
+            online: { isHost, version: data.version, push },
+            onRematch
+          });
+          game.start();
+          return game;
+        }
+      }
+    }
+  },
+  hotel: {
+    name: '奥地利大饭店',
+    async prepare() {
+      const { syncGameConfig } = await import('./config-sync.js?v=36');
+      await syncGameConfig('hotel');
+    },
+    async load() {
+      const [{ HotelGame }, engine] = await Promise.all([
+        import('./hotel-ui.js?v=1'),
+        import('./hotel-engine.js?v=1')
+      ]);
+      return {
+        initState: (names) => engine.initGame(names),
+        create: ({ data, isHost, push, onRematch }) => {
+          document.getElementById('splendor-game').classList.add('hidden');
+          document.getElementById('splendor-end').classList.add('hidden');
+          document.getElementById('ticket-game').classList.add('hidden');
+          const root = document.getElementById('hotel-game');
+          const fresh = root.cloneNode(false);
+          fresh.innerHTML = '';
+          root.replaceWith(fresh);
+          fresh.classList.remove('hidden');
+          const game = new HotelGame(fresh, {
             humanIndex: typeof data.me.seat === 'number' ? data.me.seat : 0,
             initialState: data.state,
             online: { isHost, version: data.version, push },
@@ -708,6 +783,9 @@ async function showRoomByCode(code, gameId, hintGame) {
   const ticketRoot = document.getElementById('ticket-game');
   ticketRoot.classList.add('hidden');
   ticketRoot.innerHTML = '';
+  const hotelRoot = document.getElementById('hotel-game');
+  hotelRoot.classList.add('hidden');
+  hotelRoot.innerHTML = '';
 
   // ===== 联机会话：入座 + 2 秒轮询同步 =====
   state.roomCode = upper;
@@ -944,6 +1022,8 @@ async function launchOnlineGame(data, isHost) {
     document.getElementById('room-waiting').classList.add('hidden');
     document.getElementById('splendor-game').classList.add('hidden');
     document.getElementById('splendor-end').classList.add('hidden');
+    document.getElementById('ticket-game').classList.add('hidden');
+    document.getElementById('hotel-game').classList.add('hidden');
     state.onlineGame = adapter.create({
       data,
       isHost,

@@ -34,9 +34,34 @@ const GAMES = {
       });
       return st;
     }
-  }
+  },
 
   // 璀璨宝石：手牌、宝石、已购卡均为公开信息，牌堆客户端抽牌时必须读取 → 不裁剪
+
+  // 奥地利大饭店：员工手牌是隐藏信息（其他人类玩家只保留张数）
+  // 注意：员工牌堆顺序要保留——客户端抽牌/抽 3 选 1 时必须读真实牌
+  hotel: {
+    project(state, seat) {
+      const st = clone(state);
+      (st.players || []).forEach((p, i) => {
+        if (i !== seat && !p.isAI && Array.isArray(p.hand)) {
+          p.hand = p.hand.map(() => '?');
+        }
+      });
+      return st;
+    },
+    merge(stored, incoming, seat) {
+      const st = clone(incoming);
+      const old = (stored && stored.players) || [];
+      (st.players || []).forEach((p, i) => {
+        const prev = old[i];
+        if (prev && i !== seat && !prev.isAI && Array.isArray(prev.hand)) {
+          p.hand = clone(prev.hand);
+        }
+      });
+      return st;
+    }
+  }
 };
 
 export function projectState(gameId, state, seat) {
