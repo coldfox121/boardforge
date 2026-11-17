@@ -14,7 +14,7 @@ export async function onRequestGet({ request, env }) {
 
   if (code) {
     const row = await env.DB.prepare(
-      'SELECT id, name, game, room_code, status, max_players, current_players, created_at, updated_at ' +
+      'SELECT id, name, game, room_code, status, max_players, current_players, created_by, created_at, updated_at ' +
       'FROM rooms WHERE room_code = ?'
     ).bind(code.toUpperCase()).first();
 

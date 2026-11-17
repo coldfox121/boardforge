@@ -401,3 +401,17 @@ const GAMES = {
 - 待选任务队列 `state.pendingTasks` + `state.pending`：准备房间 / 额外入住 / 雇佣 / 抽3选1 / 免费接客 /
   任选餐饮 / 公共供应完成订单 / 吉萨额外行动。`flushPending()` 会跳过无法执行的任务。
 - AI：入住优先 > 目标卡 > 每轮一次员工 > 接客 > 取骰（按需评分）> 厨房补送；选房按累计预算。
+
+### 17.1 新游戏接入面检查清单（2026-11-17 教训，第 4 个游戏起必查）
+
+昨天 hotel 上线连漏两处后端/前端目录，导致「创建房间报未知游戏」「弹窗标题显示 raw id」。
+以后每接入一个新游戏，除 GAME-GUIDE 五步模板外，必须逐项核对：
+
+1. **后端游戏目录** `functions/api/games.js` 的 `GAMES` 白名单（rooms.js 创建房间按它校验，规则弹窗也读它）
+2. **前端游戏名映射** 只允许用 `app.js` 的 `GAME_NAMES`，禁止在局部再写 `{ splendor: ..., ticket: ... }` 硬编码映射（openRoomModal 曾漏 hotel）
+3. **隐藏信息裁剪** `functions/api/_project.js` 的 GAMES（project/merge 一对）
+4. **大厅卡片 + 游戏容器** `index.html`（卡片带 `data-game`，容器 div）
+5. **联机注册表** `app.js` 的 `ONLINE_GAMES` + `GAME_NAMES`
+6. **后台编辑器** `admin-ui.js` 游戏列表 + 对应 `admin-<game>.js`
+7. **全链路 E2E**：本地 wrangler pages dev + D1 起真实环境，跑「创建→加入→开局→行动→同步→重开」
+   （纯 UI 单机测试会绕过房间链路，漏不掉 games.js 这类白名单 bug）

@@ -641,8 +641,7 @@ function enterLobby() {
 // === 房间 Modal（创建 / 加入） ===
 function openRoomModal(gameId, presetCode) {
   closeRoomModal();
-  const gameNames = { splendor: '璀璨宝石', ticket: '铁路环游' };
-  const gameName = gameNames[gameId] || gameId || '游戏';
+  const gameName = gameId ? (GAME_NAMES[gameId] || gameId) : '游戏';
 
   const modal = document.createElement('div');
   modal.id = 'room-modal';
@@ -927,6 +926,8 @@ function renderRoomWaiting(data) {
 }
 
 async function startRoomGame() {
+  // 先强刷房间信息：轮询最长 2 秒延迟，若刚有成员加入就用缓存开局会把对方挤成 AI
+  try { state.roomInfo = await api('/api/room?code=' + state.roomCode); } catch {}
   const data = state.roomInfo;
   if (!data || !data.me.is_owner) return;
 
@@ -980,6 +981,9 @@ async function restartRoomGame() {
   if (state._rematching) return;
   state._rematching = true;
   try {
+    // 先强刷房间信息，避免用缓存的成员列表开局
+    try { state.roomInfo = await api('/api/room?code=' + state.roomCode); } catch {}
+    const data = state.roomInfo;
     const adapter = await getOnlineAdapter(data.room.game);
     if (!adapter) { alert('该游戏尚未接入联机'); return; }
 
