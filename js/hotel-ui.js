@@ -4,8 +4,8 @@ import { OnlineGameBase } from './online-game.js?v=2';
 import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
-} from './hotel-engine.js?v=4';
-import { pickAction } from './hotel-ai.js?v=2';
+} from './hotel-engine.js?v=5';
+import { pickAction } from './hotel-ai.js?v=3';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
   EMPEROR_POINTS, MARKET_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES
@@ -486,7 +486,12 @@ export class HotelGame extends OnlineGameBase {
     const wrap = this.root.querySelector('#gah-guide');
     if (s.phase === 'ended') { wrap.innerHTML = '<div class="gah-hint">游戏已结束</div>'; return; }
     if (s.phase === 'setup') {
-      wrap.innerHTML = `<div class="gah-guide-item state-now"><i>①</i> 开局接客：点击上方客人队列免费接待 1 位</div>`;
+      if (s.pending && s.pending.type === 'prepare') {
+        const done = me.rooms.filter(r => r.prepared).length;
+        wrap.innerHTML = `<div class="gah-guide-item state-now"><i>②</i> 开局备房：点房间图板空位放置第 ${done + 1}/3 间（第一间=底层最左，后续须相邻；底层免费，高层按楼层收费）</div>`;
+      } else {
+        wrap.innerHTML = `<div class="gah-guide-item state-now"><i>①</i> 开局接客：点击上方客人队列免费接待 1 位</div>`;
+      }
       return;
     }
 
@@ -671,6 +676,7 @@ export class HotelGame extends OnlineGameBase {
 
   _renderPending() {
     const s = this.state;
+    const me = this.me();
     const wrap = this.root.querySelector('#gah-pending');
     const ui = this.ui;
     const t = s.pending;
@@ -692,12 +698,21 @@ export class HotelGame extends OnlineGameBase {
       const mode = ui.mode;
       const picked = mode.picked || [];
       const label = t.type === 'prepare' ? '准备房间' : '标记为已入住';
-      body = `<div class="gah-pendtitle">请选择${label}（最多 ${t.count} 间）</div>
+      if (t.setupRooms) {
+        const done = me.rooms.filter(r => r.prepared).length;
+        body = `<div class="gah-pendtitle">开局备房：放置第 ${done + 1}/3 间</div>
+        <div class="gah-hint">在房间图板点 1 个空位 · 第一间=底层最左，后续须相邻 · 楼层费 1层0/2层1/3层2/4层3 克朗</div>
+        <div class="gah-opts">
+          <button class="gah-btn primary" data-act="pend-rooms-done" ${picked.length ? '' : 'disabled'}>确认放置（${picked.length}/1）</button>
+        </div>`;
+      } else {
+        body = `<div class="gah-pendtitle">请选择${label}（最多 ${t.count} 间）</div>
         <div class="gah-hint">已选 ${picked.length} 间 · 在左侧房间图板上点选</div>
         <div class="gah-opts">
           <button class="gah-btn primary" data-act="pend-rooms-done">确认（${picked.length}/${t.count}）</button>
           <button class="gah-btn" data-act="pend-skip">放弃</button>
         </div>`;
+      }
     } else if (t.type === 'prepareOccupy') {
       body = `<div class="gah-pendtitle">免费放置并入住 1 间房</div>
         <div class="gah-hint">在房间图板上点选高亮位置（${t.maxFloor <= 1 ? '仅底部两层' : '任意楼层'}）</div>

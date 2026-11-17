@@ -56,7 +56,7 @@ export function initGame(playerNames) {
   const staffDeck = shuffle(STAFF.map(x => x.id));
 
   const players = playerNames.map((name, i) => {
-    const rooms = Array.from({ length: 20 }, (_, idx) => ({ prepared: idx < 3, occupied: false }));
+    const rooms = Array.from({ length: 20 }, () => ({ prepared: false, occupied: false }));
     return {
       seat: i, name: String(name), isAI: false,
       score: 0, money: 10, emperor: 0,
@@ -101,6 +101,7 @@ export function initGame(playerNames) {
     pending: null,
     pendingTasks: [],
     setupPicks: [],
+    setupRooms: [],
     log: [],
     winners: [],
     finalScores: null
@@ -843,7 +844,7 @@ export function validateAction(s, seat, action) {
     return null;
   }
   if (s.phase === 'setup') {
-    if (action.type !== 'RESOLVE') return '开局选客阶段';
+    if (action.type !== 'RESOLVE') return '开局准备阶段（接客/备房）';
   }
   if (seat !== s.currentPlayer) return '还没轮到你';
   const p = s.players[seat];
@@ -1131,6 +1132,7 @@ function resolvePending(s, seat, choice) {
   switch (t.type) {
     case 'prepare': {
       const rooms = (choice.rooms || []).slice(0, t.count);
+      if (t.setupRooms && !rooms.length) throw new Error('开局必须放置房间（不可跳过）');
       for (const idx of rooms) doPrepare(s, p, seat, idx, t.discount || 0, t.maxFloor ?? 3);
       if (!rooms.length) pushLog(s, seat, '（放弃准备房间）', 'room');
       break;
@@ -1236,10 +1238,19 @@ function resolvePending(s, seat, choice) {
     default: break;
   }
 
-  // 开局接客：轮到下一位
+  // 开局流程：先接客（官方第 11 步），全员接完后自选备 3 房（官方第 12 步，轮转进行）
   if (t.setup && s.phase === 'setup') {
-    if (s.setupPicks.length) {
-      addTask(s, { type: 'guestPick', seat: s.setupPicks.shift(), count: 1, free: true, setup: true });
+    if (t.type === 'guestPick') {
+      if (s.setupPicks.length) {
+        addTask(s, { type: 'guestPick', seat: s.setupPicks.shift(), count: 1, free: true, setup: true });
+      } else {
+        for (let r = 0; r < 3; r++) {
+          for (let i = 0; i < s.players.length; i++) s.setupRooms.push(i);
+        }
+        addTask(s, { type: 'prepare', seat: s.setupRooms.shift(), count: 1, setup: true, setupRooms: true });
+      }
+    } else if (s.setupRooms.length) {
+      addTask(s, { type: 'prepare', seat: s.setupRooms.shift(), count: 1, setup: true, setupRooms: true });
     } else {
       s.phase = 'playing';
       s.currentPlayer = s.startPlayer;

@@ -8,7 +8,7 @@ import {
 import {
   guestComplete, canPrepareIndex, prepareCostFor, actionStrength,
   objectiveMet, validateAction, diceTotal, hasHired, orderTotal
-} from './hotel-engine.js?v=4';
+} from './hotel-engine.js?v=5';
 
 function staff(id) { return STAFF_BY_ID[id] || { cost: 0, kind: 'permanent', name: '?' }; }
 
@@ -234,6 +234,12 @@ function resolveChoice(s, seat) {
 
   switch (t.type) {
     case 'prepare':
+      if (t.setupRooms) {
+        // 开局备房：AI 全放底层（免费），从左往右
+        const opts = p.rooms.map((_r, i) => i).filter(i => canPrepareIndex(p, i, 3));
+        const best = opts.sort((a, b) => (Math.floor(a / 5) - Math.floor(b / 5)) || (a - b))[0];
+        return { type: 'RESOLVE', choice: { rooms: best != null ? [best] : [] } };
+      }
       return { type: 'RESOLVE', choice: { rooms: legalRooms(p, t.count, t.maxFloor ?? 3, t.discount || 0) } };
     case 'prepareOccupy': {
       const opts = p.rooms.map((_r, i) => i).filter(i => canPrepareIndex(p, i, t.maxFloor ?? 3));
