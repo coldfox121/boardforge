@@ -136,7 +136,7 @@ export async function renderAdminPage(gameId = 'splendor') {
     if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
     baseData = { CITIES: mod.CITIES, ROUTES: mod.ROUTES, TICKETS: mod.TICKETS };
   } else if (gameId === 'hotel') {
-    const mod = await import('./hotel-data.js').catch(() => null);
+    const mod = await import('./hotel-data.js?v=3').catch(() => null);
     if (!mod) { editor.innerHTML = '<div class="error">无法加载数据模块</div>'; return; }
     baseData = mod.BASE_DATA;
   } else {
@@ -153,7 +153,7 @@ export async function renderAdminPage(gameId = 'splendor') {
     return;
   }
   if (gameId === 'hotel') {
-    const { renderHotelEditor } = await import('./admin-hotel.js?v=1');
+    const { renderHotelEditor } = await import('./admin-hotel.js?v=4');
     renderHotelEditor(editor, baseData, adminData || JSON.parse(JSON.stringify(baseData)));
     return;
   }

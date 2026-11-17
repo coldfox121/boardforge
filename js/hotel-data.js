@@ -16,7 +16,7 @@ export const COLOR_SHORT = { blue: '蓝', red: '红', yellow: '黄', green: '绿
 export const EMPEROR_POINTS = [0, 1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 8, 9];
 export const EMPEROR_MAX = 13;
 
-// 房客队列标价（左→右）
+// 客人队列标价（左→右）
 export const MARKET_COST = [3, 2, 1, 0, 0];
 
 // 酒店图板：20 个房间位（索引 = 楼层*5 + 列，楼层 0 = 一楼）
@@ -57,7 +57,7 @@ export const STAFF_ONCE = {
   45: [{ type: 'favor', n: 3 }]
 };
 
-// ===== 房客卡 56 张 =====
+// ===== 客人卡 56 张 =====
 // 奖励描述符：
 //   food(色,数量)  anyFood(数量)  money(数量)  favor(皇帝格)  points(分)  draw(抽员工)
 //   prepare(折扣, 最高楼层)  hire(折扣)  offer(抽3选1的折扣)  guest(免费接客)  occupy(额外入住)
@@ -155,17 +155,17 @@ const STAFF_ROWS = [
   [2, 'Waitress', '女侍者', 6, 'round', '每轮获得 1 份蛋糕。'],
   [3, 'Barkeeper', '酒保', 4, 'round', '每轮获得 1 份红酒。'],
   [4, 'SousChef', '副厨师长', 6, 'round', '每轮获得 1 份咖啡。'],
-  [5, 'Groom', '门童', 4, 'permanent', '红色客人入住后，获得 2 克朗。'],
-  [6, 'Stableman', '马夫', 1, 'permanent', '蓝色客人入住后，皇帝轨前进 1 格。'],
-  [7, 'Masseuse', '按摩师', 1, 'permanent', '黄色客人入住后，获得 1 克朗。'],
-  [8, 'TourGuide', '导游', 2, 'permanent', '绿色客人入住后，额外获得 2 分。'],
-  [9, 'Butler', '管家', 5, 'permanent', '准备蓝色客房免付楼层费用。'],
-  [10, 'Chauffeur', '司机', 5, 'permanent', '准备红色客房免付楼层费用。'],
-  [11, 'Florist', '花艺师', 5, 'permanent', '准备黄色客房免付楼层费用。'],
+  [5, 'Groom', '门童', 4, 'permanent', '市民入住后，获得 2 克朗。'],
+  [6, 'Stableman', '马夫', 1, 'permanent', '贵族入住后，皇帝轨前进 1 格。'],
+  [7, 'Masseuse', '按摩师', 1, 'permanent', '艺术家入住后，获得 1 克朗。'],
+  [8, 'TourGuide', '导游', 2, 'permanent', '旅人入住后，额外获得 2 分。'],
+  [9, 'Butler', '管家', 5, 'permanent', '准备贵族房免付楼层费用。'],
+  [10, 'Chauffeur', '司机', 5, 'permanent', '准备市民房免付楼层费用。'],
+  [11, 'Florist', '花艺师', 5, 'permanent', '准备艺术家房免付楼层费用。'],
   [12, 'ExecutiveHousekeeper', '行政房务主管', 2, 'permanent', '取走点数 3 或 4 的骰子时，获得 2 分。'],
   [13, 'RestaurantManager', '餐厅经理', 2, 'permanent', '取走点数 1 或 2 的骰子时，行动强度 +1。'],
   [14, 'Decorator', '装饰师', 2, 'permanent', '取走点数 1 或 2 的骰子时，可额外按原价准备 1 间房。'],
-  [15, 'Bootblack', '擦鞋匠', 4, 'permanent', '取走点数 4 的骰子时，每点强度同时获得金钱与皇帝声望。'],
+  [15, 'Bootblack', '擦鞋匠', 4, 'permanent', '取走点数 4 的骰子时，每点强度同时获得克朗并在皇帝轨前进相同格数。'],
   [16, 'Laundress', '洗衣工', 2, 'permanent', '取走点数 4 的骰子时，获得 4 分。'],
   [17, 'KitchenHand', '厨房帮工', 5, 'permanent', '取走点数 6 的骰子免付模仿费，行动强度 +1。'],
   [18, 'Checker', '核账员', 2, 'permanent', '取走点数 5 的骰子时，雇佣折扣额外 +2。'],
@@ -177,10 +177,10 @@ const STAFF_ROWS = [
   [24, 'ChiefWaiter', '领班', 1, 'permanent', '从厨房向客人送餐免费。'],
   [25, 'DeliveryBoy', '送货员', 6, 'permanent', '接待队列中的客人免付接待费。'],
   [26, 'ConferenceManager', '会议经理', 5, 'permanent', '皇帝结算时可支付 1 克朗免除惩罚。'],
-  [27, 'BookingManager', '预订经理', 4, 'end', '终局：每间已入住红房 +3 分。'],
-  [28, 'Concierge', '礼宾员', 4, 'end', '终局：每间已入住蓝房 +3 分。'],
+  [27, 'BookingManager', '预订经理', 4, 'end', '终局：每间已入住市民房 +3 分。'],
+  [28, 'Concierge', '礼宾员', 4, 'end', '终局：每间已入住贵族房 +3 分。'],
   [29, 'Secretary', '秘书', 5, 'end', '终局：选择一名对手的终局员工，按你的酒店计算其效果。'],
-  [30, 'ReceptionClerk', '接待员', 4, 'end', '终局：每间已入住黄房 +3 分。'],
+  [30, 'ReceptionClerk', '接待员', 4, 'end', '终局：每间已入住艺术家房 +3 分。'],
   [31, 'Chambermaid', '客房女佣', 4, 'end', '终局：每间已入住房间 +1 分。'],
   [32, 'AssistantManager', '副经理', 4, 'end', '终局：每名已雇佣员工 +2 分（含自己）。'],
   [33, 'MaleFloorHousekeeper', '男楼层管家', 5, 'permanent', '点单总数 ≥4 的客人入住后，额外 +4 分。'],
@@ -208,15 +208,15 @@ const BASE_OBJECTIVES = [
   { id: 105, group: 'A', text: '拥有 20 克朗', test: 'money' },
   { id: 106, group: 'A', text: '准备或入住至少 12 间房', test: 'prepared' },
   { id: 107, group: 'A', text: '雇佣至少 6 名员工', test: 'staff' },
-  { id: 108, group: 'A', text: '皇帝声望至少 10', test: 'emperor' },
+  { id: 108, group: 'A', text: '皇帝轨到达至少 10', test: 'emperor' },
   { id: 109, group: 'B', text: '至少 2 个楼层全部入住', test: 'rows' },
   { id: 110, group: 'B', text: '至少 6 个房间组全部入住', test: 'groups' },
   { id: 111, group: 'B', text: '一种颜色的全部房间均已入住', test: 'color' },
   { id: 112, group: 'B', text: '至少 2 列全部入住', test: 'cols' },
   { id: 113, group: 'C', text: '红、黄、蓝各入住至少 3 间', test: 'rgb' },
-  { id: 114, group: 'C', text: '至少入住 4 红房和 3 黄房', test: 'ry' },
-  { id: 115, group: 'C', text: '至少入住 4 黄房和 3 蓝房', test: 'yb' },
-  { id: 116, group: 'C', text: '至少入住 4 蓝房和 3 红房', test: 'br' }
+  { id: 114, group: 'C', text: '至少入住 4 市民房和 3 艺术家房', test: 'ry' },
+  { id: 115, group: 'C', text: '至少入住 4 艺术家房和 3 贵族房', test: 'yb' },
+  { id: 116, group: 'C', text: '至少入住 4 贵族房和 3 市民房', test: 'br' }
 ];
 
 // ===== 皇帝板块 12 张 =====

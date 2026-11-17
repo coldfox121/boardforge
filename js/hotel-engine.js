@@ -10,7 +10,7 @@ import {
   ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
   BLUE_BONUS, OTHER_BONUS, EMPEROR_POINTS, EMPEROR_MAX,
   MARKET_COST, DICE_BY_PLAYERS, POLITICS_SPOTS, STAFF_ONCE
-} from './hotel-data.js';
+} from './hotel-data.js?v=3';
 
 // ===== 通用工具 =====
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -23,7 +23,7 @@ function shuffle(a) {
 }
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-export const COLOR_ZH = { blue: '蓝', red: '红', yellow: '黄', green: '绿' };
+export const COLOR_ZH = { blue: '贵族', red: '市民', yellow: '艺术家', green: '旅人' };
 const FOOD_ZH = ['卷', '糕', '酒', '啡'];
 
 function vec(idx, n) { const v = [0, 0, 0, 0]; v[idx] = n; return v; }
@@ -314,7 +314,7 @@ function doPrepare(s, p, seat, idx, discount, maxFloor) {
   const bonus = IMMEDIATE_VP[idx] || 0;
   if (bonus) p.score += bonus;
   pushLog(s, seat, `🏨 准备 ${Math.floor(idx / 5) + 1} 层${COLOR_ZH[ROOM_COLORS[idx]]}房` +
-    (cost ? `（-${cost} 元）` : '（免费）') + (bonus ? ` +${bonus} 分` : ''), 'room');
+    (cost ? `（-${cost} 克朗）` : '（免费）') + (bonus ? ` +${bonus} 分` : ''), 'room');
   return cost;
 }
 
@@ -328,15 +328,15 @@ function groupBonus(s, p, seat, idx) {
   if (color === 'blue') {
     const vp = BLUE_BONUS[size] || 0;
     p.score += vp;
-    pushLog(s, seat, `🎉 蓝房组（${size} 间）全部住满：+${vp} 分`, 'bonus');
+    pushLog(s, seat, `🎉 贵族房组（${size} 间）全部住满：+${vp} 分`, 'bonus');
   } else if (color === 'red') {
     const m = OTHER_BONUS[size] || 0;
     p.money += m;
-    pushLog(s, seat, `🎉 红房组（${size} 间）全部住满：+${m} 克朗`, 'bonus');
+    pushLog(s, seat, `🎉 市民房组（${size} 间）全部住满：+${m} 克朗`, 'bonus');
   } else {
     const n = OTHER_BONUS[size] || 0;
     advanceEmperor(s, p, seat, n);
-    pushLog(s, seat, `🎉 黄房组（${size} 间）全部住满：皇帝轨 +${n}`, 'bonus');
+    pushLog(s, seat, `🎉 艺术家房组（${size} 间）全部住满：皇帝轨 +${n}`, 'bonus');
   }
 }
 
@@ -782,28 +782,44 @@ function endRound(s) {
   pushLog(s, null, `—— 第 ${s.round} 轮开始（起始玩家 ${s.players[s.startPlayer].name}，${s.diceTotal} 颗骰子已掷）——`, 'round');
 }
 
+// 官方蛇形回合顺序：回合牌正面数字 1..n（起始玩家顺时针），背面 n+1..2n（逆时针）。
+// 玩家相对起始玩家偏移 k：正面可见数字=k+1，已取过一次骰后背面可见数字=2n-k。
+// 因正面最大 n < 背面最小 n+1，第一圈必先于第二圈 → 实际序列 1→2→3→3→2→1。
+function turnPriority(s, seat) {
+  const n = s.players.length;
+  const k = (seat - s.startPlayer + n) % n;
+  const taken = 2 - s.players[seat].numbersLeft;
+  return taken === 0 ? k + 1 : 2 * n - k;
+}
+
 function advanceTurn(s) {
   if (s.phase === 'ended') return;
   if (diceTotal(s) <= 0) { endRound(s); return; }
 
-  const n = s.players.length;
-  const cur = s.currentPlayer;
-  for (let k = 1; k <= n; k++) {
-    const cand = (cur + k) % n;
-    const p = s.players[cand];
+  // 下一位 = 未跳过且还有行动次数中「可见数字最小」者（跳过者顺延，等收骰重掷后再上桌）
+  let next = -1, best = Infinity;
+  for (let seat = 0; seat < s.players.length; seat++) {
+    const p = s.players[seat];
     if (p.numbersLeft > 0 && !p.passed) {
-      s.currentPlayer = cand;
-      resetTurnFlags(p);
-      return;
+      const pr = turnPriority(s, seat);
+      if (pr < best) { best = pr; next = seat; }
     }
   }
+  if (next >= 0) {
+    s.currentPlayer = next;
+    resetTurnFlags(s.players[next]);
+    return;
+  }
 
-  // 其他人都已行动两次或已跳过 → 由顺位最靠前、还有行动次数的人收骰重掷
+  // 其他人都已行动两次或已跳过 → 「可见数字最小」者收走剩余骰子、弃 1、重掷后继续（官方 Passing 规则）
   if (s.players.every(p => p.numbersLeft <= 0)) { endRound(s); return; }
-  let roller = -1;
-  for (let k = 0; k < n; k++) {
-    const cand = (s.startPlayer + k) % n;
-    if (s.players[cand].numbersLeft > 0) { roller = cand; break; }
+  let roller = -1; best = Infinity;
+  for (let seat = 0; seat < s.players.length; seat++) {
+    const p = s.players[seat];
+    if (p.numbersLeft > 0) {
+      const pr = turnPriority(s, seat);
+      if (pr < best) { best = pr; roller = seat; }
+    }
   }
   if (roller < 0) { endRound(s); return; }
 
@@ -1053,7 +1069,7 @@ function execTakeDie(s, p, seat, action) {
   p.dieTaken = true;
   p.numbersLeft -= 1;
 
-  const boostTxt = action.boost ? '（+1 强度 -1 元）' : '';
+  const boostTxt = action.boost ? '（+1 强度 -1 克朗）' : '';
   pushLog(s, seat, `🎲 取走点数 ${a} 的骰子，强度 ${st}${boostTxt}` + (a === 6 ? ` → 模仿行动 ${target}` : ''), 'dice');
 
   switch (target) {

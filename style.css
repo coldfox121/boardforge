@@ -1490,25 +1490,111 @@ body {
 .gah-hint { font-size: 10px; color: var(--text-dim); font-weight: 400; }
 .gah-empty { font-size: 12px; color: var(--text-dim); padding: 6px 0; }
 
-/* 行动区 */
+/* 行动区（官方 6 纵列：骰子按点数落柱，强度=柱内剩余骰数） */
 .gah-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.gah-actions-cols { grid-template-columns: repeat(6, 1fr); }
 .gah-action {
   border: 1px solid var(--border); border-radius: 8px; padding: 6px; text-align: center;
   background: var(--bg-3); opacity: .45; position: relative;
+}
+.gah-actions-cols .gah-action {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 3px 7px;
 }
 .gah-action.has { opacity: 1; }
 .gah-action.clickable { cursor: pointer; border-color: rgba(99,102,241,.5); }
 .gah-action.clickable:hover { background: rgba(99,102,241,.15); }
 .gah-action.wild.has { border-color: rgba(245,197,66,.4); }
+.gah-action-num {
+  font-size: 15px; font-weight: 800; color: var(--gold); line-height: 1;
+  display: flex; align-items: baseline; gap: 2px;
+}
+.gah-action-num span { font-size: 9px; font-weight: 600; color: var(--text-dim); }
 .gah-action-icon { font-size: 17px; line-height: 1.1; }
 .gah-action-name { font-size: 11px; font-weight: 600; }
 .gah-action-sub { font-size: 9px; color: var(--text-dim); }
-.gah-action-dice { margin-top: 2px; display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+.gah-action-dice { margin-top: 2px; display: flex; align-items: baseline; justify-content: center; gap: 4px; flex-wrap: wrap; min-height: 14px; }
+.gah-action-strength { font-size: 10px; color: var(--text-dim); }
+.gah-action-strength b { color: var(--gold); font-size: 12px; }
+/* 骰子点阵（纵列内可视化剩余骰子） */
+.gah-die {
+  display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+  background: #f5f5f0; border: 1px solid rgba(0,0,0,.35); box-shadow: inset 0 -2px 0 rgba(0,0,0,.12);
+}
+.gah-die.none { background: transparent; border-style: dashed; opacity: .35; }
 .gah-pip {
   display: inline-block; min-width: 18px; padding: 0 4px; border-radius: 4px;
   background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 700; color: var(--gold);
 }
 .gah-strength { font-size: 9px; color: var(--text-dim); }
+
+/* ===== 官方主图板（横向区：目标卡 | 轮次轨 / 皇帝板块 / 皇帝轨 / 房客队列） ===== */
+.gah-mainboard {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;
+}
+.gah-mb-top { display: flex; gap: 14px; align-items: stretch; }
+.gah-mb-politics { flex: 0 0 300px; min-width: 0; }
+.gah-mb-round { flex: 1; min-width: 0; }
+.gah-roundtrack { display: flex; gap: 4px; margin-bottom: 6px; }
+.gah-rtcell {
+  flex: 1; text-align: center; font-size: 12px; font-weight: 700; padding: 4px 0;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--bg-3); color: var(--text-dim);
+}
+.gah-rtcell.cur { background: rgba(99,102,241,.25); border-color: rgba(99,102,241,.6); color: var(--text); }
+.gah-rtcell.done { opacity: .5; }
+.gah-emperors { display: flex; gap: 6px; }
+.gah-emperors .gah-emperor {
+  flex: 1; border: 1px solid var(--border); border-radius: 7px; padding: 5px 7px; background: var(--bg-3);
+  font-size: 10px; line-height: 1.3;
+}
+.gah-emperor.done { opacity: .55; }
+.gah-emperor-head { font-weight: 700; color: var(--gold); margin-bottom: 2px; }
+.gah-mb-emperor { border-top: 1px dashed var(--border); padding-top: 8px; }
+.gah-emtrack { display: flex; gap: 3px; }
+.gah-emcell {
+  flex: 1; text-align: center; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-3); padding: 3px 1px 4px; min-width: 0;
+}
+.gah-emcell.bonus { border-color: rgba(245,197,66,.45); background: rgba(245,197,66,.06); }
+.gah-emcell.penalty { border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.07); }
+.gah-emmarks { min-height: 16px; display: flex; justify-content: center; gap: 2px; flex-wrap: wrap; }
+.gah-emmark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%; font-size: 9px; font-weight: 800; color: #fff;
+}
+.gah-emmark.m-0 { background: #6366f1; }
+.gah-emmark.m-1 { background: #ef4444; }
+.gah-emmark.m-2 { background: #22c55e; }
+.gah-emmark.m-3 { background: #eab308; color: #1a1a1a; }
+.gah-empos { font-size: 11px; font-weight: 700; }
+.gah-emvp { font-size: 9px; color: var(--text-dim); }
+.gah-mb-queue { border-top: 1px dashed var(--border); padding-top: 8px; }
+.gah-guest-cost {
+  margin-top: 4px; text-align: center; font-size: 11px; font-weight: 700;
+  background: rgba(245,197,66,.12); border: 1px solid rgba(245,197,66,.4); border-radius: 5px; padding: 1px 0;
+  color: var(--gold);
+}
+
+/* ===== 本回合指引 ===== */
+.gah-guide { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+.gah-guide-head {
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  padding: 4px 6px; border-radius: 6px; background: var(--bg-3); margin-bottom: 2px;
+}
+.gah-guide-head.me { color: var(--gold); background: rgba(245,197,66,.1); }
+.gah-guide-group { font-size: 10px; color: var(--text-dim); margin: 3px 0 1px; font-weight: 600; }
+.gah-guide-item {
+  display: flex; align-items: center; gap: 5px; padding: 3px 6px;
+  border-radius: 6px; border: 1px solid transparent; color: var(--text);
+}
+.gah-guide-item i { font-style: normal; color: var(--text-dim); flex: 0 0 auto; width: 12px; text-align: center; }
+.gah-guide-item.ok { opacity: .75; }
+.gah-guide-item.state-now { border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.1); }
+.gah-gstate { margin-left: auto; font-size: 10px; white-space: nowrap; }
+.gah-gstate.done { color: #86efac; }
+.gah-gstate.todo { color: #a5b4fc; font-weight: 700; }
+.gah-gstate.off { color: var(--text-dim); }
+.gah-gstate.wait { color: var(--text-dim); }
 
 .gah-panelbox { margin-top: 6px; }
 .gah-panelinner { border: 1px solid rgba(99,102,241,.45); border-radius: 8px; padding: 6px 8px; background: rgba(99,102,241,.08); }
@@ -1553,8 +1639,15 @@ body {
 .gah-color.c-green { background: #16a34a; }
 .gah-guest-name { font-size: 11px; font-weight: 600; margin-top: 2px; line-height: 1.2; }
 .gah-order { display: flex; gap: 3px; margin: 3px 0; flex-wrap: wrap; }
-.gah-fi { display: inline-flex; align-items: center; gap: 1px; font-size: 11px; }
-.gah-fi b { font-size: 9px; color: var(--text-dim); }
+/* 餐饮颜色块：苹果卷=金黄 蛋糕=粉红 红酒=酒红 咖啡=棕 */
+.gah-fchip { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap; }
+.gah-fchip.sm { font-size: 10px; }
+.gah-fchip .gah-fdot { width: 9px; height: 9px; }
+.gah-fdot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; vertical-align: -1px; }
+.gah-fdot.f-strudel { background: #d9a13b; }
+.gah-fdot.f-cake { background: #e87ea3; }
+.gah-fdot.f-wine { background: #c14a5a; }
+.gah-fdot.f-coffee { background: #a9714b; }
 .gah-reward { font-size: 9px; color: var(--text-dim); line-height: 1.25; }
 
 /* 目标卡 */
@@ -1572,10 +1665,7 @@ body {
 .gah-spot i { display: block; font-size: 8px; color: var(--text-dim); font-weight: 400; font-style: normal; }
 .gah-spot.taken { opacity: .45; }
 
-/* 皇帝板块 */
-.gah-emperors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.gah-emperor { border: 1px solid var(--border); border-radius: 7px; padding: 5px; background: var(--bg-3); font-size: 9px; line-height: 1.3; }
-.gah-emperor-head { font-size: 10px; font-weight: 700; color: var(--gold); margin-bottom: 2px; }
+/* 皇帝板块（样式并入主图板区 .gah-mb-round） */
 .gah-emperor-bonus { color: #86efac; }
 .gah-emperor-pen { color: #fca5a5; margin-top: 2px; }
 
@@ -1692,11 +1782,19 @@ body {
 @media (max-width: 1180px) {
   .gah-grid { grid-template-columns: 1fr 1fr; }
   .gah-col-right { grid-column: 1 / -1; }
+  .gah-mb-politics { flex: 1; }
+  .gah-mb-round { flex: 1.4; }
 }
 @media (max-width: 820px) {
   .gah-grid { grid-template-columns: 1fr; }
   .gah-queue { grid-template-columns: repeat(3, 1fr); }
-  .gah-emperors { grid-template-columns: 1fr; }
+  .gah-mb-top { flex-direction: column; }
+  .gah-mb-politics, .gah-mb-round { flex: none; }
+  .gah-emtrack { flex-wrap: wrap; }
+  .gah-emcell { flex: 1 0 11%; }
+  .gah-roundtrack { flex-wrap: wrap; }
+  .gah-rtcell { flex: 1 0 12%; }
+  .gah-actions-cols { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* 奥地利大饭店 · 后台编辑器 */

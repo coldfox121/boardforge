@@ -4,11 +4,11 @@
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, IMMEDIATE_VP,
   MARKET_COST, EMPEROR_POINTS, POLITICS_SPOTS
-} from './hotel-data.js';
+} from './hotel-data.js?v=3';
 import {
   guestComplete, canPrepareIndex, prepareCostFor, actionStrength,
   objectiveMet, validateAction, diceTotal, hasHired, orderTotal
-} from './hotel-engine.js';
+} from './hotel-engine.js?v=4';
 
 function staff(id) { return STAFF_BY_ID[id] || { cost: 0, kind: 'permanent', name: '?' }; }
 

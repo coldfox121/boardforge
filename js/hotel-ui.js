@@ -4,12 +4,12 @@ import { OnlineGameBase } from './online-game.js?v=2';
 import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
-} from './hotel-engine.js?v=1';
-import { pickAction } from './hotel-ai.js?v=1';
+} from './hotel-engine.js?v=4';
+import { pickAction } from './hotel-ai.js?v=2';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
-  EMPEROR_POINTS, MARKET_COST, FOOD_KEYS, FOOD_NAMES, FOOD_ICON, COLOR_NAMES, COLOR_SHORT
-} from './hotel-data.js';
+  EMPEROR_POINTS, MARKET_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES
+} from './hotel-data.js?v=3';
 
 const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -19,23 +19,29 @@ const SPACE_INFO = {
   1: { name: '拿餐食', sub: '苹果卷 / 蛋糕', icon: '🥐' },
   2: { name: '拿饮品', sub: '红酒 / 咖啡', icon: '🍷' },
   3: { name: '准备房间', sub: '每点 1 间', icon: '🏨' },
-  4: { name: '皇帝 / 金钱', sub: '自由分配', icon: '👑' },
-  5: { name: '雇佣员工', sub: '每点减 1 元', icon: '👔' },
-  6: { name: '万能行动', sub: '付 1 元 · 按 6 区骰数', icon: '🎲' }
+  4: { name: '皇帝 / 克朗', sub: '自由分配', icon: '👑' },
+  5: { name: '雇佣员工', sub: '每点减 1 克朗', icon: '👔' },
+  6: { name: '万能行动', sub: '付 1 克朗 · 按 6 区骰数', icon: '🎲' }
 };
 
 const KIND_ZH = { once: '一次性', round: '每轮一次', permanent: '永久', end: '终局' };
 
+// 餐饮统一用「颜色块 + 名字」标识（颜色见 style.css .gah-fdot.f-*：苹果卷=金黄 蛋糕=粉红 红酒=酒红 咖啡=棕）
+function foodChip(key, n, extra = '') {
+  return `<span class="gah-fchip ${extra} f-${key}" title="${FOOD_NAMES[key]}"><i class="gah-fdot"></i>${FOOD_NAMES[key]}${n != null ? ` ×${n}` : ''}</span>`;
+}
+function foodDot(key, text, extra = '') {
+  return `<span class="gah-fchip sm ${extra} f-${key}" title="${FOOD_NAMES[key]}"><i class="gah-fdot"></i>${text}</span>`;
+}
 function foodIcons(order) {
-  return order.map((n, i) => n > 0
-    ? `<span class="gah-fi">${FOOD_ICON[FOOD_KEYS[i]]}<b>${n}</b></span>` : '').join('');
+  return order.map((n, i) => n > 0 ? foodChip(FOOD_KEYS[i], n) : '').join('');
 }
 
 function rewardText(rewards) {
   if (!rewards || !rewards.length) return '无奖励';
   return rewards.map(r => {
     switch (r.type) {
-      case 'food': return `${FOOD_NAMES[FOOD_KEYS[r.food]]}×${r.n}`;
+      case 'food': return foodChip(FOOD_KEYS[r.food], r.n);
       case 'anyFood': return `任选 ${r.n} 份餐饮`;
       case 'money': return `${r.n} 克朗`;
       case 'favor': return `皇帝轨 +${r.n}`;
@@ -141,6 +147,10 @@ export class HotelGame extends OnlineGameBase {
   // ===== 外壳 =====
   buildShell() {
     if (this._built && this.root.querySelector('.gah')) return;
+    // 布局按官方实体板块还原：
+    //  主图板（横向）：左上目标卡 · 右上轮次轨(下挂皇帝板块) · 中部皇帝轨 · 底部客人队列
+    //  行动板块：官方为 6 个纵列（骰子按点数落柱），左→右 1-6
+    //  玩家图板：酒店房间 4×5 + 咖啡吧/厨房在下 + 手牌
     this.root.innerHTML = `
       <div class="gah">
         <div class="gah-top">
@@ -148,24 +158,35 @@ export class HotelGame extends OnlineGameBase {
           <div class="gah-turn" id="gah-turn"></div>
           <div class="gah-mystats" id="gah-mystats"></div>
         </div>
+
+        <div class="gah-mainboard">
+          <div class="gah-mb-top">
+            <div class="gah-mb-politics">
+              <div class="gah-ph">目标卡 <span class="gah-hint">先抢先得 15/10/5</span></div>
+              <div class="gah-objectives" id="gah-objectives"></div>
+            </div>
+            <div class="gah-mb-round">
+              <div class="gah-ph">轮次轨 <span class="gah-hint">第 3/5/7 轮末皇帝结算</span></div>
+              <div class="gah-roundtrack" id="gah-roundtrack"></div>
+              <div class="gah-emperors" id="gah-emperors"></div>
+            </div>
+          </div>
+          <div class="gah-mb-emperor">
+            <div class="gah-ph">皇帝轨 <span class="gah-hint">停 3+ 格拿奖励 · 退回 0 格受罚</span></div>
+            <div class="gah-emtrack" id="gah-emtrack"></div>
+          </div>
+          <div class="gah-mb-queue">
+            <div class="gah-ph">客人队列 <span class="gah-hint">左→右费用 3/2/1/0/0 · 点卡片接客</span></div>
+            <div class="gah-queue" id="gah-queue"></div>
+          </div>
+        </div>
+
         <div class="gah-grid">
           <section class="gah-col gah-col-left">
             <div class="gah-panel">
-              <div class="gah-ph">行动区 <span class="gah-hint" id="gah-dice-hint"></span></div>
-              <div class="gah-actions" id="gah-actions"></div>
+              <div class="gah-ph">行动板块 <span class="gah-hint" id="gah-dice-hint"></span></div>
+              <div class="gah-actions gah-actions-cols" id="gah-actions"></div>
               <div class="gah-panelbox" id="gah-actionpanel"></div>
-            </div>
-            <div class="gah-panel">
-              <div class="gah-ph">房客队列 <span class="gah-hint">左→右费用 3/2/1/0/0</span></div>
-              <div class="gah-queue" id="gah-queue"></div>
-            </div>
-            <div class="gah-panel">
-              <div class="gah-ph">目标卡（先抢先得 15/10/5）</div>
-              <div class="gah-objectives" id="gah-objectives"></div>
-            </div>
-            <div class="gah-panel">
-              <div class="gah-ph">皇帝板块（第 3/5/7 轮结算）</div>
-              <div class="gah-emperors" id="gah-emperors"></div>
             </div>
           </section>
 
@@ -176,7 +197,7 @@ export class HotelGame extends OnlineGameBase {
               <div class="gah-res" id="gah-res"></div>
             </div>
             <div class="gah-panel">
-              <div class="gah-ph">咖啡吧（最多 3 位）</div>
+              <div class="gah-ph">咖啡吧（最多 3 位）与厨房</div>
               <div class="gah-cafe" id="gah-cafe"></div>
               <div class="gah-kitchen" id="gah-kitchen"></div>
             </div>
@@ -191,6 +212,10 @@ export class HotelGame extends OnlineGameBase {
             <div class="gah-panel">
               <div class="gah-ph">对手</div>
               <div class="gah-opponents" id="gah-opponents"></div>
+            </div>
+            <div class="gah-panel">
+              <div class="gah-ph">本回合指引</div>
+              <div class="gah-guide" id="gah-guide"></div>
             </div>
             <div class="gah-panel">
               <div class="gah-ph">操作</div>
@@ -247,11 +272,13 @@ export class HotelGame extends OnlineGameBase {
     this._renderActions();
     this._renderQueue();
     this._renderObjectives();
-    this._renderEmperors();
+    this._renderRoundTrack();
+    this._renderEmTrack();
     this._renderHotel();
     this._renderCafe();
     this._renderHand();
     this._renderOpponents();
+    this._renderGuide();
     this._renderPending();
     this._renderBars();
     this._renderLog();
@@ -262,25 +289,27 @@ export class HotelGame extends OnlineGameBase {
     const s = this.state, me = this.me();
     const wrap = this.root.querySelector('#gah-actions');
     const canAct = this.myTurn() && !me.dieTaken;
+    // 官方行动板为 6 个纵列（左→右 1-6），骰子按点数落柱；强度=取走时柱内剩余骰数
     let html = '';
     for (let i = 1; i <= 6; i++) {
       const info = SPACE_INFO[i];
       const n = s.dice[i] || 0;
       const st = this.myTurn() ? actionStrength(s, me, i, false) : n;
+      const pips = Array.from({ length: n }, () => '<i class="gah-die"></i>').join('') ||
+        '<i class="gah-die none"></i>';
       html += `<div class="gah-action ${n > 0 ? 'has' : 'empty'} ${canAct && n > 0 ? 'clickable' : ''} ${i === 6 ? 'wild' : ''}"
         data-act="space" data-space="${i}">
+        <div class="gah-action-num">${i === 6 ? '6<span>万能</span>' : i}</div>
         <div class="gah-action-icon">${info.icon}</div>
         <div class="gah-action-name">${info.name}</div>
+        <div class="gah-action-dice">${pips}</div>
+        <div class="gah-action-strength">强度 <b>${st}</b></div>
         <div class="gah-action-sub">${info.sub}</div>
-        <div class="gah-action-dice">
-          <span class="gah-pip">${n}</span>
-          <span class="gah-strength">强度 ${st}</span>
-        </div>
       </div>`;
     }
     wrap.innerHTML = html;
     this.root.querySelector('#gah-dice-hint').textContent =
-      canAct ? '点行动区执行（强度=骰数）' : me.dieTaken ? '本回合已取骰' : '';
+      canAct ? '点纵列执行（强度=剩余骰数）' : me.dieTaken ? '本回合已取骰' : '';
     this.root.querySelector('#gah-actionpanel').innerHTML = this._panelHTML();
   }
 
@@ -307,12 +336,12 @@ export class HotelGame extends OnlineGameBase {
     return `<div class="gah-panelinner">
       <div class="gah-panelhead">
         <b>${info.icon} ${info.name}</b>
-        <span>强度 <b>${strength}</b>${fee ? ` · 需付 ${fee} 元` : ''}</span>
+        <span>强度 <b>${strength}</b>${fee ? ` · 需付 ${fee} 克朗` : ''}</span>
         <button class="gah-mini" data-act="cancel-panel">✕</button>
       </div>
       ${space !== 6 || ui.panel.target ? `<label class="gah-boost ${me.boosted ? 'off' : ''}">
         <input type="checkbox" data-act="boost" ${boost ? 'checked' : ''} ${me.boosted ? 'disabled' : ''}>
-        付 1 元 +1 强度${me.boosted ? '（本回合已用）' : ''}
+        付 1 克朗 +1 强度${me.boosted ? '（本回合已用）' : ''}
       </label>` : ''}
       ${inner}
       <div class="gah-statusline">${esc(this.ui.status)}</div>
@@ -327,7 +356,7 @@ export class HotelGame extends OnlineGameBase {
       let out = '<div class="gah-opts">';
       for (let cake = 0; cake <= max; cake++) {
         out += `<button class="gah-btn" data-act="${pre}food1" data-cake="${cake}" data-st="${strength}">
-          ${strength - cake} 卷${cake ? ` + ${cake} 糕` : ''}</button>`;
+          <i class="gah-fdot f-strudel"></i> 苹果卷 ×${strength - cake}${cake ? ` + <i class="gah-fdot f-cake"></i> 蛋糕 ×${cake}` : ''}</button>`;
       }
       return out + '</div>';
     }
@@ -336,7 +365,7 @@ export class HotelGame extends OnlineGameBase {
       let out = '<div class="gah-opts">';
       for (let coffee = 0; coffee <= max; coffee++) {
         out += `<button class="gah-btn" data-act="${pre}food2" data-coffee="${coffee}" data-st="${strength}">
-          ${strength - coffee} 酒${coffee ? ` + ${coffee} 啡` : ''}</button>`;
+          <i class="gah-fdot f-wine"></i> 红酒 ×${strength - coffee}${coffee ? ` + <i class="gah-fdot f-coffee"></i> 咖啡 ×${coffee}` : ''}</button>`;
       }
       return out + '</div>';
     }
@@ -352,7 +381,7 @@ export class HotelGame extends OnlineGameBase {
       let out = '<div class="gah-opts">';
       for (let k = 0; k <= strength; k++) {
         out += `<button class="gah-btn" data-act="${pre}split4" data-k="${k}" data-st="${strength}">
-          皇帝 ${k} / 金钱 ${strength - k}</button>`;
+          皇帝 ${k} / 克朗 ${strength - k}</button>`;
       }
       return out + '</div>';
     }
@@ -363,7 +392,7 @@ export class HotelGame extends OnlineGameBase {
         const disc = (space === 5 && me.hired.includes(18)) ? 2 : 0;
         const cost = Math.max(0, def.cost - strength - disc);
         return `<button class="gah-btn ${cost <= me.money ? '' : 'disabled'}" data-act="${pre}hire" data-staff="${id}" data-st="${strength}">
-          <b>${esc(def.name)}</b> · ${cost} 元 · ${KIND_ZH[def.kind]}</button>`;
+          <b>${esc(def.name)}</b> · ${cost} 克朗 · ${KIND_ZH[def.kind]}</button>`;
       }).join('');
       return `<div class="gah-opts col">${list}</div>`;
     }
@@ -382,13 +411,13 @@ export class HotelGame extends OnlineGameBase {
       const afford = cost <= me.money || me.hired.includes(25);
       return `<div class="gah-guest ${canTake && afford ? 'clickable' : ''}" data-act="queue" data-slot="${slot}">
         <div class="gah-guest-top">
-          <span class="gah-cost">${cost === 0 ? '免费' : cost + '元'}</span>
-          <span class="gah-color c-${g.color}">${COLOR_SHORT[g.color]}</span>
+          <span class="gah-color c-${g.color}">${COLOR_NAMES[g.color]}</span>
           <span class="gah-vp">${g.vp}分</span>
         </div>
         <div class="gah-guest-name">${esc(g.name)}</div>
         <div class="gah-order">${foodIcons(g.order)}</div>
         <div class="gah-reward">${esc(rewardText(g.rewards))}</div>
+        <div class="gah-guest-cost">${cost === 0 ? '免费' : cost + '克朗'}</div>
       </div>`;
     }).join('');
   }
@@ -409,15 +438,112 @@ export class HotelGame extends OnlineGameBase {
     }).join('');
   }
 
-  _renderEmperors() {
+  // 官方主图板右上：轮次轨 1-7，皇帝板块挂在第 3/5/7 轮下方
+  _renderRoundTrack() {
     const s = this.state;
-    const wrap = this.root.querySelector('#gah-emperors');
-    wrap.innerHTML = s.emperors.map((t, i) => `
-      <div class="gah-emperor">
-        <div class="gah-emperor-head">${t.group} · 第 ${[3, 5, 7][i]} 轮</div>
+    const wrap = this.root.querySelector('#gah-roundtrack');
+    let cells = '';
+    for (let r = 1; r <= 7; r++) {
+      const cur = s.phase !== 'ended' && s.round === r;
+      const done = s.round > r || s.phase === 'ended';
+      cells += `<div class="gah-rtcell ${cur ? 'cur' : ''} ${done ? 'done' : ''}">${r}</div>`;
+    }
+    wrap.innerHTML = cells;
+    const emp = this.root.querySelector('#gah-emperors');
+    emp.innerHTML = s.emperors.map((t, i) => {
+      const rd = [3, 5, 7][i];
+      const done = s.round > rd || (s.phase !== 'ended' && s.round === rd && !s.players.some(p => p.numbersLeft > 0));
+      return `<div class="gah-emperor ${done ? 'done' : ''}">
+        <div class="gah-emperor-head">${t.group} · 第 ${rd} 轮结算</div>
         <div class="gah-emperor-bonus">🎁 ${esc(t.reward)}</div>
         <div class="gah-emperor-pen">⚖️ ${esc(t.penalty)}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+  }
+
+  // 官方主图板中部：皇帝轨 0-13，各玩家标记；≥3 奖励区 / 0 惩罚区
+  _renderEmTrack() {
+    const s = this.state;
+    const wrap = this.root.querySelector('#gah-emtrack');
+    let cells = '';
+    for (let pos = 13; pos >= 0; pos--) {
+      const vp = EMPEROR_POINTS[pos] || 0;
+      const marks = s.players.map((p, i) =>
+        p.emperor === pos ? `<span class="gah-emmark m-${i % 4}" title="${esc(p.name)}">${i + 1}</span>` : ''
+      ).join('');
+      cells += `<div class="gah-emcell ${pos >= 3 ? 'bonus' : ''} ${pos === 0 ? 'penalty' : ''}">
+        <div class="gah-emmarks">${marks}</div>
+        <div class="gah-empos">${pos}</div>
+        <div class="gah-emvp">${vp}分</div>
+      </div>`;
+    }
+    wrap.innerHTML = cells;
+  }
+
+  // 本回合指引：可以做什么 / 已做什么 / 还能做什么
+  _renderGuide() {
+    const s = this.state, me = this.me();
+    const wrap = this.root.querySelector('#gah-guide');
+    if (s.phase === 'ended') { wrap.innerHTML = '<div class="gah-hint">游戏已结束</div>'; return; }
+    if (s.phase === 'setup') {
+      wrap.innerHTML = `<div class="gah-guide-item state-now"><i>①</i> 开局接客：点击上方客人队列免费接待 1 位</div>`;
+      return;
+    }
+
+    const my = this.myTurn();
+    const items = [];
+    const chip = (state, text) => `<span class="gah-gstate ${state}">${text}</span>`;
+
+    // ① 接客（可选，每回合一次）
+    if (me.guestTaken) items.push(`<div class="gah-guide-item ok"><i>①</i> 接客 ${chip('done', '✓ 已接')}</div>`);
+    else if (me.cafe.length >= 3) items.push(`<div class="gah-guide-item"><i>①</i> 接客 ${chip('off', '咖啡吧已满')}</div>`);
+    else items.push(`<div class="gah-guide-item ${my ? 'state-now' : ''}"><i>①</i> 接客（可选）${chip(my ? 'todo' : 'wait', my ? '点上方队列客人' : '非你的回合')}</div>`);
+
+    // ② 取骰执行行动（必须）
+    if (me.dieTaken) items.push(`<div class="gah-guide-item ok"><i>②</i> 取骰行动 ${chip('done', '✓ 已执行')}</div>`);
+    else items.push(`<div class="gah-guide-item ${my ? 'state-now' : ''}"><i>②</i> <b>取骰行动（必须）</b>${chip(my ? 'todo' : 'wait', my ? '点左侧行动板块' : '非你的回合')}</div>`);
+
+    // ③ 额外行动（随时可做，部分限次）
+    const extras = [];
+    extras.push(me.boosted
+      ? `<div class="gah-guide-item ok"><i>·</i> 付 1 克朗 +1 强度 ${chip('done', '✓ 已用')}</div>`
+      : (!me.dieTaken && me.money >= 1)
+        ? `<div class="gah-guide-item"><i>·</i> 付 1 克朗 +1 强度 ${chip('todo', my ? '面板内勾选' : '待行动时')}</div>`
+        : `<div class="gah-guide-item"><i>·</i> 付 1 克朗 +1 强度 ${chip('off', me.money < 1 ? '克朗不足' : '已取骰')}</div>`);
+
+    const kitchenHas = me.kitchen.some(n => n > 0);
+    const cafeNeed = me.cafe.some(g => !guestComplete(g));
+    extras.push((kitchenHas && cafeNeed && (me.money >= 1 || me.hired.includes(24)))
+      ? `<div class="gah-guide-item state-now"><i>·</i> 厨房补送（1 克朗送 ≤3 份）${chip('todo', my ? '点咖啡吧客人' : '非你的回合')}</div>`
+      : `<div class="gah-guide-item"><i>·</i> 厨房补送 ${chip('off', !kitchenHas ? '厨房无货' : !cafeNeed ? '无待补订单' : '克朗不足')}</div>`);
+
+    const roundStaff = me.hired.filter(id => STAFF_BY_ID[id] && STAFF_BY_ID[id].kind === 'round' && !me.staffUsed.includes(id));
+    extras.push(roundStaff.length
+      ? `<div class="gah-guide-item ${my ? 'state-now' : ''}"><i>·</i> 每轮员工 ×${roundStaff.length} ${chip('todo', my ? '点手牌下方「用」' : '非你的回合')}</div>`
+      : `<div class="gah-guide-item"><i>·</i> 每轮员工 ${chip('off', me.hired.some(id => STAFF_BY_ID[id] && STAFF_BY_ID[id].kind === 'round') ? '✓ 本轮已用尽' : '未雇佣')}</div>`);
+
+    const readyGuest = me.cafe.findIndex(g => guestComplete(g));
+    extras.push(readyGuest >= 0
+      ? `<div class="gah-guide-item ${my ? 'state-now' : ''}"><i>·</i> 入住完成订单的客人 ${chip('todo', my ? '点咖啡吧 ✓ 客人' : '非你的回合')}</div>`
+      : `<div class="gah-guide-item"><i>·</i> 入住 ${chip('off', '暂无订单完成的客人')}</div>`);
+
+    const claimable = s.objectives.some((o, i) => objectiveMet(me, o) && !me.claims.includes(i) && o.spots.some(sp => sp.seat == null));
+    extras.push(claimable
+      ? `<div class="gah-guide-item ${my ? 'state-now' : ''}"><i>·</i> 目标卡标记（15/10/5）${chip('todo', my ? '点主图板目标卡' : '非你的回合')}</div>`
+      : `<div class="gah-guide-item"><i>·</i> 目标卡标记 ${chip('off', '暂未达标或已标')}</div>`);
+
+    items.push(`<div class="gah-guide-group">额外行动（随时）</div>` + extras.join(''));
+
+    // ④ 结束回合
+    if (me.dieTaken) items.push(`<div class="gah-guide-item state-now"><i>④</i> 结束回合 ${chip('todo', my ? '点下方「结束回合」' : '非你的回合')}</div>`);
+    else items.push(`<div class="gah-guide-item"><i>④</i> 结束回合 ${chip('off', '需先取骰（或全体跳过后收骰）')}</div>`);
+
+    const head = my
+      ? `<div class="gah-guide-head me">轮到你了 —— 按顺序完成：</div>`
+      : s.pending && s.pending.seat === this.humanIndex
+        ? `<div class="gah-guide-head me">你有待处理的选择，见下方「操作」：</div>`
+        : `<div class="gah-guide-head">等待 ${esc(s.players[s.currentPlayer].name)} 行动…（你的回合进度）</div>`;
+    wrap.innerHTML = head + items.join('');
   }
 
   _renderHotel() {
@@ -449,7 +575,7 @@ export class HotelGame extends OnlineGameBase {
         if (selectable) cls += ' selectable';
         cells += `<div class="${cls}" data-act="room" data-idx="${idx}">
           ${badge ? `<span class="gah-roombadge">+${badge}</span>` : ''}
-          ${r.occupied ? '<span class="gah-roommark">🛏</span>' : r.prepared ? '<span class="gah-roommark">🔑</span>' : `<span class="gah-roomcost">${FLOOR_COST[row]}元</span>`}
+          ${r.occupied ? '<span class="gah-roommark">🛏</span>' : r.prepared ? '<span class="gah-roommark">🔑</span>' : `<span class="gah-roomcost">${FLOOR_COST[row]}克朗</span>`}
         </div>`;
       }
       rows.push(`<div class="gah-row"><span class="gah-floor">${row + 1}F</span>${cells}</div>`);
@@ -478,11 +604,11 @@ export class HotelGame extends OnlineGameBase {
       const orderHtml = def.order.map((need, f) => {
         if (need <= 0) return '';
         const have = g.items[f] || 0;
-        return `<span class="gah-need ${have >= need ? 'ok' : ''}">${FOOD_ICON[FOOD_KEYS[f]]}${have}/${need}</span>`;
+        return foodDot(FOOD_KEYS[f], `${have}/${need}`, `gah-need ${have >= need ? 'ok' : ''}`);
       }).join('');
       return `<div class="gah-cafeguest ${done ? 'done' : ''} ${sel ? 'sel' : ''}" data-act="cafe" data-idx="${i}">
         <div class="gah-cg-head">
-          <span class="gah-color c-${def.color}">${COLOR_SHORT[def.color]}</span>
+          <span class="gah-color c-${def.color}">${COLOR_NAMES[def.color]}</span>
           <b>${esc(def.name)}</b>
           <span class="gah-vp">${def.vp}分</span>
         </div>
@@ -496,8 +622,8 @@ export class HotelGame extends OnlineGameBase {
 
     this.root.querySelector('#gah-kitchen').innerHTML = `<span class="gah-kitchen-label">厨房</span>` +
       FOOD_KEYS.map((k, i) =>
-        `<span class="gah-kchen">${FOOD_ICON[k]} ${me.kitchen[i]}</span>`).join('') +
-      `<span class="gah-hint">点咖啡吧客人可用 1 元送最多 3 份</span>`;
+        `<span class="gah-kchen">${foodChip(k, me.kitchen[i])}</span>`).join('') +
+      `<span class="gah-hint">点咖啡吧客人可用 1 克朗送最多 3 份</span>`;
   }
 
   _renderHand() {
@@ -506,7 +632,7 @@ export class HotelGame extends OnlineGameBase {
     wrap.innerHTML = me.hand.length ? me.hand.map(id => {
       const def = STAFF_BY_ID[id];
       return `<div class="gah-staff" data-act="hand" data-staff="${id}">
-        <div class="gah-staff-head"><b>${esc(def.name)}</b><span>${def.cost}元</span></div>
+        <div class="gah-staff-head"><b>${esc(def.name)}</b><span>${def.cost}克朗</span></div>
         <div class="gah-staff-kind k-${def.kind}">${KIND_ZH[def.kind]}</div>
         <div class="gah-staff-text">${esc(def.text)}</div>
       </div>`;
@@ -578,12 +704,12 @@ export class HotelGame extends OnlineGameBase {
         <div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
     } else if (t.type === 'hire' || t.type === 'offer') {
       const cards = t.type === 'offer' ? (t.cards || []) : p.hand;
-      body = `<div class="gah-pendtitle">${t.type === 'offer' ? '抽 3 选 1 雇佣' : '从手牌雇佣 1 名'}（减免 ${t.discount >= 99 ? '全部' : t.discount} 元）</div>
+      body = `<div class="gah-pendtitle">${t.type === 'offer' ? '抽 3 选 1 雇佣' : '从手牌雇佣 1 名'}（减免 ${t.discount >= 99 ? '全部' : t.discount} 克朗）</div>
         <div class="gah-opts col">` + cards.map(id => {
         const def = STAFF_BY_ID[id];
         const cost = Math.max(0, def.cost - (t.discount || 0));
         return `<button class="gah-btn ${cost <= p.money ? '' : 'disabled'}" data-act="pend-staff" data-staff="${id}">
-          <b>${esc(def.name)}</b> · ${cost} 元 · ${KIND_ZH[def.kind]}<br><i>${esc(def.text)}</i></button>`;
+          <b>${esc(def.name)}</b> · ${cost} 克朗 · ${KIND_ZH[def.kind]}<br><i>${esc(def.text)}</i></button>`;
       }).join('') + `</div>
         <div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
     } else if (t.type === 'guestPick') {
@@ -595,7 +721,7 @@ export class HotelGame extends OnlineGameBase {
       const total = sel.reduce((a, b) => a + b, 0);
       body = `<div class="gah-pendtitle">任选 ${t.count} 份餐饮</div>` +
         FOOD_KEYS.map((k, i) => `<div class="gah-foodrow">
-          <span>${FOOD_ICON[k]} ${FOOD_NAMES[k]}</span>
+          <span>${foodChip(k)}</span>
           <button class="gah-mini" data-act="food-minus" data-f="${i}">−</button>
           <b>${sel[i]}</b>
           <button class="gah-mini" data-act="food-plus" data-f="${i}">＋</button>
@@ -818,7 +944,7 @@ export class HotelGame extends OnlineGameBase {
     const cost = MARKET_COST[slot];
     if (!def) return;
     this.ui.confirm = {
-      text: `花 ${this.me().hired.includes(25) ? 0 : cost} 元接待「${def.name}」？`,
+      text: `花 ${this.me().hired.includes(25) ? 0 : cost} 克朗接待「${def.name}」？`,
       action: { type: 'TAKE_GUEST', slot }
     };
     this.render();
@@ -888,7 +1014,7 @@ export class HotelGame extends OnlineGameBase {
     const r = me.rooms[idx];
     const color = COLOR_NAMES[ROOM_COLORS[idx]];
     this.ui.status = `${Math.floor(idx / 5) + 1} 层${color}房 · ` +
-      (r.occupied ? '已入住' : r.prepared ? '已准备（空房）' : `未准备（${FLOOR_COST[Math.floor(idx / 5)]} 元）`);
+      (r.occupied ? '已入住' : r.prepared ? '已准备（空房）' : `未准备（${FLOOR_COST[Math.floor(idx / 5)]} 克朗）`);
     this.render();
   }
 
@@ -947,7 +1073,7 @@ export class HotelGame extends OnlineGameBase {
 
   _hand(id) {
     const def = STAFF_BY_ID[id];
-    this.ui.status = `「${def.name}」（${def.cost} 元 · ${KIND_ZH[def.kind]}）：${def.text}`;
+    this.ui.status = `「${def.name}」（${def.cost} 克朗 · ${KIND_ZH[def.kind]}）：${def.text}`;
     this.render();
   }
 

@@ -80,7 +80,7 @@ function handleRoute() {
     showView('admin');
     import('./config-sync.js?v=36')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=38'))
+      .then(() => import('./admin-ui.js?v=41'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -311,19 +311,19 @@ const GAME_RULES = {
     sections: [
       {
         title: '🎯 目标与流程',
-        body: '共 7 轮。每轮起始玩家掷全部骰子并按点数分到 6 个行动区；按顺位每人有 2 次行动。第 3/5/7 轮末各有一次皇帝结算，第 7 轮结算后终局。'
+        body: '共 7 轮。每轮起始玩家掷全部骰子并按点数分到 6 个行动区。每人每轮 2 次行动，顺序为官方蛇形：第一圈从起始玩家按顺位轮流，第二圈倒序从末位玩家往回（即 1→2→3→3→2→1，末位玩家连续行动两次）。第 3/5/7 轮末各有一次皇帝结算，第 7 轮结算后终局。'
       },
       {
         title: '🎲 一回合',
-        body: '①（可选）从 5 位队列房客中接 1 位进咖啡吧（咖啡吧最多 3 位，按位置付 3/2/1/0/0 克朗）<br>②（必须）取 1 颗骰子执行对应行动，<b>行动强度 = 取走时该区剩余骰数</b><br>每回合可付 1 克朗让强度 +1（限一次）。'
+        body: '①（可选）从 5 位队列客人中接 1 位进咖啡吧（咖啡吧最多 3 位，按位置付 3/2/1/0/0 克朗）<br>②（必须）取 1 颗骰子执行对应行动，<b>行动强度 = 取走时该区剩余骰数</b><br>每回合可付 1 克朗让强度 +1（限一次）。'
       },
       {
         title: '6 个行动区',
-        body: '① 拿苹果卷/蛋糕（蛋糕不能多于苹果卷）<br>② 拿红酒/咖啡（咖啡不能多于红酒）<br>③ 每点强度准备 1 间房（须从底层相邻扩展、颜色对应、按楼层付费）<br>④ 每点强度在皇帝轨和金钱之间自由分配<br>⑤ 雇佣 1 名员工，强度每点减 1 克朗<br>⑥ 付 1 克朗模仿 ①-⑤ 任一行动，强度按 6 区的骰数算'
+        body: '① 拿苹果卷/蛋糕（蛋糕不能多于苹果卷）<br>② 拿红酒/咖啡（咖啡不能多于红酒）<br>③ 每点强度准备 1 间房（须从底层相邻扩展、颜色对应、按楼层付费）<br>④ 每点强度在皇帝轨和克朗之间自由分配<br>⑤ 雇佣 1 名员工，强度每点减 1 克朗<br>⑥ 付 1 克朗模仿 ①-⑤ 任一行动，强度按 6 区的骰数算'
       },
       {
         title: '🍽 餐饮与入住',
-        body: '获得的餐饮可立刻免费放到咖啡吧客人的订单上，剩余进厨房。付 1 克朗可从厨房向客人补送最多 3 份。订单满足后，可把客人免费安排进同色空房（绿色客任意房），获得卡面分数与奖励；房间翻面变成已入住，整组住满还有满组奖励。'
+        body: '获得的餐饮可立刻免费放到咖啡吧客人的订单上，剩余进厨房。付 1 克朗可从厨房向客人补送最多 3 份。订单满足后，可把客人免费安排进同色空房（旅人可入任意房），获得卡面分数与奖励；房间翻面变成已入住，整组住满还有满组奖励。'
       },
       {
         title: '👑 皇帝轨',
@@ -447,8 +447,8 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ HotelGame }, engine] = await Promise.all([
-        import('./hotel-ui.js?v=1'),
-        import('./hotel-engine.js?v=1')
+        import('./hotel-ui.js?v=6'),
+        import('./hotel-engine.js?v=4')
       ]);
       return {
         initState: (names) => engine.initGame(names),
@@ -635,7 +635,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=38').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=41').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===

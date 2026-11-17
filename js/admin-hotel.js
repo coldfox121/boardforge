@@ -2,14 +2,14 @@
 // 只维护卡面数据（名称/费用/点单/分值/描述）；效果逻辑按编号固定，不可在后台改
 import { saveAdminData, loadAdminData, clearAdminData, getAdminSavedAt } from './admin.js?v=37';
 import { saveConfigToCloud } from './config-sync.js?v=36';
-import { BASE_DATA, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES } from './hotel-data.js';
+import { BASE_DATA, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES } from './hotel-data.js?v=3';
 
 const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const TABS = [
   { id: 'staff', label: '👔 员工卡' },
-  { id: 'guests', label: '🚪 房客卡' },
+  { id: 'guests', label: '🚪 客人卡' },
   { id: 'objectives', label: '📜 目标卡' },
   { id: 'emperors', label: '👑 皇帝板块' },
   { id: 'board', label: '🏨 房间布局' }
@@ -70,7 +70,7 @@ export function renderHotelEditor(container, baseData, presetData) {
   function renderList() {
     if (tab === 'staff') {
       listEl.innerHTML = data.STAFF.map(s => `<button class="gah-admin-item ${selected.staff === s.id ? 'active' : ''}" data-id="${s.id}">
-        <b>#${s.id} ${esc(s.name)}</b><span>${s.cost} 元 · ${KIND_LABEL[s.kind] || s.kind}</span></button>`).join('');
+        <b>#${s.id} ${esc(s.name)}</b><span>${s.cost} 克朗 · ${KIND_LABEL[s.kind] || s.kind}</span></button>`).join('');
     } else if (tab === 'guests') {
       listEl.innerHTML = data.GUESTS.map(g => `<button class="gah-admin-item ${selected.guests === g.id ? 'active' : ''}" data-id="${g.id}">
         <b>#${g.id} ${esc(g.name)}</b><span>${COLOR_NAMES[g.color] || g.color} · ${g.vp} 分 · ${g.order.join('/')}</span></button>`).join('');
@@ -126,7 +126,7 @@ export function renderHotelEditor(container, baseData, presetData) {
 
     if (tab === 'guests') {
       const g = data.GUESTS.find(x => x.id === selected.guests) || data.GUESTS[0];
-      if (!g) { formEl.innerHTML = '<div class="gah-admin-note">没有房客卡</div>'; return; }
+      if (!g) { formEl.innerHTML = '<div class="gah-admin-note">没有客人卡</div>'; return; }
       selected.guests = g.id;
       formEl.innerHTML = `
         <div class="gah-field"><label>编号</label><input value="#${g.id} ${esc(g.key || '')}" disabled></div>
@@ -136,7 +136,7 @@ export function renderHotelEditor(container, baseData, presetData) {
         </div>
         <div class="gah-field"><label>订单（0-4 份）</label>
           <div class="gah-order-grid">
-            ${FOOD_KEYS.map((k, i) => `<div><span>${FOOD_NAMES[k]}</span><input id="f-o${i}" type="number" min="0" max="4" value="${g.order[i] || 0}"></div>`).join('')}
+            ${FOOD_KEYS.map((k, i) => `<div><span><i class="gah-fdot f-${k}"></i> ${FOOD_NAMES[k]}</span><input id="f-o${i}" type="number" min="0" max="4" value="${g.order[i] || 0}"></div>`).join('')}
           </div>
         </div>
         <div class="gah-field"><label>胜利分（0-12）</label><input id="f-vp" type="number" min="0" max="12" value="${g.vp}"></div>
@@ -160,7 +160,7 @@ export function renderHotelEditor(container, baseData, presetData) {
         renderList(); flash('已应用，记得点右上角保存');
       };
       formEl.querySelector('#f-del').onclick = () => {
-        if (!confirm('删除后本局房客池少一张卡，确定？')) return;
+        if (!confirm('删除后本局客人池少一张卡，确定？')) return;
         data.GUESTS = data.GUESTS.filter(x => x.id !== g.id);
         selected.guests = data.GUESTS[0]?.id;
         renderList(); renderForm(); flash('已删除，记得保存');
@@ -211,7 +211,7 @@ export function renderHotelEditor(container, baseData, presetData) {
       <div class="gah-admin-note">官方固定正面布局（只读）</div>
       <div class="gah-admin-board">
         ${[3, 2, 1, 0].map(row => `<div class="gah-admin-brow">
-          <span>${row + 1}F · ${FLOOR_COST[row]}元</span>
+          <span>${row + 1}F · ${FLOOR_COST[row]}克朗</span>
           ${[0, 1, 2, 3, 4].map(col => {
             const idx = row * 5 + col;
             const grp = ROOM_GROUPS.findIndex(g => g.includes(idx)) + 1;
@@ -249,8 +249,8 @@ export function renderHotelEditor(container, baseData, presetData) {
       if (!(s.cost >= 0)) return flash('员工 #' + s.id + ' 费用非法', false);
     }
     for (const g of data.GUESTS) {
-      if (!g.name) return flash('房客 #' + g.id + ' 名称不能为空', false);
-      if (!(g.order || []).every(n => n >= 0 && n <= 4)) return flash('房客 #' + g.id + ' 订单非法', false);
+      if (!g.name) return flash('客人 #' + g.id + ' 名称不能为空', false);
+      if (!(g.order || []).every(n => n >= 0 && n <= 4)) return flash('客人 #' + g.id + ' 订单非法', false);
     }
     saveAdminData('hotel', data);
     flash('已保存到本机，正在同步云端…');
