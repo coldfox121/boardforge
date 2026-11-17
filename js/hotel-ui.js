@@ -28,10 +28,10 @@ const KIND_ZH = { once: '一次性', round: '每轮一次', permanent: '永久',
 
 // 餐饮统一用「颜色块 + 名字」标识（颜色见 style.css .gah-fdot.f-*：苹果卷=金黄 蛋糕=粉红 红酒=酒红 咖啡=棕）
 function foodChip(key, n, extra = '') {
-  return `<span class="gah-fchip ${extra} f-${key}" title="${FOOD_NAMES[key]}"><i class="gah-fdot"></i>${FOOD_NAMES[key]}${n != null ? ` ×${n}` : ''}</span>`;
+  return `<span class="gah-fchip ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${FOOD_NAMES[key]}${n != null ? ` ×${n}` : ''}</span>`;
 }
 function foodDot(key, text, extra = '') {
-  return `<span class="gah-fchip sm ${extra} f-${key}" title="${FOOD_NAMES[key]}"><i class="gah-fdot"></i>${text}</span>`;
+  return `<span class="gah-fchip sm ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${text}</span>`;
 }
 function foodIcons(order) {
   return order.map((n, i) => n > 0 ? foodChip(FOOD_KEYS[i], n) : '').join('');

@@ -1642,12 +1642,12 @@ body {
 /* 餐饮颜色块：苹果卷=金黄 蛋糕=粉红 红酒=酒红 咖啡=棕 */
 .gah-fchip { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap; }
 .gah-fchip.sm { font-size: 10px; }
-.gah-fchip .gah-fdot { width: 9px; height: 9px; }
-.gah-fdot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; vertical-align: -1px; }
-.gah-fdot.f-strudel { background: #d9a13b; }
-.gah-fdot.f-cake { background: #e87ea3; }
-.gah-fdot.f-wine { background: #c14a5a; }
-.gah-fdot.f-coffee { background: #a9714b; }
+.gah-fchip .gah-fdot { width: 12px; height: 12px; }
+.gah-fdot { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; vertical-align: -2px; border: 1px solid rgba(255,255,255,.35); }
+.gah-fdot.f-strudel { background: #e0a63f; }
+.gah-fdot.f-cake { background: #f07fae; }
+.gah-fdot.f-wine { background: #d63450; }
+.gah-fdot.f-coffee { background: #7d5327; }
 .gah-reward { font-size: 9px; color: var(--text-dim); line-height: 1.25; }
 
 /* 目标卡 */
