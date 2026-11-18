@@ -15,9 +15,16 @@ const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
+// 餐饮数量约束（官方规则）：蛋糕 ≤ 苹果卷、咖啡 ≤ 红酒——只用色块+≤符号表示，不写汉字
+function foodRuleHTML(kind) {
+  return kind === 1
+    ? '<span class="gah-rule" title="粉色的蛋糕数量不能多于金色的苹果卷"><i class="gah-fdot f-cake"></i><b>&le;</b><i class="gah-fdot f-strudel"></i></span>'
+    : '<span class="gah-rule" title="棕色的咖啡数量不能多于红色的红酒"><i class="gah-fdot f-coffee"></i><b>&le;</b><i class="gah-fdot f-wine"></i></span>';
+}
+
 const SPACE_INFO = {
-  1: { name: '拿餐食', sub: '<i class="gah-fdot f-strudel"></i><i class="gah-fdot f-cake"></i>', icon: '🥐' },
-  2: { name: '拿饮品', sub: '<i class="gah-fdot f-wine"></i><i class="gah-fdot f-coffee"></i>', icon: '🍷' },
+  1: { name: '拿餐食', sub: foodRuleHTML(1), icon: '🥐' },
+  2: { name: '拿饮品', sub: foodRuleHTML(2), icon: '🍷' },
   3: { name: '准备房间', sub: '每点 1 间', icon: '🏨' },
   4: { name: '皇帝 / 克朗', sub: '自由分配', icon: '👑' },
   5: { name: '雇佣员工', sub: '每点减 1 克朗', icon: '👔' },
@@ -371,7 +378,7 @@ export class HotelGame extends OnlineGameBase {
     const s = this.state, me = this.me();
     if (kind === 1) {
       const max = Math.min(strength, Math.floor(strength / 2));
-      let out = `<div class="gah-hint">规则：<i class="gah-fdot f-cake"></i> 蛋糕数量不能多于 <i class="gah-fdot f-strudel"></i> 苹果卷</div><div class="gah-opts">`;
+      let out = `<div class="gah-hint">规则 ${foodRuleHTML(1)}</div><div class="gah-opts">`;
       for (let cake = 0; cake <= max; cake++) {
         out += `<button class="gah-btn" data-act="${pre}food1" data-cake="${cake}" data-st="${strength}">
           <i class="gah-fdot f-strudel"></i> ×${strength - cake}${cake ? ` + <i class="gah-fdot f-cake"></i> ×${cake}` : ''}</button>`;
@@ -380,7 +387,7 @@ export class HotelGame extends OnlineGameBase {
     }
     if (kind === 2) {
       const max = Math.min(strength, Math.floor(strength / 2));
-      let out = `<div class="gah-hint">规则：<i class="gah-fdot f-coffee"></i> 咖啡数量不能多于 <i class="gah-fdot f-wine"></i> 红酒</div><div class="gah-opts">`;
+      let out = `<div class="gah-hint">规则 ${foodRuleHTML(2)}</div><div class="gah-opts">`;
       for (let coffee = 0; coffee <= max; coffee++) {
         out += `<button class="gah-btn" data-act="${pre}food2" data-coffee="${coffee}" data-st="${strength}">
           <i class="gah-fdot f-wine"></i> ×${strength - coffee}${coffee ? ` + <i class="gah-fdot f-coffee"></i> ×${coffee}` : ''}</button>`;

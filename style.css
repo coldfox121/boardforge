@@ -1652,6 +1652,10 @@ body {
 .gah-fchip.sm { font-size: 10px; }
 .gah-fchip .gah-fdot { width: 12px; height: 12px; }
 .gah-fdot { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; vertical-align: -2px; border: 1px solid rgba(255,255,255,.35); }
+.gah-rule { display: inline-flex; align-items: center; gap: 3px; }
+.gah-rule b { font-size: 11px; font-weight: 700; color: var(--text-dim); line-height: 1; }
+.gah-action-sub .gah-rule { gap: 2px; }
+.gah-action-sub .gah-rule b { font-size: 10px; }
 .gah-fdot.f-strudel { background: #e0a63f; }
 .gah-fdot.f-cake { background: #f07fae; }
 .gah-fdot.f-wine { background: #d63450; }
