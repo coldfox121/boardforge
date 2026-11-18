@@ -20,8 +20,9 @@ function finishSetup(s) {
   return s;
 }
 
-// 造一个"0 号玩家回合、2 区有 3 骰、咖啡吧有 3 位需要红酒的客人"的局面
-function scenario(wineNeeds) {
+// 造一个"0 号玩家回合、2 区有 3 骰、咖啡吧有指定需求的客人"的局面
+// n=1 → gid49（红酒×1）· n=2 → gid54（红酒×2）· n='c' → gid52（红酒1+咖啡1）
+function scenario(needs) {
   let s = finishSetup(initGame(['A', 'B']));
   s.currentPlayer = 0;
   s.dice[2] = 3;
@@ -29,8 +30,7 @@ function scenario(wineNeeds) {
   const p = s.players[0];
   p.dieTaken = false;
   p.boosted = false;
-  // 49 需 1 红酒、54 需 2 红酒
-  p.cafe = wineNeeds.map(n => ({ gid: n === 2 ? 54 : 49, items: [0, 0, 0, 0] }));
+  p.cafe = needs.map(n => ({ gid: n === 2 ? 54 : n === 'c' ? 52 : 49, items: [0, 0, 0, 0] }));
   return s;
 }
 
@@ -102,6 +102,20 @@ function scenario(wineNeeds) {
   const p = s.players[0];
   check(p.cafe[0].items[2] === 1, '奖励获得的红酒自动铺到有需求的客人（官方：获得时可立即放置）');
   check(p.kitchen[2] === 1, '厨房存量不变');
+}
+
+// ===== 用例 8：厨房补送（MOVE_FOOD）合计不能超发厨房库存 =====
+{
+  const s0 = scenario([1, 'c']);  // 客人 A 需红酒1、客人 B 需咖啡1，厨房各只有 1
+  const err = validateAction(s0, 0, { type: 'MOVE_FOOD', moves: [{ g: 0, items: [0, 0, 1, 0] }, { g: 1, items: [0, 0, 1, 0] }] });
+  check(err === '厨房餐饮不足', `两客人合计超库存被拒（${err}）`);
+  const err2 = validateAction(s0, 0, { type: 'MOVE_FOOD', moves: [{ g: 0, items: [0, 0, 1, 0] }, { g: 1, items: [0, 0, 0, 1] }] });
+  check(err2 === null, `不同品类分给两位客人合法（${err2}）`);
+  const s = applyAction(s0, 0, { type: 'MOVE_FOOD', moves: [{ g: 0, items: [0, 0, 1, 0] }, { g: 1, items: [0, 0, 0, 1] }] });
+  const p = s.players[0];
+  check(p.cafe[0].items[2] === 1 && p.cafe[1].items[3] === 1, '一次补送分给两位客人成功');
+  check(p.kitchen.every(n => n >= 0), '厨房库存不为负');
+  check(p.money === s0.players[0].money - 1, '补送收 1 克朗（无领班）');
 }
 
 console.log(fails ? `\n${fails} 项失败` : '\n全部通过');

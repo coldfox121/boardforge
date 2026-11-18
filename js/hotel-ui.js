@@ -4,7 +4,7 @@ import { OnlineGameBase } from './online-game.js?v=2';
 import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
-} from './hotel-engine.js?v=8';
+} from './hotel-engine.js?v=9';
 import { pickAction } from './hotel-ai.js?v=4';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
@@ -843,34 +843,36 @@ export class HotelGame extends OnlineGameBase {
         <button class="gah-btn primary" data-act="mode-done">确认执行</button>
         <button class="gah-btn" data-act="mode-cancel">取消</button></div>`;
     }
-    // 厨房送餐手动分配条
+    // 厨房送餐手动分配条（多客人：官方一次 ≤3 份，可分给多位客人）
     if (this.ui.foodSend) {
       const fs = this.ui.foodSend;
-      const g = me.cafe[fs.guestIdx];
-      const def = g && GUEST_BY_ID[g.gid];
-      if (!g || !def) {
+      if (!fs.assign || !me.cafe.length) {
         this.ui.foodSend = null;
       } else {
-        const total = fs.items.reduce((a, b) => a + b, 0);
+        const used = fs.assign.reduce((a, v) => a + v.reduce((x, y) => x + y, 0), 0);
         const free = me.hired.includes(24);
-        const rows = FOOD_KEYS.map((k, f) => {
-          const capF = Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f]);
-          const n = fs.items[f];
-          const canPlus = n < capF && total < 3;
-          const canMinus = n > 0;
-          return `<div class="gah-foodrow">
-            <span>${foodChip(k)}</span>
-            <button class="gah-mini" data-act="send-minus" data-f="${f}" ${canMinus ? '' : 'disabled'}>−</button>
-            <b>${n}</b>
-            <button class="gah-mini" data-act="send-plus" data-f="${f}" ${canPlus ? '' : 'disabled'}>＋</button>
-          </div>`;
+        const rows = me.cafe.map((g, gi) => {
+          const def = GUEST_BY_ID[g.gid];
+          const cells = FOOD_KEYS.map((k, f) => {
+            // 上限 = 客人剩余需求 与 厨房库存扣除已分给其他客人的量
+            const otherUsed = fs.assign.reduce((a, v, kk) => kk === gi ? a : a + (v[f] || 0), 0);
+            const capF = Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f] - otherUsed);
+            if (!capF) return '';
+            const n = fs.assign[gi][f] || 0;
+            return `<span class="gah-plcell">${foodChip(k)}
+              <button class="gah-mini" data-act="send-minus" data-g="${gi}" data-f="${f}" ${n > 0 ? '' : 'disabled'}>−</button>
+              <b>${n}</b>
+              <button class="gah-mini" data-act="send-plus" data-g="${gi}" data-f="${f}" ${n < capF && used < 3 ? '' : 'disabled'}>＋</button>
+              <i class="gah-plcap">/${capF}</i></span>`;
+          }).join('');
+          if (!cells) return '';
+          return `<div class="gah-plrow"><span class="gah-pltag rc-${def.color}">${COLOR_CHAR[def.color]}</span>${cells}</div>`;
         }).join('');
-        const txt = fs.items.map((n, f) => n > 0 ? `${FOOD_CHAR[FOOD_KEYS[f]]}×${n}` : '').filter(Boolean).join('+') || '—';
         conf += `<div class="gah-confirm col">
-          <div>从厨房送餐给${COLOR_CHAR[def.color]}色客人（${free ? '领班免费' : '1 克朗'} · 已选 ${total}/3 份）：${txt}</div>
-          <div class="gah-foodrows">${rows}</div>
+          <div>从厨房补送（${free ? '领班免费' : '1 克朗'} · 已选 ${used}/3 份 · 可分给多位客人）</div>
+          ${rows || '<div class="gah-hint">没有客人需要厨房里的餐饮</div>'}
           <div class="gah-opts">
-            <button class="gah-btn primary ${total > 0 ? '' : 'disabled'}" data-act="send-ok">确认送餐</button>
+            <button class="gah-btn primary ${used > 0 ? '' : 'disabled'}" data-act="send-ok">确认送餐</button>
             <button class="gah-btn" data-act="send-cancel">取消</button>
           </div>
         </div>`;
@@ -973,8 +975,8 @@ export class HotelGame extends OnlineGameBase {
         case 'pl-minus': this._placeAdjust(+d.g, +d.f, -1); break;
         case 'pl-ok': this._placeOk(); break;
         case 'pl-cancel': this.ui.place = null; this.render(); break;
-        case 'send-plus': this._foodSendAdjust(+d.f, 1); break;
-        case 'send-minus': this._foodSendAdjust(+d.f, -1); break;
+        case 'send-plus': this._foodSendAdjust(+d.g, +d.f, 1); break;
+        case 'send-minus': this._foodSendAdjust(+d.g, +d.f, -1); break;
         case 'send-ok': this._foodSendOk(); break;
         case 'send-cancel': this.ui.foodSend = null; this.ui.status = ''; this.render(); break;
         // 奖励流程里的选项（resolve 前缀）
@@ -1162,20 +1164,21 @@ export class HotelGame extends OnlineGameBase {
       return;
     }
 
-    // 未完成：从厨房送餐——手动分配（预填自动方案，可加减，最多 3 份）
+    // 未完成：从厨房送餐——官方规则一次最多 3 份，可分给多位客人
+    // （预填所点客人的自动方案，其他客人也可以在分配条里加）
     const cap = f => Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f]);
     if (![0, 1, 2, 3].some(f => cap(f) > 0)) {
       this.ui.status = '厨房没有这位客人需要的餐饮';
       this.render(); return;
     }
-    const items = [0, 0, 0, 0];
+    const assign = me.cafe.map(() => [0, 0, 0, 0]);
     let left = 3;
     for (let f = 0; f < 4 && left > 0; f++) {
       const take = Math.min(cap(f), left);
-      if (take > 0) { items[f] = take; left -= take; }
+      if (take > 0) { assign[idx][f] = take; left -= take; }
     }
-    this.ui.foodSend = { guestIdx: idx, items };
-    this.ui.status = '可调整每种餐饮的份数（总数 ≤3）';
+    this.ui.foodSend = { assign };
+    this.ui.status = '可调整每种餐饮的份数（总数 ≤3，可分给多位客人）';
     this.render();
   }
 
@@ -1327,29 +1330,35 @@ export class HotelGame extends OnlineGameBase {
   }
 
   // 厨房送餐手动分配
-  _foodSendAdjust(f, delta) {
+  _foodSendAdjust(gi, f, delta) {
     const fs = this.ui.foodSend;
-    if (!fs) return;
+    if (!fs || !fs.assign[gi]) return;
     const me = this.me();
-    const g = me.cafe[fs.guestIdx];
+    const g = me.cafe[gi];
     if (!g) return;
     const def = GUEST_BY_ID[g.gid];
-    const capF = Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f]);
-    const total = fs.items.reduce((a, b) => a + b, 0);
-    const next = fs.items.slice();
-    const n = Math.max(0, Math.min(next[f] + delta, capF));
-    if (total - next[f] + n > 3) return;
+    // 上限 = 客人剩余需求 与 厨房库存扣除已分给其他客人的量
+    const otherUsed = fs.assign.reduce((a, v, kk) => kk === gi ? a : a + (v[f] || 0), 0);
+    const capF = Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f] - otherUsed);
+    const used = fs.assign.reduce((a, v) => a + v.reduce((x, y) => x + y, 0), 0);
+    const next = fs.assign[gi].slice();
+    const n = Math.max(0, Math.min(next[f] + delta, capF, next[f] + (3 - used)));
     next[f] = n;
-    this.ui.foodSend = { ...fs, items: next };
+    const assign = fs.assign.slice();
+    assign[gi] = next;
+    this.ui.foodSend = { ...fs, assign };
     this.render();
   }
 
   _foodSendOk() {
     const fs = this.ui.foodSend;
     if (!fs) return;
-    const total = fs.items.reduce((a, b) => a + b, 0);
+    const moves = fs.assign
+      .map((items, g) => ({ g, items }))
+      .filter(m => m.items.some(n => n > 0));
+    const total = moves.reduce((a, m) => a + m.items.reduce((x, y) => x + y, 0), 0);
     if (total <= 0 || total > 3) return;
     this.ui.foodSend = null;
-    this._simple({ type: 'MOVE_FOOD', moves: [{ g: fs.guestIdx, items: fs.items }] });
+    this._simple({ type: 'MOVE_FOOD', moves });
   }
 }

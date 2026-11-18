@@ -919,6 +919,7 @@ export function validateAction(s, seat, action) {
     case 'MOVE_FOOD': {
       const moves = action.moves || [];
       if (!moves.length) return '请选择要送的餐饮';
+      const perFood = [0, 0, 0, 0];
       let total = 0;
       for (const m of moves) {
         const g = p.cafe[m.g];
@@ -928,9 +929,13 @@ export function validateAction(s, seat, action) {
           const n = (m.items || [])[f] || 0;
           if (n <= 0) continue;
           total += n;
+          perFood[f] += n;
           if (n > (def.order[f] - (g.items[f] || 0))) return '该客人不需要这么多同类餐饮';
-          if (n > p.kitchen[f]) return '厨房餐饮不足';
         }
+      }
+      // 合计不能超过厨房库存（多个客人各分一份也不能超发）
+      for (let f = 0; f < 4; f++) {
+        if (perFood[f] > p.kitchen[f]) return '厨房餐饮不足';
       }
       if (total > 3) return '一次最多送 3 份';
       if (!hasHired(p, 24) && p.money < 1) return '克朗不足';
