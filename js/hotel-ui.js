@@ -75,7 +75,7 @@ export class HotelGame extends OnlineGameBase {
     this.memberOnline = null;
     this.aiTimer = null;
     this.playerNames = options.playerNames || null;
-    this.ui = { panel: null, mode: null, confirm: null, status: '', pendingTarget: null, foodPick: null, endLog: false, detail: null };
+    this.ui = { panel: null, mode: null, confirm: null, status: '', pendingTarget: null, foodPick: null, foodSend: null, endLog: false, detail: null };
     this._built = false;
   }
 
@@ -106,6 +106,7 @@ export class HotelGame extends OnlineGameBase {
     this.ui.confirm = null;
     this.ui.pendingTarget = null;
     this.ui.foodPick = null;
+    this.ui.foodSend = null;
   }
   onSyncConflict() { this.ui.status = '同步冲突，正在重新拉取…'; this.render(); }
   onAIFailed(err) { this.ui.status = 'AI 动作失败：' + err.message; this.render(); }
@@ -841,6 +842,39 @@ export class HotelGame extends OnlineGameBase {
         <button class="gah-btn primary" data-act="mode-done">确认执行</button>
         <button class="gah-btn" data-act="mode-cancel">取消</button></div>`;
     }
+    // 厨房送餐手动分配条
+    if (this.ui.foodSend) {
+      const fs = this.ui.foodSend;
+      const g = me.cafe[fs.guestIdx];
+      const def = g && GUEST_BY_ID[g.gid];
+      if (!g || !def) {
+        this.ui.foodSend = null;
+      } else {
+        const total = fs.items.reduce((a, b) => a + b, 0);
+        const free = me.hired.includes(24);
+        const rows = FOOD_KEYS.map((k, f) => {
+          const capF = Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f]);
+          const n = fs.items[f];
+          const canPlus = n < capF && total < 3;
+          const canMinus = n > 0;
+          return `<div class="gah-foodrow">
+            <span>${foodChip(k)}</span>
+            <button class="gah-mini" data-act="send-minus" data-f="${f}" ${canMinus ? '' : 'disabled'}>−</button>
+            <b>${n}</b>
+            <button class="gah-mini" data-act="send-plus" data-f="${f}" ${canPlus ? '' : 'disabled'}>＋</button>
+          </div>`;
+        }).join('');
+        const txt = fs.items.map((n, f) => n > 0 ? `${FOOD_CHAR[FOOD_KEYS[f]]}×${n}` : '').filter(Boolean).join('+') || '—';
+        conf += `<div class="gah-confirm col">
+          <div>从厨房送餐给${COLOR_CHAR[def.color]}色客人（${free ? '领班免费' : '1 克朗'} · 已选 ${total}/3 份）：${txt}</div>
+          <div class="gah-foodrows">${rows}</div>
+          <div class="gah-opts">
+            <button class="gah-btn primary ${total > 0 ? '' : 'disabled'}" data-act="send-ok">确认送餐</button>
+            <button class="gah-btn" data-act="send-cancel">取消</button>
+          </div>
+        </div>`;
+      }
+    }
     wrap.innerHTML = `
       ${conf}
       <div class="gah-opts">
@@ -934,6 +968,10 @@ export class HotelGame extends OnlineGameBase {
         case 'food-plus': this._foodAdjust(+d.f, 1); break;
         case 'food-minus': this._foodAdjust(+d.f, -1); break;
         case 'food-ok': this._foodOk(); break;
+        case 'send-plus': this._foodSendAdjust(+d.f, 1); break;
+        case 'send-minus': this._foodSendAdjust(+d.f, -1); break;
+        case 'send-ok': this._foodSendOk(); break;
+        case 'send-cancel': this.ui.foodSend = null; this.ui.status = ''; this.render(); break;
         // 奖励流程里的选项（resolve 前缀）
         case 'r-food1': this._resolveSimple({ target: 1, strudel: (+d.st - +d.cake), cake: +d.cake }); break;
         case 'r-food2': this._resolveSimple({ target: 2, wine: (+d.st - +d.coffee), coffee: +d.coffee }); break;
@@ -981,6 +1019,7 @@ export class HotelGame extends OnlineGameBase {
       this.ui.mode = null;
       this.ui.status = '';
       this.ui.foodPick = null;
+      this.ui.foodSend = null;
       this.ui.pendingTarget = null;
       this.render();
       this.afterChange();
@@ -1117,24 +1156,20 @@ export class HotelGame extends OnlineGameBase {
       return;
     }
 
-    // 未完成：从厨房送餐（免费铺完后仍需补差）
-    const items = [0, 0, 0, 0];
-    let left = 3;
-    for (let f = 0; f < 4 && left > 0; f++) {
-      const need = def.order[f] - (g.items[f] || 0);
-      const take = Math.min(need, me.kitchen[f], left);
-      if (take > 0) { items[f] = take; left -= take; }
-    }
-    if (!items.some(n => n > 0)) {
+    // 未完成：从厨房送餐——手动分配（预填自动方案，可加减，最多 3 份）
+    const cap = f => Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f]);
+    if (![0, 1, 2, 3].some(f => cap(f) > 0)) {
       this.ui.status = '厨房没有这位客人需要的餐饮';
       this.render(); return;
     }
-    const free = me.hired.includes(24);
-    const txt = items.map((n, f) => n > 0 ? `${FOOD_CHAR[FOOD_KEYS[f]]}×${n}` : '').filter(Boolean).join('+');
-    this.ui.confirm = {
-      text: `从厨房送 ${txt} 给${COLOR_CHAR[def.color]}色客人（${free ? '领班免费' : '1 克朗'}）`,
-      action: { type: 'MOVE_FOOD', moves: [{ g: idx, items }] }
-    };
+    const items = [0, 0, 0, 0];
+    let left = 3;
+    for (let f = 0; f < 4 && left > 0; f++) {
+      const take = Math.min(cap(f), left);
+      if (take > 0) { items[f] = take; left -= take; }
+    }
+    this.ui.foodSend = { guestIdx: idx, items };
+    this.ui.status = '可调整每种餐饮的份数（总数 ≤3）';
     this.render();
   }
 
@@ -1193,5 +1228,32 @@ export class HotelGame extends OnlineGameBase {
     const sel = this.ui.foodPick || [0, 0, 0, 0];
     if (sel.reduce((a, b) => a + b, 0) !== t.count) return;
     this._execute({ type: 'RESOLVE', choice: { foods: sel } });
+  }
+
+  // 厨房送餐手动分配
+  _foodSendAdjust(f, delta) {
+    const fs = this.ui.foodSend;
+    if (!fs) return;
+    const me = this.me();
+    const g = me.cafe[fs.guestIdx];
+    if (!g) return;
+    const def = GUEST_BY_ID[g.gid];
+    const capF = Math.min(def.order[f] - (g.items[f] || 0), me.kitchen[f]);
+    const total = fs.items.reduce((a, b) => a + b, 0);
+    const next = fs.items.slice();
+    const n = Math.max(0, Math.min(next[f] + delta, capF));
+    if (total - next[f] + n > 3) return;
+    next[f] = n;
+    this.ui.foodSend = { ...fs, items: next };
+    this.render();
+  }
+
+  _foodSendOk() {
+    const fs = this.ui.foodSend;
+    if (!fs) return;
+    const total = fs.items.reduce((a, b) => a + b, 0);
+    if (total <= 0 || total > 3) return;
+    this.ui.foodSend = null;
+    this._simple({ type: 'MOVE_FOOD', moves: [{ g: fs.guestIdx, items: fs.items }] });
   }
 }
