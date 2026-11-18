@@ -8,7 +8,7 @@ import {
 import {
   guestComplete, canPrepareIndex, prepareCostFor, actionStrength,
   objectiveMet, validateAction, diceTotal, hasHired, orderTotal
-} from './hotel-engine.js?v=7';
+} from './hotel-engine.js?v=8';
 
 function staff(id) { return STAFF_BY_ID[id] || { cost: 0, kind: 'permanent', name: '?' }; }
 
@@ -127,17 +127,31 @@ function buildFoodAction(s, p, space, st) {
   return { wine, coffee };
 }
 
+// 拿取的餐饮按缺口贪心铺到客人订单（与旧自动分配一致）
+function assignGreedy(p, add) {
+  const left = add.slice();
+  return p.cafe.map(g => {
+    const def = GUEST_BY_ID[g.gid];
+    const a = [0, 0, 0, 0];
+    for (let f = 0; f < 4; f++) {
+      const n = Math.min(Math.max(0, def.order[f] - (g.items[f] || 0)), left[f] || 0);
+      if (n > 0) { a[f] = n; left[f] -= n; }
+    }
+    return a;
+  });
+}
+
 function buildAction(s, p, target, st, space) {
   const base = { type: 'TAKE_DIE', action: space };
   if (space === 6) base.target = target;
   const budget = p.money - feeOf(p, space);
   if (target === 1) {
     const f = buildFoodAction(s, p, 1, st);
-    return { ...base, strudel: f.strudel, cake: f.cake };
+    return { ...base, strudel: f.strudel, cake: f.cake, assign: assignGreedy(p, [f.strudel, f.cake, 0, 0]) };
   }
   if (target === 2) {
     const f = buildFoodAction(s, p, 2, st);
-    return { ...base, wine: f.wine, coffee: f.coffee };
+    return { ...base, wine: f.wine, coffee: f.coffee, assign: assignGreedy(p, [0, 0, f.wine, f.coffee]) };
   }
   if (target === 3) {
     return { ...base, rooms: legalRooms(p, st, 3, 0, budget) };
@@ -306,11 +320,11 @@ function resolveChoice(s, seat) {
       const st = s.dice[target];
       if (target === 1) {
         const f = buildFoodAction(s, p, 1, st);
-        return { type: 'RESOLVE', choice: { target: 1, strudel: f.strudel, cake: f.cake } };
+        return { type: 'RESOLVE', choice: { target: 1, strudel: f.strudel, cake: f.cake, assign: assignGreedy(p, [f.strudel, f.cake, 0, 0]) } };
       }
       if (target === 2) {
         const f = buildFoodAction(s, p, 2, st);
-        return { type: 'RESOLVE', choice: { target: 2, wine: f.wine, coffee: f.coffee } };
+        return { type: 'RESOLVE', choice: { target: 2, wine: f.wine, coffee: f.coffee, assign: assignGreedy(p, [0, 0, f.wine, f.coffee]) } };
       }
       if (target === 3) {
         return { type: 'RESOLVE', choice: { target: 3, rooms: legalRooms(p, st) } };
@@ -333,8 +347,8 @@ function resolveChoice(s, seat) {
         const n1 = s.dice[t1];
         const f = buildFoodAction(s, p, t1, n1);
         return t1 === 1
-          ? { type: 'RESOLVE', choice: { target: 1, strudel: f.strudel, cake: f.cake } }
-          : { type: 'RESOLVE', choice: { target: 2, wine: f.wine, coffee: f.coffee } };
+          ? { type: 'RESOLVE', choice: { target: 1, strudel: f.strudel, cake: f.cake, assign: assignGreedy(p, [f.strudel, f.cake, 0, 0]) } }
+          : { type: 'RESOLVE', choice: { target: 2, wine: f.wine, coffee: f.coffee, assign: assignGreedy(p, [0, 0, f.wine, f.coffee]) } };
       }
       return { type: 'RESOLVE', choice: {} };
     }

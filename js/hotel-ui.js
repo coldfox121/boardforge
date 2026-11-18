@@ -4,8 +4,8 @@ import { OnlineGameBase } from './online-game.js?v=2';
 import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
-} from './hotel-engine.js?v=7';
-import { pickAction } from './hotel-ai.js?v=3';
+} from './hotel-engine.js?v=8';
+import { pickAction } from './hotel-ai.js?v=4';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
   EMPEROR_POINTS, MARKET_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES
@@ -75,7 +75,7 @@ export class HotelGame extends OnlineGameBase {
     this.memberOnline = null;
     this.aiTimer = null;
     this.playerNames = options.playerNames || null;
-    this.ui = { panel: null, mode: null, confirm: null, status: '', pendingTarget: null, foodPick: null, foodSend: null, endLog: false, detail: null };
+    this.ui = { panel: null, mode: null, confirm: null, status: '', pendingTarget: null, foodPick: null, foodSend: null, place: null, endLog: false, detail: null };
     this._built = false;
   }
 
@@ -107,6 +107,7 @@ export class HotelGame extends OnlineGameBase {
     this.ui.pendingTarget = null;
     this.ui.foodPick = null;
     this.ui.foodSend = null;
+    this.ui.place = null;
   }
   onSyncConflict() { this.ui.status = '同步冲突，正在重新拉取…'; this.render(); }
   onAIFailed(err) { this.ui.status = 'AI 动作失败：' + err.message; this.render(); }
@@ -339,7 +340,9 @@ export class HotelGame extends OnlineGameBase {
     const fee = space === 6 ? (me.hired.includes(17) ? 0 : 1) : 0;
 
     let inner = '';
-    if (space === 6 && !ui.panel.target) {
+    if (ui.place) {
+      inner = this._placeHTML();
+    } else if (space === 6 && !ui.panel.target) {
       inner = `<div class="gah-opts">` + [1, 2, 3, 4, 5].map(t =>
         `<button class="gah-btn" data-act="wild" data-target="${t}">${SPACE_INFO[t].icon} ${SPACE_INFO[t].name}</button>`
       ).join('') + `</div>`;
@@ -368,7 +371,7 @@ export class HotelGame extends OnlineGameBase {
     const s = this.state, me = this.me();
     if (kind === 1) {
       const max = Math.min(strength, Math.floor(strength / 2));
-      let out = '<div class="gah-opts">';
+      let out = `<div class="gah-hint">规则：<i class="gah-fdot f-cake"></i> 蛋糕数量不能多于 <i class="gah-fdot f-strudel"></i> 苹果卷</div><div class="gah-opts">`;
       for (let cake = 0; cake <= max; cake++) {
         out += `<button class="gah-btn" data-act="${pre}food1" data-cake="${cake}" data-st="${strength}">
           <i class="gah-fdot f-strudel"></i> ×${strength - cake}${cake ? ` + <i class="gah-fdot f-cake"></i> ×${cake}` : ''}</button>`;
@@ -377,7 +380,7 @@ export class HotelGame extends OnlineGameBase {
     }
     if (kind === 2) {
       const max = Math.min(strength, Math.floor(strength / 2));
-      let out = '<div class="gah-opts">';
+      let out = `<div class="gah-hint">规则：<i class="gah-fdot f-coffee"></i> 咖啡数量不能多于 <i class="gah-fdot f-wine"></i> 红酒</div><div class="gah-opts">`;
       for (let coffee = 0; coffee <= max; coffee++) {
         out += `<button class="gah-btn" data-act="${pre}food2" data-coffee="${coffee}" data-st="${strength}">
           <i class="gah-fdot f-wine"></i> ×${strength - coffee}${coffee ? ` + <i class="gah-fdot f-coffee"></i> ×${coffee}` : ''}</button>`;
@@ -805,7 +808,7 @@ export class HotelGame extends OnlineGameBase {
           <div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
       } else {
         body = `<div class="gah-pendtitle">模仿行动 ${target}（强度 ${s.dice[target] || 0}）</div>` +
-          this._optionsHTML(target, s.dice[target] || 0, target, null, true) +
+          (ui.place ? this._placeHTML() : this._optionsHTML(target, s.dice[target] || 0, target, null, true)) +
           `<div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
       }
     } else {
@@ -939,11 +942,11 @@ export class HotelGame extends OnlineGameBase {
     try {
       switch (act) {
         case 'space': this._openPanel(+d.space); break;
-        case 'cancel-panel': this.ui.panel = null; this.ui.status = ''; this.render(); break;
-        case 'boost': this.ui.panel && (this.ui.panel.boost = !this.ui.panel.boost); this.render(); break;
+        case 'cancel-panel': this.ui.panel = null; this.ui.place = null; this.ui.status = ''; this.render(); break;
+        case 'boost': if (this.ui.panel) { this.ui.panel.boost = !this.ui.panel.boost; this.ui.place = null; } this.render(); break;
         case 'wild': this.ui.panel.target = +d.target; this.render(); break;
-        case 'food1': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), strudel: (+d.st - +d.cake), cake: +d.cake }); break;
-        case 'food2': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), wine: (+d.st - +d.coffee), coffee: +d.coffee }); break;
+        case 'food1': this._startPlace([(+d.st - +d.cake), +d.cake, 0, 0], 1, false); break;
+        case 'food2': this._startPlace([0, 0, (+d.st - +d.coffee), +d.coffee], 2, false); break;
         case 'split4': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), emperor: +d.k, money: (+d.st - +d.k) }); break;
         case 'hire': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), staffId: +d.staff }); break;
         case 'prep': this._startPrepare(this.ui.panel.space, +d.st, 0, 3, 'action', this.ui.panel.space === 6 ? this.ui.panel.target : null, this.ui.panel.boost); break;
@@ -966,13 +969,17 @@ export class HotelGame extends OnlineGameBase {
         case 'food-plus': this._foodAdjust(+d.f, 1); break;
         case 'food-minus': this._foodAdjust(+d.f, -1); break;
         case 'food-ok': this._foodOk(); break;
+        case 'pl-plus': this._placeAdjust(+d.g, +d.f, 1); break;
+        case 'pl-minus': this._placeAdjust(+d.g, +d.f, -1); break;
+        case 'pl-ok': this._placeOk(); break;
+        case 'pl-cancel': this.ui.place = null; this.render(); break;
         case 'send-plus': this._foodSendAdjust(+d.f, 1); break;
         case 'send-minus': this._foodSendAdjust(+d.f, -1); break;
         case 'send-ok': this._foodSendOk(); break;
         case 'send-cancel': this.ui.foodSend = null; this.ui.status = ''; this.render(); break;
         // 奖励流程里的选项（resolve 前缀）
-        case 'r-food1': this._resolveSimple({ target: 1, strudel: (+d.st - +d.cake), cake: +d.cake }); break;
-        case 'r-food2': this._resolveSimple({ target: 2, wine: (+d.st - +d.coffee), coffee: +d.coffee }); break;
+        case 'r-food1': this._startPlace([(+d.st - +d.cake), +d.cake, 0, 0], 1, true); break;
+        case 'r-food2': this._startPlace([0, 0, (+d.st - +d.coffee), +d.coffee], 2, true); break;
         case 'r-split4': this._resolveSimple({ target: 4, emperor: +d.k, money: (+d.st - +d.k) }); break;
         case 'r-hire': this._resolveStaff(+d.staff); break;
         case 'r-prep': this._startPrepare(null, +d.st, 0, 3, 'pending', +d.target); break;
@@ -1018,6 +1025,7 @@ export class HotelGame extends OnlineGameBase {
       this.ui.status = '';
       this.ui.foodPick = null;
       this.ui.foodSend = null;
+      this.ui.place = null;
       this.ui.pendingTarget = null;
       this.render();
       this.afterChange();
@@ -1226,6 +1234,96 @@ export class HotelGame extends OnlineGameBase {
     const sel = this.ui.foodPick || [0, 0, 0, 0];
     if (sel.reduce((a, b) => a + b, 0) !== t.count) return;
     this._execute({ type: 'RESOLVE', choice: { foods: sel } });
+  }
+
+  // ===== 拿取餐饮：官方规则允许在获得时立即放上客人订单（自选分配），剩余进厨房 =====
+  _startPlace(vec, kind, resolve) {
+    const me = this.me();
+    // 没有任何客人需要这些餐饮 → 免去放置步骤直接执行
+    const useful = me.cafe.some(g => {
+      const def = GUEST_BY_ID[g.gid];
+      return vec.some((n, f) => n > 0 && def.order[f] - (g.items[f] || 0) > 0);
+    });
+    if (!useful) { this._finishPlace(vec, kind, resolve, undefined); return; }
+    this.ui.place = { vec: vec.slice(), kind, resolve: !!resolve, assign: me.cafe.map(() => [0, 0, 0, 0]) };
+    this.render();
+  }
+
+  _finishPlace(vec, kind, resolve, assign) {
+    this.ui.place = null;
+    if (resolve) {
+      const choice = kind === 1
+        ? { target: 1, strudel: vec[0], cake: vec[1] }
+        : { target: 2, wine: vec[2], coffee: vec[3] };
+      if (assign) choice.assign = assign;
+      this._resolveSimple(choice);
+    } else {
+      const action = kind === 1
+        ? { type: 'TAKE_DIE', action: this.ui.panel.space, ...this._wild(), strudel: vec[0], cake: vec[1] }
+        : { type: 'TAKE_DIE', action: this.ui.panel.space, ...this._wild(), wine: vec[2], coffee: vec[3] };
+      if (assign) action.assign = assign;
+      this._die(action);
+    }
+  }
+
+  _placeHTML() {
+    const pl = this.ui.place;
+    if (!pl) return '';
+    const me = this.me();
+    const used = [0, 0, 0, 0];
+    pl.assign.forEach(a => { for (let f = 0; f < 4; f++) used[f] += a[f] || 0; });
+    const remain = pl.vec.map((n, f) => n - used[f]);
+    const pool = pl.vec.map((n, f) => n > 0
+      ? `<span class="gah-plcell"><i class="gah-fdot f-${FOOD_KEYS[f]}"></i>×${n}</span>` : '').join('');
+    const rows = me.cafe.map((g, gi) => {
+      const def = GUEST_BY_ID[g.gid];
+      const cells = pl.vec.map((n, f) => {
+        if (!n) return '';
+        const cap = Math.max(0, def.order[f] - (g.items[f] || 0));
+        if (!cap) return '';
+        const cur = pl.assign[gi][f] || 0;
+        return `<span class="gah-plcell"><i class="gah-fdot f-${FOOD_KEYS[f]}"></i>
+          <button class="gah-mini" data-act="pl-minus" data-g="${gi}" data-f="${f}" ${cur > 0 ? '' : 'disabled'}>−</button>
+          <b>${cur}</b>
+          <button class="gah-mini" data-act="pl-plus" data-g="${gi}" data-f="${f}" ${cur < cap && remain[f] > 0 ? '' : 'disabled'}>＋</button>
+          <i class="gah-plcap">/${cap}</i></span>`;
+      }).join('');
+      if (!cells) return '';
+      return `<div class="gah-plrow"><span class="gah-pltag rc-${def.color}">${COLOR_CHAR[def.color]}</span>${cells}</div>`;
+    }).join('');
+    return `<div class="gah-place">
+      <div class="gah-pendtitle">放置获得的餐饮</div>
+      <div class="gah-hint">点 ＋/− 把餐饮分给咖啡吧客人（/后为客人还需要的数量）；未分配的自动进厨房</div>
+      <div class="gah-plrow">${pool}</div>
+      ${rows || '<div class="gah-hint">没有客人需要这些餐饮，将全部进厨房</div>'}
+      <div class="gah-opts">
+        <button class="gah-btn primary" data-act="pl-ok">✓ 确认拿取</button>
+        <button class="gah-btn" data-act="pl-cancel">取消</button>
+      </div></div>`;
+  }
+
+  _placeAdjust(gi, f, delta) {
+    const pl = this.ui.place;
+    if (!pl || !pl.assign[gi]) return;
+    const g = this.me().cafe[gi];
+    if (!g) return;
+    const def = GUEST_BY_ID[g.gid];
+    const cap = Math.max(0, def.order[f] - (g.items[f] || 0));
+    const used = [0, 0, 0, 0];
+    pl.assign.forEach(a => { for (let k = 0; k < 4; k++) used[k] += a[k] || 0; });
+    const next = pl.assign[gi].slice();
+    const maxN = Math.min(cap, pl.vec[f] - used[f] + next[f]);
+    next[f] = Math.max(0, Math.min(next[f] + delta, maxN));
+    pl.assign[gi] = next;
+    this.render();
+  }
+
+  _placeOk() {
+    const pl = this.ui.place;
+    if (!pl) return;
+    const assign = pl.assign.map(a => a.slice());
+    const hasAny = assign.some(a => a.some(n => n > 0));
+    this._finishPlace(pl.vec, pl.kind, pl.resolve, hasAny ? assign : undefined);
   }
 
   // 厨房送餐手动分配

@@ -229,27 +229,73 @@ function advanceEmperor(s, p, seat, n, silent) {
 }
 
 // ===== 餐饮 =====
-// 新获得的餐饮先免费铺到咖啡吧客人订单上，剩余进厨房
-function gainFood(s, p, seat, add) {
+// 官方规则：获得餐饮时可立即放上客人订单（玩家自选放哪家），剩余进厨房。
+// assign == null：自动铺放（客人奖励/员工效果等固定获得途径，保持旧行为）
+// assign 为数组：按玩家分配严格放置（拿餐食/饮品行动），未分配的直接进厨房
+function gainFood(s, p, seat, add, assign) {
   const placed = [0, 0, 0, 0];
-  for (let f = 0; f < 4; f++) {
-    let left = add[f] || 0;
-    for (const g of p.cafe) {
-      if (left <= 0) break;
+  if (Array.isArray(assign)) {
+    p.cafe.forEach((g, gi) => {
+      const a = assign[gi];
+      if (!a) return;
       const def = GUEST_BY_ID[g.gid];
-      const need = def.order[f] - (g.items[f] || 0);
-      if (need > 0) {
-        const put = Math.min(need, left);
-        g.items[f] = (g.items[f] || 0) + put;
-        left -= put;
-        placed[f] += put;
+      for (let f = 0; f < 4; f++) {
+        const n = a[f] | 0;
+        if (n < 0 || n > add[f] - placed[f]) throw new Error('分配数量超过获得量');
+        if (n > Math.max(0, def.order[f] - (g.items[f] || 0))) throw new Error('超出客人剩余需求');
+        if (n > 0) { g.items[f] = (g.items[f] || 0) + n; placed[f] += n; }
+      }
+    });
+  } else {
+    for (let f = 0; f < 4; f++) {
+      let left = add[f] || 0;
+      for (const g of p.cafe) {
+        if (left <= 0) break;
+        const def = GUEST_BY_ID[g.gid];
+        const need = def.order[f] - (g.items[f] || 0);
+        if (need > 0) {
+          const put = Math.min(need, left);
+          g.items[f] = (g.items[f] || 0) + put;
+          left -= put;
+          placed[f] += put;
+        }
       }
     }
-    p.kitchen[f] += left;
   }
+  const rest = add.map((n, f) => (n || 0) - placed[f]);
+  for (let f = 0; f < 4; f++) p.kitchen[f] += rest[f];
   if (sumVec(add) > 0) {
-    pushLog(s, seat, `🍽 获得 ${foodText(add)}` + (sumVec(placed) > 0 ? `（${foodText(placed)} 直接上到客人订单）` : ''), 'food');
+    let msg = `🍽 获得 ${foodText(add)}`;
+    const hasPlaced = sumVec(placed) > 0, hasRest = sumVec(rest) > 0;
+    if (hasPlaced || hasRest) {
+      msg += '（';
+      if (hasPlaced) msg += `${foodText(placed)} 放上客人订单`;
+      if (hasPlaced && hasRest) msg += '，';
+      if (hasRest) msg += `${foodText(rest)} 进厨房`;
+      msg += '）';
+    }
+    pushLog(s, seat, msg, 'food');
   }
+}
+
+// 校验玩家自选分配：每个客人不超过其剩余需求，总数不超过获得量
+function validateFoodAssign(p, assign, taken) {
+  if (assign == null) return null;
+  if (!Array.isArray(assign) || assign.length > p.cafe.length) return '分配数据无效';
+  const tot = [0, 0, 0, 0];
+  for (let gi = 0; gi < assign.length; gi++) {
+    const a = assign[gi];
+    if (a == null) continue;
+    const def = GUEST_BY_ID[p.cafe[gi].gid];
+    for (let f = 0; f < 4; f++) {
+      const n = a[f] | 0;
+      if (n < 0) return '分配数量无效';
+      if (n > Math.max(0, def.order[f] - (p.cafe[gi].items[f] || 0))) return '超出客人剩余需求';
+      tot[f] += n;
+    }
+  }
+  for (let f = 0; f < 4; f++) if (tot[f] > (taken[f] || 0)) return '分配数量超过获得量';
+  return null;
 }
 
 function drawStaff(s, p, seat, n) {
@@ -938,12 +984,16 @@ function validateTakeDie(s, p, action) {
       const sd = action.strudel | 0, ck = action.cake | 0;
       if (sd + ck !== st) return `需要分配 ${st} 份餐饮`;
       if (ck > sd) return '蛋糕不能多于苹果卷';
+      const aerr = validateFoodAssign(p, action.assign, [sd, ck, 0, 0]);
+      if (aerr) return aerr;
       return null;
     }
     case 2: {
       const wi = action.wine | 0, cf = action.coffee | 0;
       if (wi + cf !== st) return `需要分配 ${st} 份饮品`;
       if (cf > wi) return '咖啡不能多于红酒';
+      const aerr = validateFoodAssign(p, action.assign, [0, 0, wi, cf]);
+      if (aerr) return aerr;
       return null;
     }
     case 3: {
@@ -1075,10 +1125,10 @@ function execTakeDie(s, p, seat, action) {
 
   switch (target) {
     case 1:
-      gainFood(s, p, seat, [action.strudel | 0, action.cake | 0, 0, 0]);
+      gainFood(s, p, seat, [action.strudel | 0, action.cake | 0, 0, 0], action.assign || []);
       break;
     case 2:
-      gainFood(s, p, seat, [0, 0, action.wine | 0, action.coffee | 0]);
+      gainFood(s, p, seat, [0, 0, action.wine | 0, action.coffee | 0], action.assign || []);
       break;
     case 3: {
       const rooms = (action.rooms || []).slice();
@@ -1206,8 +1256,18 @@ function resolvePending(s, seat, choice) {
       const st = s.dice[target] || 0;
       if (st <= 0) throw new Error('该行动区没有骰子');
       pushLog(s, seat, `👤 吉萨先生：不取骰子执行行动 ${target}（强度 ${st}）`, 'guest');
-      if (target === 1) gainFood(s, p, seat, [choice.strudel | 0, choice.cake | 0, 0, 0]);
-      if (target === 2) gainFood(s, p, seat, [0, 0, choice.wine | 0, choice.coffee | 0]);
+      if (target === 1) {
+        const taken1 = [choice.strudel | 0, choice.cake | 0, 0, 0];
+        const err1 = validateFoodAssign(p, choice.assign, taken1);
+        if (err1) throw new Error(err1);
+        gainFood(s, p, seat, taken1, choice.assign || []);
+      }
+      if (target === 2) {
+        const taken2 = [0, 0, choice.wine | 0, choice.coffee | 0];
+        const err2 = validateFoodAssign(p, choice.assign, taken2);
+        if (err2) throw new Error(err2);
+        gainFood(s, p, seat, taken2, choice.assign || []);
+      }
       if (target === 3) for (const idx of (choice.rooms || [])) doPrepare(s, p, seat, idx, 0, 3);
       if (target === 4) {
         if (hasHired(p, 15)) { p.money += st; advanceEmperor(s, p, seat, st); }
