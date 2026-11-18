@@ -160,7 +160,6 @@ export class HotelGame extends OnlineGameBase {
         <div class="gah-top">
           <div class="gah-round" id="gah-round"></div>
           <div class="gah-turn" id="gah-turn"></div>
-          <div class="gah-mystats" id="gah-mystats"></div>
         </div>
 
         <div class="gah-mainboard">
@@ -268,11 +267,7 @@ export class HotelGame extends OnlineGameBase {
     else if (s.currentPlayer === this.humanIndex) turnEl.innerHTML = '<span class="gah-turn-me">你的回合</span>';
     else turnEl.textContent = `等待 ${cur.name} 行动` + (cur.isAI ? '（电脑）' : '');
 
-    this.root.querySelector('#gah-mystats').innerHTML =
-      `<span title="克朗">💰 ${me.money}</span>
-       <span title="皇帝轨">👑 ${me.emperor} <i>(+${EMPEROR_POINTS[me.emperor] || 0}分)</i></span>
-       <span title="总分">⭐ ${me.score}</span>
-       <span title="回合状态" class="gah-dim">${me.dieTaken ? '已取骰' : '待取骰'} · ${me.numbersLeft} 次行动</span>`;
+    // 顶部只留轮次与回合状态；个人资源统一在「我的酒店」面板的资源行（#gah-res）
 
     this._syncPendingMode();
     this._renderActions();
@@ -611,10 +606,13 @@ export class HotelGame extends OnlineGameBase {
     const hint = this.root.querySelector('#gah-hotel-hint');
     hint.textContent = `已准备 ${prepared} · 已入住 ${occupied}`;
 
+    // 资源行（官方版式：资源在玩家图板上，不占屏幕顶部）
     this.root.querySelector('#gah-res').innerHTML =
-      `<span>💰 ${me.money} 克朗</span>
-       <span>👑 皇帝轨 <b>${me.emperor}</b> (${EMPEROR_POINTS[me.emperor] || 0}分)</span>
-       <span>🏨 房 ${prepared}/20</span>`;
+      `<span class="gah-res-money" title="克朗">💰 <b>${me.money}</b> 克朗</span>
+       <span title="皇帝轨位置与结算分">👑 皇帝轨 <b>${me.emperor}</b> (${EMPEROR_POINTS[me.emperor] || 0}分)</span>
+       <span title="总分">⭐ 总分 <b>${me.score}</b></span>
+       <span title="已准备/全部房间">🏨 房 ${prepared}/20</span>
+       <span class="gah-dim" title="回合状态">${me.dieTaken ? '已取骰' : '待取骰'} · ${me.numbersLeft} 次行动</span>`;
 
     this._renderBonusRule(me);
   }
