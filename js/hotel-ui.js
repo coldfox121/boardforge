@@ -910,11 +910,11 @@ export class HotelGame extends OnlineGameBase {
         case 'cancel-panel': this.ui.panel = null; this.ui.status = ''; this.render(); break;
         case 'boost': this.ui.panel && (this.ui.panel.boost = !this.ui.panel.boost); this.render(); break;
         case 'wild': this.ui.panel.target = +d.target; this.render(); break;
-        case 'food1': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, strudel: (+d.st - +d.cake), cake: +d.cake }); break;
-        case 'food2': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, wine: (+d.st - +d.coffee), coffee: +d.coffee }); break;
-        case 'split4': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, emperor: +d.k, money: (+d.st - +d.k) }); break;
-        case 'hire': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, staffId: +d.staff }); break;
-        case 'prep': this._startPrepare(this.ui.panel.space, +d.st, 0, 3, 'action', null, this.ui.panel.boost); break;
+        case 'food1': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), strudel: (+d.st - +d.cake), cake: +d.cake }); break;
+        case 'food2': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), wine: (+d.st - +d.coffee), coffee: +d.coffee }); break;
+        case 'split4': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), emperor: +d.k, money: (+d.st - +d.k) }); break;
+        case 'hire': this._die({ type: 'TAKE_DIE', action: +this.ui.panel.space, ...this._wild(), staffId: +d.staff }); break;
+        case 'prep': this._startPrepare(this.ui.panel.space, +d.st, 0, 3, 'action', this.ui.panel.space === 6 ? this.ui.panel.target : null, this.ui.panel.boost); break;
         case 'queue': this._takeGuest(+d.slot); break;
         case 'obj': this._claim(+d.idx); break;
         case 'room': this._room(+d.idx); break;
@@ -1031,12 +1031,19 @@ export class HotelGame extends OnlineGameBase {
     this.render();
   }
 
+  // 万能行动（6 区）面板提交时必须带上已选的模仿目标 1-5
+  _wild() {
+    const p = this.ui.panel;
+    return p && p.space === 6 && p.target ? { target: p.target } : {};
+  }
+
   _finishActionRooms() {
     const mode = this.ui.mode;
     if (!mode || mode.source !== 'action') return;
     if (mode.type === 'prepare') {
       const action = { type: 'TAKE_DIE', action: mode.space, rooms: mode.picked.slice() };
       if (mode.boost) action.boost = true;
+      if (mode.space === 6 && mode.target) action.target = mode.target;
       this.ui.mode = null;
       this._die(action);
     } else {
