@@ -4,7 +4,7 @@ import { OnlineGameBase } from './online-game.js?v=2';
 import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
-} from './hotel-engine.js?v=6';
+} from './hotel-engine.js?v=7';
 import { pickAction } from './hotel-ai.js?v=3';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,

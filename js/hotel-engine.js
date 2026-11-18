@@ -1239,26 +1239,36 @@ function resolvePending(s, seat, choice) {
   }
 
   // 开局流程：先接客（官方第 11 步），全员接完后自选备 3 房（官方第 12 步，轮转进行）
+  // 旧档兼容：65f55cf 之前的对局存档没有 setupRooms 字段（开局固定备好底层 3 间、无自选备房阶段），
+  // 这类老对局接完客直接进入第 1 轮，按老规则打完，绝不因缺字段崩溃
   if (t.setup && s.phase === 'setup') {
+    const legacySetup = !Array.isArray(s.setupRooms);
     if (t.type === 'guestPick') {
-      if (s.setupPicks.length) {
+      if (Array.isArray(s.setupPicks) && s.setupPicks.length) {
         addTask(s, { type: 'guestPick', seat: s.setupPicks.shift(), count: 1, free: true, setup: true });
+      } else if (legacySetup) {
+        startPlaying(s);
       } else {
         for (let r = 0; r < 3; r++) {
           for (let i = 0; i < s.players.length; i++) s.setupRooms.push(i);
         }
         addTask(s, { type: 'prepare', seat: s.setupRooms.shift(), count: 1, setup: true, setupRooms: true });
       }
-    } else if (s.setupRooms.length) {
+    } else if (!legacySetup && s.setupRooms.length) {
       addTask(s, { type: 'prepare', seat: s.setupRooms.shift(), count: 1, setup: true, setupRooms: true });
     } else {
-      s.phase = 'playing';
-      s.currentPlayer = s.startPlayer;
-      rollAllDice(s);
-      s.players.forEach(resetTurnFlags);
-      pushLog(s, null, `—— 第 1 轮开始（${s.players[s.startPlayer].name} 先行动，${s.diceTotal} 颗骰子已掷）——`, 'round');
+      startPlaying(s);
     }
   }
+}
+
+// 进入第 1 轮对局
+function startPlaying(s) {
+  s.phase = 'playing';
+  s.currentPlayer = s.startPlayer;
+  rollAllDice(s);
+  s.players.forEach(resetTurnFlags);
+  pushLog(s, null, `—— 第 1 轮开始（${s.players[s.startPlayer].name} 先行动，${s.diceTotal} 颗骰子已掷）——`, 'round');
 }
 
 // ===== 供 UI / AI 使用的小工具 =====
