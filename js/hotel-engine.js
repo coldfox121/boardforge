@@ -10,7 +10,7 @@ import {
   ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
   BLUE_BONUS, OTHER_BONUS, EMPEROR_POINTS, EMPEROR_MAX,
   MARKET_COST, DICE_BY_PLAYERS, POLITICS_SPOTS, STAFF_ONCE
-} from './hotel-data.js?v=3';
+} from './hotel-data.js?v=4';
 
 // ===== 通用工具 =====
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -23,8 +23,8 @@ function shuffle(a) {
 }
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-export const COLOR_ZH = { blue: '贵族', red: '市民', yellow: '艺术家', green: '旅人' };
-const FOOD_ZH = ['卷', '糕', '酒', '啡'];
+export const COLOR_ZH = { blue: '蓝', red: '红', yellow: '黄', green: '绿' };
+const FOOD_ZH = ['金', '粉', '红', '棕']; // 与餐饮色块颜色对应（金=苹果卷 粉=蛋糕 红=红酒 棕=咖啡）
 
 function vec(idx, n) { const v = [0, 0, 0, 0]; v[idx] = n; return v; }
 function sumVec(v) { return v[0] + v[1] + v[2] + v[3]; }
@@ -329,15 +329,15 @@ function groupBonus(s, p, seat, idx) {
   if (color === 'blue') {
     const vp = BLUE_BONUS[size] || 0;
     p.score += vp;
-    pushLog(s, seat, `🎉 贵族房组（${size} 间）全部住满：+${vp} 分`, 'bonus');
+    pushLog(s, seat, `🎉 蓝色房组（${size} 间）全部住满：+${vp} 分`, 'bonus');
   } else if (color === 'red') {
     const m = OTHER_BONUS[size] || 0;
     p.money += m;
-    pushLog(s, seat, `🎉 市民房组（${size} 间）全部住满：+${m} 克朗`, 'bonus');
+    pushLog(s, seat, `🎉 红色房组（${size} 间）全部住满：+${m} 克朗`, 'bonus');
   } else {
     const n = OTHER_BONUS[size] || 0;
     advanceEmperor(s, p, seat, n);
-    pushLog(s, seat, `🎉 艺术家房组（${size} 间）全部住满：皇帝轨 +${n}`, 'bonus');
+    pushLog(s, seat, `🎉 黄色房组（${size} 间）全部住满：皇帝轨 +${n}`, 'bonus');
   }
 }
 
@@ -473,7 +473,7 @@ function applyRewardsAuto(s, p, seat, rewards) {
         if (g) {
           const def = GUEST_BY_ID[g.gid];
           for (let f = 0; f < 4; f++) g.items[f] = def.order[f];
-          pushLog(s, seat, `🍽 用公共供应完成 ${def.name} 的订单`, 'guest');
+          pushLog(s, seat, `🍽 用公共供应完成 1 位客人的订单`, 'guest');
         }
         break;
       }
@@ -519,7 +519,7 @@ function takeGuestFromQueue(s, p, seat, slot, free) {
   p.cafe.push({ gid, items: [0, 0, 0, 0] });
   if (s.guestDeck.length) s.guestQueue.unshift(s.guestDeck.shift());
   const def = GUEST_BY_ID[gid];
-  pushLog(s, seat, `🚪 接待 ${def.name}（${COLOR_ZH[def.color]}·${def.vp}分）` +
+  pushLog(s, seat, `🚪 接待${COLOR_ZH[def.color]}色客人（${def.vp}分）` +
     (cost ? `，-${cost} 克朗` : '，免费') + `，订单 ${foodText(def.order)}`, 'guest');
   return gid;
 }
@@ -539,7 +539,7 @@ function checkIn(s, p, seat, guestIdx, roomIdx) {
   p.hotel.push(g.gid);
   room.occupied = true;
   p.score += def.vp;
-  pushLog(s, seat, `✅ ${def.name} 入住 ${Math.floor(roomIdx / 5) + 1} 层${COLOR_ZH[rcolor]}房：+${def.vp} 分`, 'checkin');
+  pushLog(s, seat, `✅ ${COLOR_ZH[def.color]}色客人入住 ${Math.floor(roomIdx / 5) + 1} 层${COLOR_ZH[rcolor]}房：+${def.vp} 分`, 'checkin');
 
   // 入住触发的员工效果
   if (def.color === 'red' && hasHired(p, 5)) { p.money += 2; pushLog(s, seat, '👔 门童：+2 克朗', 'staff'); }
@@ -1232,7 +1232,7 @@ function resolvePending(s, seat, choice) {
       if (!g) throw new Error('没有这位客人');
       const def = GUEST_BY_ID[g.gid];
       for (let f = 0; f < 4; f++) g.items[f] = def.order[f];
-      pushLog(s, seat, `🍽 用公共供应完成 ${def.name} 的订单`, 'guest');
+      pushLog(s, seat, `🍽 用公共供应完成 1 位客人的订单`, 'guest');
       break;
     }
     default: break;

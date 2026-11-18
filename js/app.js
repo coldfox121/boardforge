@@ -80,7 +80,7 @@ function handleRoute() {
     showView('admin');
     import('./config-sync.js?v=36')
       .then(m => m.syncGameConfig(localStorage.getItem('bf_admin_game') || 'splendor'))
-      .then(() => import('./admin-ui.js?v=41'))
+      .then(() => import('./admin-ui.js?v=42'))
       .then(m => m.renderAdminPage());
   } else if (first === 'g' && segments[1]) {
     // #/g/splendor → 受限模式入口；#/g/splendor/room/ABCD → 受限模式展示房间
@@ -323,7 +323,7 @@ const GAME_RULES = {
       },
       {
         title: '🍽 餐饮与入住',
-        body: '获得的餐饮可立刻免费放到咖啡吧客人的订单上，剩余进厨房。付 1 克朗可从厨房向客人补送最多 3 份。订单满足后，可把客人免费安排进同色空房（旅人可入任意房），获得卡面分数与奖励；房间翻面变成已入住。<br><b>满组奖励</b>（同色房间组全部住满时自动结算，按组大小 1/2/3/4 间）：<br>· 贵族房组：+2/+5/+9/+15 分<br>· 市民房组：+1/+3/+6/+10 克朗<br>· 艺术家房组：+1/+3/+6/+10 皇帝轨'
+        body: '获得的餐饮可立刻免费放到咖啡吧客人的订单上，剩余进厨房。付 1 克朗可从厨房向客人补送最多 3 份。订单满足后，可把客人免费安排进同色空房（绿色客人可入任意房），获得卡面分数与奖励；房间翻面变成已入住。<br><b>满组奖励</b>（同色房间组全部住满时自动结算，按组大小 1/2/3/4 间）：<br>· 蓝色房组：+2/+5/+9/+15 分<br>· 红色房组：+1/+3/+6/+10 克朗<br>· 黄色房组：+1/+3/+6/+10 皇帝轨'
       },
       {
         title: '👑 皇帝轨',
@@ -447,8 +447,8 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ HotelGame }, engine] = await Promise.all([
-        import('./hotel-ui.js?v=10'),
-        import('./hotel-engine.js?v=5')
+        import('./hotel-ui.js?v=11'),
+        import('./hotel-engine.js?v=6')
       ]);
       return {
         initState: (names) => engine.initGame(names),
@@ -635,7 +635,7 @@ function enterLobby() {
   document.getElementById('username').textContent = state.username;
   showView('lobby');
   closeRoomModal();
-  import('./admin-ui.js?v=41').then(m => m.mountAdminButton());
+  import('./admin-ui.js?v=42').then(m => m.mountAdminButton());
 }
 
 // === 房间 Modal（创建 / 加入） ===

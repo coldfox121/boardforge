@@ -4,20 +4,20 @@ import { OnlineGameBase } from './online-game.js?v=2';
 import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
-} from './hotel-engine.js?v=5';
+} from './hotel-engine.js?v=6';
 import { pickAction } from './hotel-ai.js?v=3';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
   EMPEROR_POINTS, MARKET_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES
-} from './hotel-data.js?v=3';
+} from './hotel-data.js?v=4';
 
 const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
 const SPACE_INFO = {
-  1: { name: '拿餐食', sub: '苹果卷 / 蛋糕', icon: '🥐' },
-  2: { name: '拿饮品', sub: '红酒 / 咖啡', icon: '🍷' },
+  1: { name: '拿餐食', sub: '<i class="gah-fdot f-strudel"></i><i class="gah-fdot f-cake"></i>', icon: '🥐' },
+  2: { name: '拿饮品', sub: '<i class="gah-fdot f-wine"></i><i class="gah-fdot f-coffee"></i>', icon: '🍷' },
   3: { name: '准备房间', sub: '每点 1 间', icon: '🏨' },
   4: { name: '皇帝 / 克朗', sub: '自由分配', icon: '👑' },
   5: { name: '雇佣员工', sub: '每点减 1 克朗', icon: '👔' },
@@ -27,8 +27,11 @@ const SPACE_INFO = {
 const KIND_ZH = { once: '一次性', round: '每轮一次', permanent: '永久', end: '终局' };
 
 // 餐饮统一用「颜色块 + 名字」标识（颜色见 style.css .gah-fdot.f-*：苹果卷=金黄 蛋糕=粉红 红酒=酒红 咖啡=棕）
+// 颜色/餐饮在文案中用单字色名（游玩靠颜色识别，不展示汉字全名）
+const COLOR_CHAR = { blue: '蓝', red: '红', yellow: '黄', green: '绿' };
+const FOOD_CHAR = { strudel: '金', cake: '粉', wine: '红', coffee: '棕' };
 function foodChip(key, n, extra = '') {
-  return `<span class="gah-fchip ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${FOOD_NAMES[key]}${n != null ? ` ×${n}` : ''}</span>`;
+  return `<span class="gah-fchip ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${n != null ? ` ×${n}` : ''}</span>`;
 }
 function foodDot(key, text, extra = '') {
   return `<span class="gah-fchip sm ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${text}</span>`;
@@ -357,7 +360,7 @@ export class HotelGame extends OnlineGameBase {
       let out = '<div class="gah-opts">';
       for (let cake = 0; cake <= max; cake++) {
         out += `<button class="gah-btn" data-act="${pre}food1" data-cake="${cake}" data-st="${strength}">
-          <i class="gah-fdot f-strudel"></i> 苹果卷 ×${strength - cake}${cake ? ` + <i class="gah-fdot f-cake"></i> 蛋糕 ×${cake}` : ''}</button>`;
+          <i class="gah-fdot f-strudel"></i> ×${strength - cake}${cake ? ` + <i class="gah-fdot f-cake"></i> ×${cake}` : ''}</button>`;
       }
       return out + '</div>';
     }
@@ -366,7 +369,7 @@ export class HotelGame extends OnlineGameBase {
       let out = '<div class="gah-opts">';
       for (let coffee = 0; coffee <= max; coffee++) {
         out += `<button class="gah-btn" data-act="${pre}food2" data-coffee="${coffee}" data-st="${strength}">
-          <i class="gah-fdot f-wine"></i> 红酒 ×${strength - coffee}${coffee ? ` + <i class="gah-fdot f-coffee"></i> 咖啡 ×${coffee}` : ''}</button>`;
+          <i class="gah-fdot f-wine"></i> ×${strength - coffee}${coffee ? ` + <i class="gah-fdot f-coffee"></i> ×${coffee}` : ''}</button>`;
       }
       return out + '</div>';
     }
@@ -412,10 +415,9 @@ export class HotelGame extends OnlineGameBase {
       const afford = cost <= me.money || me.hired.includes(25);
       return `<div class="gah-guest ${canTake && afford ? 'clickable' : ''}" data-act="queue" data-slot="${slot}">
         <div class="gah-guest-top">
-          <span class="gah-color c-${g.color}">${COLOR_NAMES[g.color]}</span>
+          <span class="gah-color sq c-${g.color}" title="${COLOR_NAMES[g.color]}"></span>
           <span class="gah-vp">${g.vp}分</span>
         </div>
-        <div class="gah-guest-name">${esc(g.name)}</div>
         <div class="gah-order">${foodIcons(g.order)}</div>
         <div class="gah-reward">${esc(rewardText(g.rewards))}</div>
         <div class="gah-guest-cost">${cost === 0 ? '免费' : cost + '克朗'}</div>
@@ -591,7 +593,7 @@ export class HotelGame extends OnlineGameBase {
     const prepared = me.rooms.filter(r => r.prepared).length;
     const occupied = me.rooms.filter(r => r.occupied).length;
     const hint = this.root.querySelector('#gah-hotel-hint');
-    hint.textContent = `蓝=贵族 · 红=市民 · 黄=艺术家 · 已备 ${prepared} · 已住 ${occupied}`;
+    hint.textContent = `已备 ${prepared} · 已住 ${occupied}`;
 
     this.root.querySelector('#gah-res').innerHTML =
       `<span>💰 ${me.money} 克朗</span>
@@ -605,7 +607,6 @@ export class HotelGame extends OnlineGameBase {
   _renderBonusRule(me) {
     const wrap = this.root.querySelector('#gah-bonusrule');
     if (!wrap) return;
-    const COLOR_OF = { blue: '贵族', red: '市民', yellow: '艺术家' };
     const rule = {
       blue: '1/2/3/4 间组 → +2/+5/+9/+15 分',
       red: '1/2/3/4 间组 → +1/+3/+6/+10 克朗',
@@ -613,7 +614,7 @@ export class HotelGame extends OnlineGameBase {
     };
     const rows = ['blue', 'red', 'yellow'].map(c => `
       <div class="gah-br-row">
-        <span class="gah-color c-${c}">${COLOR_OF[c]}</span>
+        <span class="gah-color sq c-${c}" title="${COLOR_NAMES[c]}"></span>
         <span class="gah-br-rule">${rule[c]}</span>
       </div>`).join('');
 
@@ -625,7 +626,7 @@ export class HotelGame extends OnlineGameBase {
       const occN = grp.filter(i => me.rooms[i].occupied).length;
       const color = ROOM_COLORS[grp[0]];
       const full = occN === grp.length;
-      chips.push(`<span class="gah-br-chip c-${color} ${full ? 'full' : ''}">${COLOR_OF[color]} ${occN}/${grp.length}${full ? ' ✓已满' : ''}</span>`);
+      chips.push(`<span class="gah-br-chip c-${color} ${full ? 'full' : ''}">${occN}/${grp.length}${full ? ' ✓已满' : ''}</span>`);
     }
     const prog = chips.length
       ? `<div class="gah-br-prog">${chips.join('')}</div>`
@@ -649,8 +650,7 @@ export class HotelGame extends OnlineGameBase {
       }).join('');
       return `<div class="gah-cafeguest ${done ? 'done' : ''} ${sel ? 'sel' : ''}" data-act="cafe" data-idx="${i}">
         <div class="gah-cg-head">
-          <span class="gah-color c-${def.color}">${COLOR_NAMES[def.color]}</span>
-          <b>${esc(def.name)}</b>
+          <span class="gah-color sq c-${def.color}" title="${COLOR_NAMES[def.color]}"></span>
           <span class="gah-vp">${def.vp}分</span>
         </div>
         <div class="gah-needs">${orderHtml}</div>
@@ -737,7 +737,7 @@ export class HotelGame extends OnlineGameBase {
       if (t.setupRooms) {
         const done = me.rooms.filter(r => r.prepared).length;
         body = `<div class="gah-pendtitle">开局备房：放置第 ${done + 1}/3 间</div>
-        <div class="gah-hint">在房间图板点 1 个空位 · 第一间=底层最左，后续须相邻 · 楼层费 1层0/2层1/3层2/4层3 克朗<br>方块底色=房型颜色（蓝=贵族 / 红=市民 / 黄=艺术家）</div>
+        <div class="gah-hint">在房间图板点 1 个空位 · 第一间=底层最左，后续须相邻 · 楼层费 1层0/2层1/3层2/4层3 克朗<br>方块底色=房型颜色（蓝/红/黄）</div>
         <div class="gah-opts">
           <button class="gah-btn primary" data-act="pend-rooms-done" ${picked.length ? '' : 'disabled'}>确认放置（${picked.length}/1）</button>
         </div>`;
@@ -995,7 +995,7 @@ export class HotelGame extends OnlineGameBase {
     const cost = MARKET_COST[slot];
     if (!def) return;
     this.ui.confirm = {
-      text: `花 ${this.me().hired.includes(25) ? 0 : cost} 克朗接待「${def.name}」？`,
+      text: `花 ${this.me().hired.includes(25) ? 0 : cost} 克朗接待这位客人（${COLOR_CHAR[def.color]} · ${def.vp}分）？`,
       action: { type: 'TAKE_GUEST', slot }
     };
     this.render();
@@ -1087,7 +1087,7 @@ export class HotelGame extends OnlineGameBase {
       }
       const hasRoom = me.rooms.some((r, i) => r.prepared && !r.occupied && (def.color === 'green' || ROOM_COLORS[i] === def.color));
       if (!hasRoom) {
-        this.ui.status = `没有匹配的空房（需要${def.color === 'green' ? '任意颜色' : COLOR_NAMES[def.color] + '房'}）`;
+        this.ui.status = `没有匹配的空房（需要${def.color === 'green' ? '任意颜色' : COLOR_CHAR[def.color] + '色房'}）`;
         this.render(); return;
       }
       this.ui.mode = { type: 'checkin', guestIdx: idx };
@@ -1109,9 +1109,9 @@ export class HotelGame extends OnlineGameBase {
       this.render(); return;
     }
     const free = me.hired.includes(24);
-    const txt = items.map((n, f) => n > 0 ? `${FOOD_NAMES[FOOD_KEYS[f]]}×${n}` : '').filter(Boolean).join('+');
+    const txt = items.map((n, f) => n > 0 ? `${FOOD_CHAR[FOOD_KEYS[f]]}×${n}` : '').filter(Boolean).join('+');
     this.ui.confirm = {
-      text: `从厨房送 ${txt} 给「${def.name}」（${free ? '领班免费' : '1 克朗'}）`,
+      text: `从厨房送 ${txt} 给${COLOR_CHAR[def.color]}色客人（${free ? '领班免费' : '1 克朗'}）`,
       action: { type: 'MOVE_FOOD', moves: [{ g: idx, items }] }
     };
     this.render();

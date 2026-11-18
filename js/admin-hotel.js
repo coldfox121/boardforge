@@ -2,7 +2,7 @@
 // 只维护卡面数据（名称/费用/点单/分值/描述）；效果逻辑按编号固定，不可在后台改
 import { saveAdminData, loadAdminData, clearAdminData, getAdminSavedAt } from './admin.js?v=37';
 import { saveConfigToCloud } from './config-sync.js?v=36';
-import { BASE_DATA, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES } from './hotel-data.js?v=3';
+import { BASE_DATA, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES } from './hotel-data.js?v=4';
 
 const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
