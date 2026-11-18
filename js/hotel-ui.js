@@ -50,9 +50,9 @@ function rewardText(rewards) {
       case 'favor': return `皇帝轨 +${r.n}`;
       case 'points': return `${r.n} 分`;
       case 'draw': return `抽 ${r.n} 张员工`;
-      case 'prepare': return r.discount >= 99 ? '免费备 1 房' : `备 1 房(-${r.discount})`;
-      case 'hire': return r.discount >= 99 ? '免费雇佣' : `雇佣(-${r.discount})`;
-      case 'offer': return r.discount >= 99 ? '抽 3 免费雇 1' : `抽 3 减 ${r.discount} 雇 1`;
+      case 'prepare': return r.discount >= 99 ? '免费备 1 间房' : `备 1 间房（省 ${r.discount} 克朗）`;
+      case 'hire': return r.discount >= 99 ? '免费雇佣 1 名员工' : `雇佣员工（省 ${r.discount} 克朗）`;
+      case 'offer': return r.discount >= 99 ? '抽 3 张员工选 1 张免费雇佣' : `抽 3 张员工，选 1 张减 ${r.discount} 克朗雇佣`;
       case 'guest': return '免费接 1 客';
       case 'occupy': return '额外入住 1 房';
       case 'bonusDie': return '额外执行一次骰子行动';
@@ -418,7 +418,7 @@ export class HotelGame extends OnlineGameBase {
           <span class="gah-vp">${g.vp}分</span>
         </div>
         <div class="gah-order">${foodIcons(g.order)}</div>
-        <div class="gah-reward">${esc(rewardText(g.rewards))}</div>
+        <div class="gah-reward">${rewardText(g.rewards)}</div>
         <div class="gah-guest-cost">${cost === 0 ? '免费' : cost + '克朗'}</div>
       </div>`;
     }).join('');
@@ -652,7 +652,7 @@ export class HotelGame extends OnlineGameBase {
           <span class="gah-vp">${def.vp}分</span>
         </div>
         <div class="gah-needs">${orderHtml}</div>
-        <div class="gah-reward">${esc(rewardText(def.rewards))}</div>
+        <div class="gah-reward">${rewardText(def.rewards)}</div>
         ${done ? '<div class="gah-ready">✓ 订单完成，点我选房间入住</div>' : ''}
       </div>`;
     }).join('');
