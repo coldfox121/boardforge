@@ -447,7 +447,7 @@ const ONLINE_GAMES = {
     },
     async load() {
       const [{ HotelGame }, engine] = await Promise.all([
-        import('./hotel-ui.js?v=11'),
+        import('./hotel-ui.js?v=12'),
         import('./hotel-engine.js?v=6')
       ]);
       return {

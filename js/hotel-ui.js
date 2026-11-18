@@ -413,9 +413,8 @@ export class HotelGame extends OnlineGameBase {
       if (!g) return '';
       const cost = MARKET_COST[slot];
       const afford = cost <= me.money || me.hired.includes(25);
-      return `<div class="gah-guest ${canTake && afford ? 'clickable' : ''}" data-act="queue" data-slot="${slot}">
+      return `<div class="gah-guest rc-${g.color} ${canTake && afford ? 'clickable' : ''}" data-act="queue" data-slot="${slot}" title="${COLOR_NAMES[g.color]}客人">
         <div class="gah-guest-top">
-          <span class="gah-color sq c-${g.color}" title="${COLOR_NAMES[g.color]}"></span>
           <span class="gah-vp">${g.vp}分</span>
         </div>
         <div class="gah-order">${foodIcons(g.order)}</div>
@@ -614,7 +613,7 @@ export class HotelGame extends OnlineGameBase {
     };
     const rows = ['blue', 'red', 'yellow'].map(c => `
       <div class="gah-br-row">
-        <span class="gah-color sq c-${c}" title="${COLOR_NAMES[c]}"></span>
+        <span class="gah-color bar c-${c}" title="${COLOR_NAMES[c]}房"></span>
         <span class="gah-br-rule">${rule[c]}</span>
       </div>`).join('');
 
@@ -648,9 +647,8 @@ export class HotelGame extends OnlineGameBase {
         const have = g.items[f] || 0;
         return foodDot(FOOD_KEYS[f], `${have}/${need}`, `gah-need ${have >= need ? 'ok' : ''}`);
       }).join('');
-      return `<div class="gah-cafeguest ${done ? 'done' : ''} ${sel ? 'sel' : ''}" data-act="cafe" data-idx="${i}">
+      return `<div class="gah-cafeguest rc-${def.color} ${done ? 'done' : ''} ${sel ? 'sel' : ''}" data-act="cafe" data-idx="${i}" title="${COLOR_NAMES[def.color]}客人">
         <div class="gah-cg-head">
-          <span class="gah-color sq c-${def.color}" title="${COLOR_NAMES[def.color]}"></span>
           <span class="gah-vp">${def.vp}分</span>
         </div>
         <div class="gah-needs">${orderHtml}</div>

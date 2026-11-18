@@ -26,7 +26,7 @@ npx serve .
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js?v=65`、`style.css?v=54`、`hotel-data?v=4` / `hotel-ui?v=11` / `hotel-engine?v=6` / `hotel-ai?v=3`、`admin-ui?v=42` / `admin-hotel?v=5`、`splendor-ui?v=44`、`splendor-ai?v=37`、`splendor-engine?v=40`（改文件必须同步升级引用处的版本号；**改 app.js 内部的 import 版本也要递增 app.js 自身的 v**，否则浏览器缓存的旧 app.js 会继续加载旧子模块） |
+| **当前 cache bust** | `app.js?v=66`、`style.css?v=55`、`hotel-data?v=4` / `hotel-ui?v=12` / `hotel-engine?v=6` / `hotel-ai?v=3`、`admin-ui?v=42` / `admin-hotel?v=5`、`splendor-ui?v=44`、`splendor-ai?v=37`、`splendor-engine?v=40`（改文件必须同步升级引用处的版本号；**改 app.js 内部的 import 版本也要递增 app.js 自身的 v**，否则浏览器缓存的旧 app.js 会继续加载旧子模块） |
 | **当前功能完整度** | 璀璨宝石 + 铁路环游（美国版）均支持联机对局；两者都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md` |
 
 ## 🏗 文件结构
