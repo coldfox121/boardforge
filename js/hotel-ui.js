@@ -273,6 +273,7 @@ export class HotelGame extends OnlineGameBase {
        <span title="总分">⭐ ${me.score}</span>
        <span title="回合状态" class="gah-dim">${me.dieTaken ? '已取骰' : '待取骰'} · ${me.numbersLeft} 次行动</span>`;
 
+    this._syncPendingMode();
     this._renderActions();
     this._renderQueue();
     this._renderObjectives();
@@ -287,6 +288,20 @@ export class HotelGame extends OnlineGameBase {
     this._renderBars();
     this._renderLog();
     this._renderEnd();
+  }
+
+  // 在 _renderHotel 之前同步 pending 对应的选择模式，保证图板高亮/可点状态即时生效
+  _syncPendingMode() {
+    const ui = this.ui;
+    const t = this.state.pending;
+    const mine = t && t.seat === this.humanIndex && (t.type === 'prepare' || t.type === 'occupy');
+    if (ui.mode && ui.mode.source === 'pending' && !mine) ui.mode = null;
+    if (mine && (!ui.mode || ui.mode.type !== t.type || ui.mode.source !== 'pending')) {
+      ui.mode = {
+        type: t.type, count: t.count, discount: t.discount || 0,
+        maxFloor: t.maxFloor ?? 3, picked: [], source: 'pending'
+      };
+    }
   }
 
   _renderActions() {
@@ -407,7 +422,8 @@ export class HotelGame extends OnlineGameBase {
     const s = this.state;
     const wrap = this.root.querySelector('#gah-queue');
     const me = this.me();
-    const canTake = this.myTurn() && s.phase === 'playing' && !me.guestTaken && me.cafe.length < 3;
+    const setupPick = s.pending && s.pending.type === 'guestPick' && s.pending.seat === this.humanIndex;
+    const canTake = setupPick || (this.myTurn() && s.phase === 'playing' && !me.guestTaken && me.cafe.length < 3);
     wrap.innerHTML = s.guestQueue.map((gid, slot) => {
       const g = GUEST_BY_ID[gid];
       if (!g) return '';
@@ -492,7 +508,7 @@ export class HotelGame extends OnlineGameBase {
         const done = me.rooms.filter(r => r.prepared).length;
         wrap.innerHTML = `<div class="gah-guide-item state-now"><i>②</i> 开局准备房间：点房间图板空位放置第 ${done + 1}/3 间（第一间=底层最左，后续须相邻；底层免费，高层按楼层收费）</div>`;
       } else {
-        wrap.innerHTML = `<div class="gah-guide-item state-now"><i>①</i> 开局接客：点击上方客人队列免费接待 1 位</div>`;
+        wrap.innerHTML = `<div class="gah-guide-item state-now"><i>①</i> 开局接客：点击客人队列免费接待 1 位</div>`;
       }
       return;
     }
@@ -763,7 +779,7 @@ export class HotelGame extends OnlineGameBase {
         <div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
     } else if (t.type === 'guestPick') {
       body = `<div class="gah-pendtitle">${t.setup ? '开局免费接待 1 位客人' : `免费接待 ${t.count} 位客人`}</div>
-        <div class="gah-hint">点击左侧队列中的客人</div>
+        <div class="gah-hint">点击客人队列中的 1 位客人（免费）</div>
         <div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
     } else if (t.type === 'foodPick') {
       const sel = ui.foodPick || [0, 0, 0, 0];
@@ -1043,7 +1059,7 @@ export class HotelGame extends OnlineGameBase {
       const legal = mode.type === 'prepare'
         ? canPrepareIndex(me, idx, mode.maxFloor ?? 3)
         : (me.rooms[idx].prepared && !me.rooms[idx].occupied);
-      if (!legal) { this.ui.status = mode.type === 'prepare' ? '该位置不能准备（需相邻且颜色对应）' : '该房间不能标记入住'; this.render(); return; }
+      if (!legal) { this.ui.status = mode.type === 'prepare' ? '该位置不能准备（第一间=底层最左，其余须与已准备的房间相邻）' : '该房间不能标记入住'; this.render(); return; }
       const at = mode.picked.indexOf(idx);
       if (at >= 0) mode.picked.splice(at, 1);
       else {
