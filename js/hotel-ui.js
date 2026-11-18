@@ -50,7 +50,7 @@ function rewardText(rewards) {
       case 'favor': return `皇帝轨 +${r.n}`;
       case 'points': return `${r.n} 分`;
       case 'draw': return `抽 ${r.n} 张员工`;
-      case 'prepare': return r.discount >= 99 ? '免费备 1 间房' : `备 1 间房（省 ${r.discount} 克朗）`;
+      case 'prepare': return r.discount >= 99 ? '免费准备 1 间房' : `准备 1 间房（省 ${r.discount} 克朗）`;
       case 'hire': return r.discount >= 99 ? '免费雇佣 1 名员工' : `雇佣员工（省 ${r.discount} 克朗）`;
       case 'offer': return r.discount >= 99 ? '抽 3 张员工选 1 张免费雇佣' : `抽 3 张员工，选 1 张减 ${r.discount} 克朗雇佣`;
       case 'guest': return '免费接 1 客';
@@ -490,7 +490,7 @@ export class HotelGame extends OnlineGameBase {
     if (s.phase === 'setup') {
       if (s.pending && s.pending.type === 'prepare') {
         const done = me.rooms.filter(r => r.prepared).length;
-        wrap.innerHTML = `<div class="gah-guide-item state-now"><i>②</i> 开局备房：点房间图板空位放置第 ${done + 1}/3 间（第一间=底层最左，后续须相邻；底层免费，高层按楼层收费）</div>`;
+        wrap.innerHTML = `<div class="gah-guide-item state-now"><i>②</i> 开局准备房间：点房间图板空位放置第 ${done + 1}/3 间（第一间=底层最左，后续须相邻；底层免费，高层按楼层收费）</div>`;
       } else {
         wrap.innerHTML = `<div class="gah-guide-item state-now"><i>①</i> 开局接客：点击上方客人队列免费接待 1 位</div>`;
       }
@@ -592,7 +592,7 @@ export class HotelGame extends OnlineGameBase {
     const prepared = me.rooms.filter(r => r.prepared).length;
     const occupied = me.rooms.filter(r => r.occupied).length;
     const hint = this.root.querySelector('#gah-hotel-hint');
-    hint.textContent = `已备 ${prepared} · 已住 ${occupied}`;
+    hint.textContent = `已准备 ${prepared} · 已入住 ${occupied}`;
 
     this.root.querySelector('#gah-res').innerHTML =
       `<span>💰 ${me.money} 克朗</span>
@@ -734,7 +734,7 @@ export class HotelGame extends OnlineGameBase {
       const label = t.type === 'prepare' ? '准备房间' : '标记为已入住';
       if (t.setupRooms) {
         const done = me.rooms.filter(r => r.prepared).length;
-        body = `<div class="gah-pendtitle">开局备房：放置第 ${done + 1}/3 间</div>
+        body = `<div class="gah-pendtitle">开局准备房间：放置第 ${done + 1}/3 间</div>
         <div class="gah-hint">在房间图板点 1 个空位 · 第一间=底层最左，后续须相邻 · 楼层费 1层0/2层1/3层2/4层3 克朗<br>方块底色=房型颜色（蓝/红/黄）</div>
         <div class="gah-opts">
           <button class="gah-btn primary" data-act="pend-rooms-done" ${picked.length ? '' : 'disabled'}>确认放置（${picked.length}/1）</button>
