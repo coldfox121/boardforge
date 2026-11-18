@@ -537,7 +537,7 @@ export class HotelGame extends OnlineGameBase {
     const kitchenHas = me.kitchen.some(n => n > 0);
     const cafeNeed = me.cafe.some(g => !guestComplete(g));
     extras.push((kitchenHas && cafeNeed && (me.money >= 1 || me.hired.includes(24)))
-      ? `<div class="gah-guide-item state-now"><i>·</i> 厨房补送（1 克朗送 ≤3 份）${chip('todo', my ? '点咖啡吧客人' : '非你的回合')}</div>`
+      ? `<div class="gah-guide-item state-now"><i>·</i> 厨房补送（${me.hired.includes(24) ? '领班免费' : '1 克朗'}送 ≤3 份）${chip('todo', my ? '点咖啡吧客人' : '非你的回合')}</div>`
       : `<div class="gah-guide-item"><i>·</i> 厨房补送 ${chip('off', !kitchenHas ? '厨房无货' : !cafeNeed ? '无待补订单' : '克朗不足')}</div>`);
 
     const roundStaff = me.hired.filter(id => STAFF_BY_ID[id] && STAFF_BY_ID[id].kind === 'round' && !me.staffUsed.includes(id));
@@ -678,7 +678,7 @@ export class HotelGame extends OnlineGameBase {
     this.root.querySelector('#gah-kitchen').innerHTML = `<span class="gah-kitchen-label">厨房</span>` +
       FOOD_KEYS.map((k, i) =>
         `<span class="gah-kchen">${foodChip(k, me.kitchen[i])}</span>`).join('') +
-      `<span class="gah-hint">点咖啡吧客人可用 1 克朗送最多 3 份</span>`;
+      `<span class="gah-hint">点咖啡吧客人${me.hired.includes(24) ? '免费送' : '可用 1 克朗送'}最多 3 份</span>`;
   }
 
   _renderHand() {
