@@ -8,7 +8,7 @@ import {
 import {
   guestComplete, canPrepareIndex, prepareCostFor, actionStrength,
   objectiveMet, validateAction, diceTotal, hasHired, orderTotal
-} from './hotel-engine.js?v=8';
+} from './hotel-engine.js?v=9';
 
 function staff(id) { return STAFF_BY_ID[id] || { cost: 0, kind: 'permanent', name: '?' }; }
 

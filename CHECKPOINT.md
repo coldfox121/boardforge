@@ -1,4 +1,4 @@
-# BoardForge · 项目 Checkpoint · 2026-11-09
+# BoardForge · 项目 Checkpoint · 2026-11-19
 
 ## 🚀 快速开始
 
@@ -26,39 +26,52 @@ npx serve .
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js?v=78`、`style.css?v=59`、`hotel-data?v=4` / `hotel-ui?v=22` / `hotel-engine?v=9` / `hotel-ai?v=4`、`admin-ui?v=42` / `admin-hotel?v=5`、`splendor-ui?v=44`、`splendor-ai?v=37`、`splendor-engine?v=40`（改文件必须同步升级引用处的版本号；**改 app.js 内部的 import 版本也要递增 app.js 自身的 v**，否则浏览器缓存的旧 app.js 会继续加载旧子模块） |
-| **当前功能完整度** | 璀璨宝石 + 铁路环游（美国版）均支持联机对局；两者都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md` |
+| **当前 cache bust** | `app.js?v=79`、`style.css?v=59`；`splendor-ui?v=44` / `splendor-ai?v=37` / `splendor-engine?v=40`；`ticket-ui?v=47` / `ticket-engine?v=41` / `ticket-data?v=39` / `ticket-ai?v=39`；`hotel-ui?v=23` / `hotel-engine?v=9` / `hotel-ai?v=5` / `hotel-data?v=4`；`admin-ui?v=42` / `admin-ticket?v=6` / `admin-hotel?v=5` / `admin?v=37` / `config-sync?v=36` / `online-game?v=2`（改文件必须同步升级引用处的版本号；**改 app.js 内部的 import 版本也要递增 app.js 自身的 v**，否则浏览器缓存的旧 app.js 会继续加载旧子模块） |
+| **当前功能完整度** | 璀璨宝石、铁路环游（美国版）、奥地利大饭店三款均支持联机对局 + AI 补位 + 房主「再来一局」；三款都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md`（hotel 约定见第 17 节） |
 
 ## 🏗 文件结构
 
 ```
 boardforge/
 ├── index.html              ← SPA 入口，hash 路由（引用 JS 时带 ?v=N）
-├── style.css               ← 全局样式 + 组件样式（当前 v=45）
+├── style.css               ← 全局样式 + 组件样式（当前 v=59）
 ├── CHECKPOINT.md           ← 本文档
 ├── DEVELOPMENT_TIMELINE.md ← 开发时间线（按天记录做了什么）
 ├── js/
-│   ├── app.js              ← 入口：路由 / 登录 / 大厅 / 房间流程（按需动态 import 游戏模块）
+│   ├── app.js              ← 入口：路由 / 登录 / 大厅 / 房间 / 联机流程（按需动态 import）
+│   ├── online-game.js      ← OnlineGameBase：轮询、乐观锁推送、房主代跑 AI、成员同步
+│   ├── config-sync.js      ← 云端配置同步 + 图片压缩上传 + 卡图 URL
+│   ├── admin.js            ← Admin 数据层（localStorage 缓存 + mergeAdmin + BalanceStats）
+│   ├── admin-ui.js         ← Admin 总入口（按游戏分派编辑器）
+│   ├── admin-ticket.js     ← 铁路环游数据编辑器
+│   ├── admin-hotel.js      ← 奥地利大饭店数据编辑器
 │   ├── splendor-data.js    ← 90 张卡 + 10 贵族静态基线数据
 │   ├── splendor-engine.js  ← 纯函数引擎（initGame / validateAction / applyAction / listValidActions）
-│   ├── splendor-ai.js      ← 启发式 AI（pickAction）
-│   ├── splendor-ui.js      ← UI 控制器（单类，renderAll + 事件绑定）
-│   ├── admin.js            ← Admin 数据层（localStorage 缓存 + mergeAdmin + BalanceStats）
-│   ├── admin-ui.js         ← Admin 编辑器（平衡性分析 + JSON 编辑 + 卡图上传）
-│   └── config-sync.js      ← 云端牌库同步 + 图片压缩上传 + 卡图 URL
+│   ├── splendor-ai.js      ← 启发式 AI（pickAction / pickNoble）
+│   ├── splendor-ui.js      ← UI 控制器
+│   ├── ticket-data.js      ← 美国版地图 / 路线 / 任务票
+│   ├── ticket-engine.js    ← 纯函数引擎（含双线关闭判定 isDoubleRouteClosed）
+│   ├── ticket-ai.js        ← 启发式 AI
+│   ├── ticket-ui.js        ← UI 控制器
+│   ├── hotel-data.js       ← 客人 / 员工 / 目标 / 皇帝板块数据
+│   ├── hotel-engine.js     ← 纯函数引擎（骰子行动 / 客人入住 / 结算）
+│   ├── hotel-ai.js         ← 启发式 AI
+│   └── hotel-ui.js         ← UI 控制器
 ├── functions/
 │   ├── _shared.js          ← json() / 密码哈希 / getAuthUser() / isAdmin() / 房间清理
-│   └── api/
-│       ├── register.js / login.js / logout.js / health.js
-│       ├── load.js / save.js
-│       ├── rooms.js        ← POST 创建 / GET 列表（只查 waiting）
-│       ├── games.js
-│       ├── config.js       ← GET/PUT 云端牌库配置（D1 game_config）
-│       ├── upload.js       ← POST/DELETE 卡图（优先 KV，回落 D1）
-│       └── image/[[path]].js ← GET 卡图（KV → D1 回落，带边缘缓存）
+│   ├── api/
+│   │   ├── register.js / login.js / logout.js / health.js
+│   │   ├── load.js / save.js
+│   │   ├── rooms.js        ← POST 创建 / GET 列表（只查 waiting）
+│   │   ├── room.js         ← GET 同步房间 / POST join·leave·start·rematch·push·reset
+│   │   ├── games.js        ← 游戏目录 + 规则摘要
+│   │   ├── config.js       ← GET/PUT 云端牌库配置（D1 game_configs）
+│   │   ├── _project.js     ← 按座位裁剪隐藏信息（任务票等）
+│   │   ├── upload.js       ← POST/DELETE 卡图（优先 KV，回落 D1）
+│   │   └── image/[[path]].js ← GET 卡图（KV → D1 回落，带边缘缓存）
 ├── scripts/
 │   └── seed-cards.mjs      ← 批量生成卡图并写入云端
-└── d1/schema.sql           ← users / sessions / rooms / game_config / card_images
+└── d1/schema.sql           ← users / sessions / rooms / game_configs / card_images
 ```
 
 ## 🎮 Splendor 引擎核心（已全部确认正确）
@@ -326,7 +339,7 @@ R2 免额度也要绑信用卡，直接排除。卡图这体量（单张压缩�
 
 ### 缓存地狱（必须记住）
 
-- **style.css?v=N** 每次必须递增（当前 v=31）
+- **style.css?v=N** 每次必须递增（当前 v=59）
 - **JS 模块引用**也要带版本：`import ... from './x.js?v=27'`；所有文件必须用**同一个版本号**，否则同一模块被加载两份
 - `index.html` 里 `app.js?v=N` 同步递增
 - Ctrl+Shift+R 偶尔不够 → DevTools 打开 → 右键刷新 → 清空缓存硬性重载
@@ -368,12 +381,13 @@ UI 层之前拦住黄金池空的情况不让进预留模式。但"点黄金 = �
 
 - ✅ `POST /api/rooms` 创建、`GET /api/rooms` 列出
 - ✅ `GET /api/room?code=` 同步房间 / 成员 / 在线状态 / 对局版本
-- ✅ `POST /api/room`：join / leave / start / push / reset
+- ✅ `POST /api/room`：join / leave / start / rematch / push / reset
 - ✅ 座位按入座顺序分配；15 秒无心跳判离线，60 秒移出房间
 - ✅ 对局状态推送带版本号乐观锁（冲突 409），房主端代跑 AI 座位
 - ✅ 按座位裁剪隐藏信息（铁路环游任务票），推送落库前自动补回
 - ✅ 前端通用联机外壳：`js/online-game.js`（`OnlineGameBase`）+ `app.js` 的 `ONLINE_GAMES` 注册表
-- ✅ 已接入联机：璀璨宝石、铁路环游（美国版）
+- ✅ 已接入联机：璀璨宝石、铁路环游（美国版）、奥地利大饭店
+- ✅ 结束页「再来一局」= 房主通过 `action:'rematch'` 重建 state 并广播（非房主提示）；不再有本地假重开
 - ❌ 没有 Workers Cron 自动清理僵尸房
 
 新增游戏接入方式、联机契约、裁剪规则见 `GAME-GUIDE.md`。
@@ -388,7 +402,7 @@ Splendor 原版平衡数据（admin 页面"平衡性分析"tab 展示的基线�
 ## 🎯 下一步
 
 1. **卡坦岛**：按 `GAME-GUIDE.md` 五步接入（数据 / 引擎 / AI / UI / 注册 + 可视化编辑器）
-2. **奥地利大饭店**：同上
+2. ~~奥地利大饭店~~：已完成（2021 官方版，联机 + 后台编辑器，约定见 `GAME-GUIDE.md` 第 17 节）
 3. ~~魔改框架~~：已按需求下线，平台只提供官方规则（不得再引入自定义规则入口）
 4. **卡图增强**：批量导入 BGG 图包 / AI 生成卡图
 5. **观战 / 好友邀请推送**

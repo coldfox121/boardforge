@@ -5,7 +5,7 @@ import {
   initGame, applyAction, validateAction, guestComplete, actionStrength,
   canPrepareIndex, prepareCostFor, objectiveMet, diceTotal, orderTotal
 } from './hotel-engine.js?v=9';
-import { pickAction } from './hotel-ai.js?v=4';
+import { pickAction } from './hotel-ai.js?v=5';
 import {
   GUEST_BY_ID, STAFF_BY_ID, ROOM_COLORS, ROOM_GROUPS, FLOOR_COST, IMMEDIATE_VP,
   EMPEROR_POINTS, MARKET_COST, FOOD_KEYS, FOOD_NAMES, COLOR_NAMES
