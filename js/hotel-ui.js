@@ -40,6 +40,20 @@ const FOOD_CHAR = { strudel: '金', cake: '粉', wine: '红', coffee: '棕' };
 function foodChip(key, n, extra = '') {
   return `<span class="gah-fchip ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${n != null ? ` ×${n}` : ''}</span>`;
 }
+
+// 文案中的餐饮汉字名转为色块（员工牌/皇帝板块说明；游玩靠颜色识别）
+// 需先 esc 再替换——关键词不含 HTML 特殊字符，替换安全
+function foodWordsHTML(text) {
+  let out = esc(text);
+  const dot = k => `<i class="gah-fdot f-${k}"></i>`;
+  out = out
+    .replace('四种餐饮', dot('strudel') + dot('cake') + dot('wine') + dot('coffee'))
+    .replace(/苹果卷/g, dot('strudel'))
+    .replace(/蛋糕/g, dot('cake'))
+    .replace(/红酒/g, dot('wine'))
+    .replace(/咖啡/g, dot('coffee'));
+  return out;
+}
 function foodDot(key, text, extra = '') {
   return `<span class="gah-fchip sm ${extra}" title="${FOOD_NAMES[key]}"><i class="gah-fdot f-${key}"></i>${text}</span>`;
 }
@@ -479,8 +493,8 @@ export class HotelGame extends OnlineGameBase {
       const done = s.round > rd || (s.phase !== 'ended' && s.round === rd && !s.players.some(p => p.numbersLeft > 0));
       return `<div class="gah-emperor ${done ? 'done' : ''}">
         <div class="gah-emperor-head">${t.group} · 第 ${rd} 轮结算</div>
-        <div class="gah-emperor-bonus">🎁 ${esc(t.reward)}</div>
-        <div class="gah-emperor-pen">⚖️ ${esc(t.penalty)}</div>
+        <div class="gah-emperor-bonus">🎁 ${foodWordsHTML(t.reward)}</div>
+        <div class="gah-emperor-pen">⚖️ ${foodWordsHTML(t.penalty)}</div>
       </div>`;
     }).join('');
   }
@@ -698,7 +712,7 @@ export class HotelGame extends OnlineGameBase {
       return `<div class="gah-staff" data-act="hand" data-staff="${id}">
         <div class="gah-staff-head"><b>${esc(def.name)}</b><span>${def.cost}克朗</span></div>
         <div class="gah-staff-kind k-${def.kind}">${KIND_ZH[def.kind]}</div>
-        <div class="gah-staff-text">${esc(def.text)}</div>
+        <div class="gah-staff-text">${foodWordsHTML(def.text)}</div>
       </div>`;
     }).join('') : '<div class="gah-empty">暂无手牌</div>';
 
@@ -783,7 +797,7 @@ export class HotelGame extends OnlineGameBase {
         const def = STAFF_BY_ID[id];
         const cost = Math.max(0, def.cost - (t.discount || 0));
         return `<button class="gah-btn ${cost <= p.money ? '' : 'disabled'}" data-act="pend-staff" data-staff="${id}">
-          <b>${esc(def.name)}</b> · ${cost} 克朗 · ${KIND_ZH[def.kind]}<br><i>${esc(def.text)}</i></button>`;
+          <b>${esc(def.name)}</b> · ${cost} 克朗 · ${KIND_ZH[def.kind]}<br><i>${foodWordsHTML(def.text)}</i></button>`;
       }).join('') + `</div>
         <div class="gah-opts"><button class="gah-btn" data-act="pend-skip">放弃</button></div>`;
     } else if (t.type === 'guestPick') {

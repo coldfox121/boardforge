@@ -26,7 +26,7 @@ npx serve .
 | **KV** | `boardforge-images`（绑定为 `CARDS_KV`）：卡牌图片二进制 |
 | **测试账号** | `test01` / `uitest01` |
 | **Admin 账号** | 注册时用户名写 `admin` 即可（前端硬编码检测 username==='admin' 给 is_admin=true） |
-| **当前 cache bust** | `app.js?v=79`、`style.css?v=59`；`splendor-ui?v=44` / `splendor-ai?v=37` / `splendor-engine?v=40`；`ticket-ui?v=47` / `ticket-engine?v=41` / `ticket-data?v=39` / `ticket-ai?v=39`；`hotel-ui?v=23` / `hotel-engine?v=9` / `hotel-ai?v=5` / `hotel-data?v=4`；`admin-ui?v=42` / `admin-ticket?v=6` / `admin-hotel?v=5` / `admin?v=37` / `config-sync?v=36` / `online-game?v=2`（改文件必须同步升级引用处的版本号；**改 app.js 内部的 import 版本也要递增 app.js 自身的 v**，否则浏览器缓存的旧 app.js 会继续加载旧子模块） |
+| **当前 cache bust** | `app.js?v=80`、`style.css?v=59`；`splendor-ui?v=44` / `splendor-ai?v=37` / `splendor-engine?v=40`；`ticket-ui?v=47` / `ticket-engine?v=41` / `ticket-data?v=39` / `ticket-ai?v=39`；`hotel-ui?v=24` / `hotel-engine?v=9` / `hotel-ai?v=5` / `hotel-data?v=4`；`admin-ui?v=42` / `admin-ticket?v=6` / `admin-hotel?v=5` / `admin?v=37` / `config-sync?v=36` / `online-game?v=2`（改文件必须同步升级引用处的版本号；**改 app.js 内部的 import 版本也要递增 app.js 自身的 v**，否则浏览器缓存的旧 app.js 会继续加载旧子模块） |
 | **当前功能完整度** | 璀璨宝石、铁路环游（美国版）、奥地利大饭店三款均支持联机对局 + AI 补位 + 房主「再来一局」；三款都有后台可视化编辑器；新增游戏接入见 `GAME-GUIDE.md`（hotel 约定见第 17 节） |
 
 ## 🏗 文件结构
